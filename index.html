@@ -205,7 +205,7 @@ button {
   border-radius: 18px;
 }
 
-.board-wrap svg {
+.board-wrap > svg {
   display: block;
   width: 100%;
   height: auto;
@@ -217,15 +217,15 @@ button {
   border-radius: 18px;
 }
 
-.board-wrap svg.is-pickup {
+.board-wrap > svg.is-pickup {
   cursor: grab;
 }
 
-.board-wrap svg.is-3d {
+.board-wrap > svg.is-3d {
   cursor: default;
 }
 
-body[data-mode="check"] .board-wrap svg {
+body[data-mode="check"] .board-wrap > svg {
   cursor: cell;
 }
 
@@ -833,11 +833,11 @@ kbd {
   position: relative;
 }
 
+/* Above the tray, not on it, so it never covers a piece someone wants to tap. */
 .view-turn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
   display: flex;
+  width: fit-content;
+  margin: 0 0 8px auto;
   align-items: center;
   gap: 4px;
   padding: 4px 4px 4px 10px;
@@ -1531,13 +1531,13 @@ kbd {
     <section class="stage" aria-label="Tray">
       <div id="stageTop"></div>
       <div class="board-wrap" id="boardWrap">
-        <svg id="board" role="application" tabindex="0" aria-label="Tray" xmlns="http://www.w3.org/2000/svg"></svg>
         <div class="view-turn" id="viewTurn" hidden>
           <span class="view-turn-label">Rotate the view</span>
           <button type="button" data-action="view-left" title="Rotate the view to the left" aria-label="Rotate the view to the left"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a8 8 0 1 1 2.3 5.7"/><path d="M4 4v7h7"/></svg></button>
           <button type="button" data-action="view-reset" title="Look from the front">Front</button>
           <button type="button" data-action="view-right" title="Rotate the view to the right" aria-label="Rotate the view to the right"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
         </div>
+        <svg id="board" role="application" tabindex="0" aria-label="Tray" xmlns="http://www.w3.org/2000/svg"></svg>
       </div>
       <div class="book-stage" id="bookStage" hidden></div>
       <p class="status" id="status" aria-live="polite"></p>
@@ -2862,7 +2862,8 @@ ${xrefAt}
           width: 0.02,
           tier: 1,
           order: 0,
-          attrs: ` data-cell="${r},${c}"`
+          attrs: ` data-cell="${r},${c}"`,
+          cell: [r, c]
         });
       }
     }
@@ -2888,12 +2889,24 @@ ${xrefAt}
             width: hot ? 0.05 : 0.012,
             tier: 3,
             order: cellDepth * 1e3 + part.layer * 10 + partDepth * 0.01,
-            attrs: ` data-cell="${r},${c}" data-id="${piece.id}"`
+            attrs: ` data-cell="${r},${c}" data-id="${piece.id}"`,
+            cell: [r, c],
+            id: piece.id
           });
         }
       }
     }
     shapes.sort((a, b) => a.tier - b.tier || a.order - b.order);
+    for (const sh of shapes) sh.screen = sh.pts.map(camera.project);
+    const hits = shapes.map((sh) => ({
+      pts: sh.screen,
+      edge: (sh.width ?? 0.012) / 2,
+      // the outline is part of the shape too
+      r: sh.cell ? sh.cell[0] : -1,
+      c: sh.cell ? sh.cell[1] : -1,
+      id: sh.id ?? 0,
+      tray: !sh.cell
+    }));
     const corners = [];
     for (const x of [-rim, C + rim]) for (const y of [-rim, R + rim]) for (const z of [-0.18, 1]) corners.push(camera.project([x, y, z]));
     const minX = Math.min(...corners.map((p) => p[0]));
@@ -2903,7 +2916,7 @@ ${xrefAt}
     const pad = 0.3;
     const vb = `${fmt(minX - pad)} ${fmt(minY - pad)} ${fmt(maxX - minX + 2 * pad)} ${fmt(maxY - minY + 2 * pad)}`;
     const polygon = (sh) => {
-      const d = sh.pts.map(camera.project).map(([x, y]) => `${fmt3(x)},${fmt3(y)}`).join(" ");
+      const d = sh.screen.map(([x, y]) => `${fmt3(x)},${fmt3(y)}`).join(" ");
       return `<polygon points="${d}" fill="${sh.fill}" stroke="${sh.stroke ?? sh.fill}" stroke-width="${sh.width ?? 0.012}" stroke-linejoin="round"${sh.attrs ?? ""}/>`;
     };
     let body = shapes.map(polygon).join("");
@@ -2919,7 +2932,51 @@ ${xrefAt}
       const line = ghost.ok ? "var(--accent, #2b55d4)" : "var(--bad, #bf3a2b)";
       body += `<g class="ghost3d${ghost.ok ? "" : " is-bad"}">${faces.map(({ face }) => polygonSvg(face.pts.map(camera.project), shade(ghost.piece.color, face.normal), line, 0.03)).join("")}</g>`;
     }
-    return { viewBox: vb, markup: body, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+    return { viewBox: vb, markup: body, hits, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+  }
+  function hitTest3d(hits, x, y) {
+    for (let i = hits.length - 1; i >= 0; i -= 1) {
+      const { pts, edge = 0 } = hits[i];
+      if (!polygonContains(pts, x, y) && !pts.some((p, k) => nearSegment(x, y, p, pts[(k + 1) % pts.length], edge))) continue;
+      const { r, c, id, tray } = hits[i];
+      if (tray) return null;
+      if (id) return { r, c, id };
+      const [fx, fy] = floorSpot(pts, x, y);
+      return { r, c, fx, fy };
+    }
+    return null;
+  }
+  function floorSpot([sw, se, , nw], x, y) {
+    const ax = se[0] - sw[0];
+    const ay = se[1] - sw[1];
+    const bx = nw[0] - sw[0];
+    const by = nw[1] - sw[1];
+    const det = ax * by - bx * ay;
+    const dx = x - sw[0];
+    const dy = y - sw[1];
+    const east = (dx * by - bx * dy) / det;
+    const north = (ax * dy - dx * ay) / det;
+    const clamp = (t) => Math.min(1, Math.max(0, t));
+    return [clamp(east), clamp(1 - north)];
+  }
+  function polygonContains(pts, x, y) {
+    let inside = false;
+    for (let a = 0, b = pts.length - 1; a < pts.length; b = a, a += 1) {
+      const [xa, ya] = pts[a];
+      const [xb, yb] = pts[b];
+      if (ya > y !== yb > y && x < (xb - xa) * (y - ya) / (yb - ya) + xa) inside = !inside;
+    }
+    return inside;
+  }
+  function nearSegment(x, y, [xa, ya], [xb, yb], tolerance) {
+    if (tolerance <= 0) return false;
+    const dx = xb - xa;
+    const dy = yb - ya;
+    const length2 = dx * dx + dy * dy;
+    const t = length2 > 0 ? Math.max(0, Math.min(1, ((x - xa) * dx + (y - ya) * dy) / length2)) : 0;
+    const ex = xa + t * dx - x;
+    const ey = ya + t * dy - y;
+    return ex * ex + ey * ey <= tolerance * tolerance;
   }
 
   // src/bookpages.js
@@ -4580,6 +4637,7 @@ ${coverRow("back", "Back cover")}
   var state;
   var bookUI;
   var pointer = { down: false, id: null, type: "mouse", erase: false };
+  var hits3d = [];
   var statusTimer = 0;
   var saveTimer = 0;
   var finePointer = () => typeof matchMedia === "function" && matchMedia("(pointer: fine)").matches;
@@ -4786,8 +4844,12 @@ ${ch.solved ? "" : '<p class="challenge-goal">Make this picture: put all the pie
           hoverId = state.hover.id ?? board.pieceAt(state.hover.r, state.hover.c, state.hover.fx, state.hover.fy);
         }
       }
-      if (state.view === "3d") view = board3d(board, { azimuth: state.azimuth, ghost, hoverId });
-      else view = boardMarkup(board, { xray: state.xray, ghost, hoverId, freshIds: state.fresh });
+      if (state.view === "3d") {
+        view = board3d(board, { azimuth: state.azimuth, ghost, hoverId });
+        hits3d = view.hits;
+      } else {
+        view = boardMarkup(board, { xray: state.xray, ghost, hoverId, freshIds: state.fresh });
+      }
       svg2.setAttribute("aria-label", `Tray, ${state.rows} rows by ${state.cols} columns${state.view === "3d" ? ", 3D view" : ""}. ${progressText()}`);
     }
     svg2.setAttribute("viewBox", view.viewBox);
@@ -5435,16 +5497,12 @@ ${sizeMarkup()}
     return new DOMPoint(evt.clientX, evt.clientY).matrixTransform(m.inverse());
   }
   function pointerTarget(evt) {
-    if (state.mode === "build" && state.view === "3d") {
-      const el = document.elementFromPoint(evt.clientX, evt.clientY);
-      const face = el?.closest?.("#board [data-cell]");
-      if (!face) return null;
-      const [r, c] = face.dataset.cell.split(",").map(Number);
-      return { r, c, id: Number(face.dataset.id || 0) || null };
-    }
     const p = svgPoint(evt);
-    return p ? cellFromPoint(state.rows, state.cols, p.x, p.y) : null;
+    if (!p) return null;
+    if (state.mode === "build" && state.view === "3d") return hitTest3d(hits3d, p.x, p.y);
+    return cellFromPoint(state.rows, state.cols, p.x, p.y);
   }
+  var isRemoveClick = (evt) => evt.button === 2 || evt.button === 0 && evt.pointerType === "mouse" && evt.ctrlKey;
   function sameTarget(a, b) {
     if (!a || !b) return a === b;
     if (a.r !== b.r || a.c !== b.c) return false;
@@ -5474,7 +5532,7 @@ ${sizeMarkup()}
     }
   }
   function onPointerDown(evt) {
-    const right = evt.button === 2;
+    const right = isRemoveClick(evt);
     if (evt.button !== 0 && !right) return;
     pointer.type = evt.pointerType;
     const h = pointerTarget(evt);
@@ -5492,11 +5550,15 @@ ${sizeMarkup()}
       if (h) removeAt(h);
       return;
     }
-    if (state.view !== "3d") $("#board").setPointerCapture?.(evt.pointerId);
+    $("#board").setPointerCapture?.(evt.pointerId);
     pointer.down = true;
     pointer.id = evt.pointerId;
-    state.hover = h;
-    renderBoard();
+    if (!sameTarget(h, state.hover)) {
+      state.hover = h;
+      renderBoard();
+    } else {
+      state.hover = h;
+    }
     evt.preventDefault();
   }
   function onPointerUp(evt) {

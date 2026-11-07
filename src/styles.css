@@ -194,7 +194,7 @@ button {
   border-radius: 18px;
 }
 
-.board-wrap svg {
+.board-wrap > svg {
   display: block;
   width: 100%;
   height: auto;
@@ -206,15 +206,15 @@ button {
   border-radius: 18px;
 }
 
-.board-wrap svg.is-pickup {
+.board-wrap > svg.is-pickup {
   cursor: grab;
 }
 
-.board-wrap svg.is-3d {
+.board-wrap > svg.is-3d {
   cursor: default;
 }
 
-body[data-mode="check"] .board-wrap svg {
+body[data-mode="check"] .board-wrap > svg {
   cursor: cell;
 }
 
@@ -822,11 +822,11 @@ kbd {
   position: relative;
 }
 
+/* Above the tray, not on it, so it never covers a piece someone wants to tap. */
 .view-turn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
   display: flex;
+  width: fit-content;
+  margin: 0 0 8px auto;
   align-items: center;
   gap: 4px;
   padding: 4px 4px 4px 10px;

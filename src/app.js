@@ -7,7 +7,7 @@ import { LOOK, MIX_ORIENTS, flipMix, flipTri, isRamp, rotateMix, rotateTri, thic
 import { ICONS } from './icons.js';
 import { PRESETS } from './presets.js';
 import { boardMarkup, cellFromPoint, flatPicture, pictureMarkup } from './render2d.js';
-import { board3d, pieceIcon } from './render3d.js';
+import { board3d, hitTest3d, pieceIcon } from './render3d.js';
 import { makeRng, quickCheck, randomArrangement, solvePattern } from './solver.js';
 
 const STORAGE_KEY = 'building-blocks-simulator:v2';
@@ -71,6 +71,7 @@ class History {
 let state;
 let bookUI;
 const pointer = { down: false, id: null, type: 'mouse', erase: false };
+let hits3d = [];
 let statusTimer = 0;
 let saveTimer = 0;
 
@@ -300,8 +301,12 @@ function renderBoard() {
         hoverId = state.hover.id ?? board.pieceAt(state.hover.r, state.hover.c, state.hover.fx, state.hover.fy);
       }
     }
-    if (state.view === '3d') view = board3d(board, { azimuth: state.azimuth, ghost, hoverId });
-    else view = boardMarkup(board, { xray: state.xray, ghost, hoverId, freshIds: state.fresh });
+    if (state.view === '3d') {
+      view = board3d(board, { azimuth: state.azimuth, ghost, hoverId });
+      hits3d = view.hits;
+    } else {
+      view = boardMarkup(board, { xray: state.xray, ghost, hoverId, freshIds: state.fresh });
+    }
     svg.setAttribute('aria-label', `Tray, ${state.rows} rows by ${state.cols} columns${state.view === '3d' ? ', 3D view' : ''}. ${progressText()}`);
   }
   svg.setAttribute('viewBox', view.viewBox);
@@ -1040,18 +1045,20 @@ function svgPoint(evt) {
   return new DOMPoint(evt.clientX, evt.clientY).matrixTransform(m.inverse());
 }
 
-/** What the pointer is over: { r, c, fx, fy } in the top view, { r, c, id } in 3D. */
+/**
+ * What the pointer is over: { r, c, fx, fy } (a spot on a square) in the top view; in 3D,
+ * { r, c, id } on a piece or { r, c, fx, fy } on bare floor. Both views work it out from the
+ * drawing itself, not from the shape the browser finds under the pointer.
+ */
 function pointerTarget(evt) {
-  if (state.mode === 'build' && state.view === '3d') {
-    const el = document.elementFromPoint(evt.clientX, evt.clientY);
-    const face = el?.closest?.('#board [data-cell]');
-    if (!face) return null;
-    const [r, c] = face.dataset.cell.split(',').map(Number);
-    return { r, c, id: Number(face.dataset.id || 0) || null };
-  }
   const p = svgPoint(evt);
-  return p ? cellFromPoint(state.rows, state.cols, p.x, p.y) : null;
+  if (!p) return null;
+  if (state.mode === 'build' && state.view === '3d') return hitTest3d(hits3d, p.x, p.y);
+  return cellFromPoint(state.rows, state.cols, p.x, p.y);
 }
+
+/** A secondary click: the right button, or Ctrl + click (how a Mac with one button right-clicks). */
+const isRemoveClick = (evt) => evt.button === 2 || (evt.button === 0 && evt.pointerType === 'mouse' && evt.ctrlKey);
 
 function sameTarget(a, b) {
   if (!a || !b) return a === b;
@@ -1084,7 +1091,7 @@ function onPointerMove(evt) {
 }
 
 function onPointerDown(evt) {
-  const right = evt.button === 2;
+  const right = isRemoveClick(evt);
   if (evt.button !== 0 && !right) return;
   pointer.type = evt.pointerType;
   const h = pointerTarget(evt);
@@ -1103,11 +1110,18 @@ function onPointerDown(evt) {
     if (h) removeAt(h);
     return;
   }
-  if (state.view !== '3d') $('#board').setPointerCapture?.(evt.pointerId);
+  // The board is redrawn while the pointer is down, which takes away the shape it went down
+  // on. Capturing the pointer keeps its release coming to the board (iPhone and iPad Safari
+  // would otherwise send it to the shape that is gone, and the tap would be lost).
+  $('#board').setPointerCapture?.(evt.pointerId);
   pointer.down = true;
   pointer.id = evt.pointerId;
-  state.hover = h;
-  renderBoard();
+  if (!sameTarget(h, state.hover)) {
+    state.hover = h;
+    renderBoard();
+  } else {
+    state.hover = h;
+  }
   evt.preventDefault();
 }
 

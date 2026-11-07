@@ -32,8 +32,9 @@ a diagonal split**. A picture made only of triangles can never be built.
 - Choose a piece under the tray, then **Rotate**, **Flip** or **Tip over** it right there.
   All 16 or 12 orientations are also shown as pictures in the panel.
 - **Left-click** (or tap) places the piece; its cube goes where you click. **Right-click**
-  removes a piece. On touch screens, turn on **Remove** and tap pieces.
-- **3D view** works the same way: click a square to place, right-click a piece to remove.
+  (or Ctrl + click) removes a piece. On touch screens, turn on **Remove** and tap pieces.
+- **3D view** works the same way, on phones too: tap or click a square to place, and remove
+  a piece with right-click or with **Remove** on. The buttons above the tray turn the view.
   *Rotate the view* turns the tray in 45° steps.
 - *X-ray* shows ramps hidden under roofs. Undo/redo, the two photo layouts, random fill,
   tray sizes from 1 to 12 rows and columns (a multiple of 4 squares), and board codes.

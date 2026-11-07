@@ -230,6 +230,7 @@ export function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hove
         tier: 1,
         order: 0,
         attrs: ` data-cell="${r},${c}"`,
+        cell: [r, c],
       });
     }
   }
@@ -257,11 +258,24 @@ export function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hove
           tier: 3,
           order: cellDepth * 1000 + part.layer * 10 + partDepth * 0.01,
           attrs: ` data-cell="${r},${c}" data-id="${piece.id}"`,
+          cell: [r, c],
+          id: piece.id,
         });
       }
     }
   }
   shapes.sort((a, b) => a.tier - b.tier || a.order - b.order);
+  for (const sh of shapes) sh.screen = sh.pts.map(camera.project);
+  // What the pointer can hit, in drawing order (last = on top). The tray's base and walls are
+  // in the list too, so a click on a wall that hides part of a square does nothing.
+  const hits = shapes.map((sh) => ({
+    pts: sh.screen,
+    edge: (sh.width ?? 0.012) / 2, // the outline is part of the shape too
+    r: sh.cell ? sh.cell[0] : -1,
+    c: sh.cell ? sh.cell[1] : -1,
+    id: sh.id ?? 0,
+    tray: !sh.cell,
+  }));
   // The frame depends only on the tray, so it stays still while the pointer moves.
   const corners = [];
   for (const x of [-rim, C + rim]) for (const y of [-rim, R + rim]) for (const z of [-0.18, 1]) corners.push(camera.project([x, y, z]));
@@ -272,7 +286,7 @@ export function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hove
   const pad = 0.3;
   const vb = `${fmt(minX - pad)} ${fmt(minY - pad)} ${fmt(maxX - minX + 2 * pad)} ${fmt(maxY - minY + 2 * pad)}`;
   const polygon = (sh) => {
-    const d = sh.pts.map(camera.project).map(([x, y]) => `${fmt3(x)},${fmt3(y)}`).join(' ');
+    const d = sh.screen.map(([x, y]) => `${fmt3(x)},${fmt3(y)}`).join(' ');
     return `<polygon points="${d}" fill="${sh.fill}" stroke="${sh.stroke ?? sh.fill}" stroke-width="${sh.width ?? 0.012}" stroke-linejoin="round"${sh.attrs ?? ''}/>`;
   };
   let body = shapes.map(polygon).join('');
@@ -291,6 +305,67 @@ export function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hove
       .map(({ face }) => polygonSvg(face.pts.map(camera.project), shade(ghost.piece.color, face.normal), line, 0.03))
       .join('')}</g>`;
   }
-  return { viewBox: vb, markup: body, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+  return { viewBox: vb, markup: body, hits, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+}
+
+/**
+ * What is drawn on top at point (x, y) of a 3D tray, in the SVG's own units, worked out from
+ * the drawing itself rather than from the browser:
+ * - { r, c, id } for a face of a piece;
+ * - { r, c, fx, fy } for a bit of bare floor (such as a seam between two pieces), with where
+ *   on the square it is, so it counts like a tap at that spot in the top view;
+ * - null for the tray's walls and for anywhere off the tray.
+ */
+export function hitTest3d(hits, x, y) {
+  for (let i = hits.length - 1; i >= 0; i -= 1) {
+    const { pts, edge = 0 } = hits[i];
+    if (!polygonContains(pts, x, y) && !pts.some((p, k) => nearSegment(x, y, p, pts[(k + 1) % pts.length], edge))) continue;
+    const { r, c, id, tray } = hits[i];
+    if (tray) return null;
+    if (id) return { r, c, id };
+    const [fx, fy] = floorSpot(pts, x, y);
+    return { r, c, fx, fy };
+  }
+  return null;
+}
+
+/**
+ * Where on a floor square a point of the drawing is: (fx, fy) from the square's north-west
+ * corner, as in the top view. The square's corners are drawn south-west, south-east,
+ * north-east, north-west, and the view is a parallel projection, so this is a 2×2 solve.
+ */
+function floorSpot([sw, se, , nw], x, y) {
+  const ax = se[0] - sw[0];
+  const ay = se[1] - sw[1];
+  const bx = nw[0] - sw[0];
+  const by = nw[1] - sw[1];
+  const det = ax * by - bx * ay;
+  const dx = x - sw[0];
+  const dy = y - sw[1];
+  const east = (dx * by - bx * dy) / det;
+  const north = (ax * dy - dx * ay) / det;
+  const clamp = (t) => Math.min(1, Math.max(0, t));
+  return [clamp(east), clamp(1 - north)];
+}
+
+function polygonContains(pts, x, y) {
+  let inside = false;
+  for (let a = 0, b = pts.length - 1; a < pts.length; b = a, a += 1) {
+    const [xa, ya] = pts[a];
+    const [xb, yb] = pts[b];
+    if ((ya > y) !== (yb > y) && x < ((xb - xa) * (y - ya)) / (yb - ya) + xa) inside = !inside;
+  }
+  return inside;
+}
+
+function nearSegment(x, y, [xa, ya], [xb, yb], tolerance) {
+  if (tolerance <= 0) return false;
+  const dx = xb - xa;
+  const dy = yb - ya;
+  const length2 = dx * dx + dy * dy;
+  const t = length2 > 0 ? Math.max(0, Math.min(1, ((x - xa) * dx + (y - ya) * dy) / length2)) : 0;
+  const ex = xa + t * dx - x;
+  const ey = ya + t * dy - y;
+  return ex * ex + ey * ey <= tolerance * tolerance;
 }
 
