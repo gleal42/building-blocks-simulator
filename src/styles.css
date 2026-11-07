@@ -890,8 +890,17 @@ kbd {
   display: block;
   width: auto;
   height: auto;
-  max-width: 150px;
-  max-height: 96px;
+  max-width: min(240px, 42vw);
+  max-height: 150px;
+}
+
+.challenge-goal {
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.challenge-bar {
+  scroll-margin-top: 10px;
 }
 
 .challenge-info {
@@ -1423,9 +1432,17 @@ kbd {
     max-height: 40px;
   }
 
+  .challenge-bar {
+    flex-wrap: wrap;
+  }
+
+  .challenge-pic {
+    margin-inline: auto;
+  }
+
   .challenge-pic svg {
-    max-width: 110px;
-    max-height: 80px;
+    max-width: 100%;
+    max-height: 170px;
   }
 
   .ch-item {

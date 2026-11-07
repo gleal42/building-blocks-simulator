@@ -274,9 +274,10 @@ function renderStageTop() {
   const status = ch.solved
     ? `<p class="win">${ch.revealed ? 'Answer shown.' : `Solved in ${ch.moves} moves!`}</p>`
     : `<p><b>${prog.match}</b> of ${prog.total} squares match · ${ch.moves} moves</p>`;
-  top.innerHTML = `<div class="challenge-bar">
-<div class="challenge-pic">${flatPicture(state.rows, state.cols, ch.target, { cell: 18, gap: 1.6, mismatches: prog.mismatch })}</div>
-<div class="challenge-info"><p class="challenge-title">${ch.label ?? 'Challenge'} ${starsHtml(ch.difficulty)}</p>${status}
+  top.innerHTML = `<div class="challenge-bar" id="challengeBar">
+<div class="challenge-pic">${flatPicture(state.rows, state.cols, ch.target, { cell: 32, gap: 2.5, mismatches: prog.mismatch })}</div>
+<div class="challenge-info"><p class="challenge-title">${ch.label ?? 'Challenge'} ${starsHtml(ch.difficulty)}</p>
+${ch.solved ? '' : '<p class="challenge-goal">Make this picture: put all the pieces in the tray so that, seen from above, it looks like this.</p>'}${status}
 <div class="row-buttons">${ch.solved ? `<button type="button" class="btn small primary" data-action="next-challenge">${ICONS.dice}Next challenge</button>` : ch.answer ? `<button type="button" class="btn small" data-action="reveal">Show answer</button>` : ''}<button type="button" class="btn small" data-action="stop-challenge">End challenge</button></div></div>
 </div>`;
 }
@@ -731,6 +732,12 @@ async function startChallenge({ target, answer, difficulty, label, rows = state.
   state.tool = 'place';
   render();
   setStatus('Fill the tray so that, seen from above, it looks like the picture.');
+  // The picture sits above the tray; bring it into view (the button may be far below).
+  const bar = document.getElementById('challengeBar');
+  if (bar) {
+    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    bar.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+  }
   return true;
 }
 

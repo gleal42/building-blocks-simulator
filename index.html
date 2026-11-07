@@ -901,8 +901,17 @@ kbd {
   display: block;
   width: auto;
   height: auto;
-  max-width: 150px;
-  max-height: 96px;
+  max-width: min(240px, 42vw);
+  max-height: 150px;
+}
+
+.challenge-goal {
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.challenge-bar {
+  scroll-margin-top: 10px;
 }
 
 .challenge-info {
@@ -1434,9 +1443,17 @@ kbd {
     max-height: 40px;
   }
 
+  .challenge-bar {
+    flex-wrap: wrap;
+  }
+
+  .challenge-pic {
+    margin-inline: auto;
+  }
+
   .challenge-pic svg {
-    max-width: 110px;
-    max-height: 80px;
+    max-width: 100%;
+    max-height: 170px;
   }
 
   .ch-item {
@@ -3586,7 +3603,7 @@ ${slopes}
         if (mismatches && mismatches[r * cols + c]) parts.push(`<rect x="${x + 1}" y="${y + 1}" width="${s - 2}" height="${s - 2}" class="fp-miss"/>`);
       }
     }
-    return `<svg viewBox="0 0 ${cols * cell} ${rows * cell}" class="flat-picture" role="img" aria-label="Target picture, ${rows} by ${cols}">${parts.join("")}</svg>`;
+    return `<svg viewBox="0 0 ${cols * cell} ${rows * cell}" width="${cols * cell}" height="${rows * cell}" class="flat-picture" role="img" aria-label="Target picture, ${rows} by ${cols}">${parts.join("")}</svg>`;
   }
   function cellFromPoint(rows, cols, x, y) {
     const fx = (x - RIM) / CELL;
@@ -4744,9 +4761,10 @@ ${coverRow("back", "Back cover")}
     }
     const prog = challengeProgress();
     const status = ch.solved ? `<p class="win">${ch.revealed ? "Answer shown." : `Solved in ${ch.moves} moves!`}</p>` : `<p><b>${prog.match}</b> of ${prog.total} squares match · ${ch.moves} moves</p>`;
-    top.innerHTML = `<div class="challenge-bar">
-<div class="challenge-pic">${flatPicture(state.rows, state.cols, ch.target, { cell: 18, gap: 1.6, mismatches: prog.mismatch })}</div>
-<div class="challenge-info"><p class="challenge-title">${ch.label ?? "Challenge"} ${starsHtml(ch.difficulty)}</p>${status}
+    top.innerHTML = `<div class="challenge-bar" id="challengeBar">
+<div class="challenge-pic">${flatPicture(state.rows, state.cols, ch.target, { cell: 32, gap: 2.5, mismatches: prog.mismatch })}</div>
+<div class="challenge-info"><p class="challenge-title">${ch.label ?? "Challenge"} ${starsHtml(ch.difficulty)}</p>
+${ch.solved ? "" : '<p class="challenge-goal">Make this picture: put all the pieces in the tray so that, seen from above, it looks like this.</p>'}${status}
 <div class="row-buttons">${ch.solved ? `<button type="button" class="btn small primary" data-action="next-challenge">${ICONS.dice}Next challenge</button>` : ch.answer ? `<button type="button" class="btn small" data-action="reveal">Show answer</button>` : ""}<button type="button" class="btn small" data-action="stop-challenge">End challenge</button></div></div>
 </div>`;
   }
@@ -5150,6 +5168,11 @@ ${sizeMarkup()}
     state.tool = "place";
     render();
     setStatus("Fill the tray so that, seen from above, it looks like the picture.");
+    const bar = document.getElementById("challengeBar");
+    if (bar) {
+      const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      bar.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+    }
     return true;
   }
   function newChallenge(level) {
