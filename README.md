@@ -2,9 +2,10 @@
 
 A simulator for the black-and-white block puzzle: a tan tray filled with white and black
 **cube + prism** pieces and loose **prisms** (half cubes). Place and turn the pieces every
-way the real ones can go, check whether a picture can be made, and play challenges.
+way the real ones can go, check whether a picture can be made, and make a printable
+challenge book.
 
-![The 4×4 tray from the first photo](docs/screenshots/build.jpg)
+![The 4×4 tray from the first photo, with a piece about to be placed](docs/screenshots/build.jpg)
 
 **Try it:** open [`index.html`](index.html) in a browser. It is one self-contained file
 (no install, works offline, fonts fall back to system fonts). To publish it with GitHub
@@ -24,37 +25,62 @@ as a ramp with a loose prism on top as a roof. It also explains why some picture
 impossible: each cube always shows as a full square, so **at most half the squares can show
 a diagonal split**. A picture made only of triangles can never be built.
 
-![Checking a picture where every square is split](docs/screenshots/check-impossible.jpg)
-
 ## What you can do
 
-- **Build**: tap a piece in the parts bin, pick one of its orientations (3D icons show
-  standing pieces, ramps and roofs), and tap a square. The cube goes where you tap. *Pick up*
-  (or right-click) takes a piece out; a roof resting on a ramp comes out with it.
-  Undo/redo, *X-ray* (see ramps hidden under roofs), *3D* view with turning, the two photo
-  layouts as presets, random fill, and board codes to save or share a layout.
-- **Check a picture**: paint squares white, black, split (4 ways) or "any", then check. You
-  get *Possible* with a button that builds one arrangement in the tray, or *Impossible* with
-  the reason. The search runs in the background; very large, busy pictures (12×12) can come
-  back as "couldn't decide".
-- **Challenge**: rebuild a picture made from a random real arrangement (easy, medium, hard).
-- **Tray sizes** from 1 to 12 rows and columns, as long as the number of squares is a
-  multiple of 4.
+### Build
 
-Keys: <kbd>R</kbd> turn, <kbd>F</kbd> flip over, <kbd>T</kbd> tip over, <kbd>1</kbd>–<kbd>4</kbd>
-choose a piece, <kbd>P</kbd> pick up, <kbd>X</kbd> x-ray, <kbd>V</kbd> 3D, <kbd>Ctrl</kbd>+<kbd>Z</kbd> /
-<kbd>Ctrl</kbd>+<kbd>Y</kbd> undo/redo, arrow keys + <kbd>Enter</kbd> on the tray.
+- Choose a piece under the tray, then **Rotate**, **Flip** or **Tip over** it right there.
+  All 16 or 12 orientations are also shown as pictures in the panel.
+- **Left-click** (or tap) places the piece; its cube goes where you click. **Right-click**
+  removes a piece. On touch screens, turn on **Remove** and tap pieces.
+- **3D view** works the same way: click a square to place, right-click a piece to remove.
+  *Rotate the view* turns the tray in 45° steps.
+- *X-ray* shows ramps hidden under roofs. Undo/redo, the two photo layouts, random fill,
+  tray sizes from 1 to 12 rows and columns (a multiple of 4 squares), and board codes.
+- **Challenges** (easy ★, medium ★★, hard ★★★): rebuild a picture made from a random real
+  arrangement. The picture stays above the tray; wrong squares are outlined in red.
 
-<p>
-  <img src="docs/screenshots/phone.jpg" alt="The app on a phone" width="280">
-  <img src="docs/screenshots/diamond-3d.jpg" alt="A diamond picture built by the checker, in 3D" width="520">
-</p>
+![The same tray in 3D, turned 45°](docs/screenshots/build-3d.jpg)
+
+### Check a picture
+
+Paint squares white, black, split (4 ways) or erase them (right-click erases). The answer
+appears as you paint: *Possible* (with a button that builds one arrangement in the tray),
+or *Impossible* with the reason. Possible pictures can be added to the challenge book.
+
+![Every square split: impossible](docs/screenshots/check-impossible.jpg)
+
+### Challenge book
+
+- Books for square trays (2×2 to 8×8, one challenge per page) and 2:1 trays (2×4 to 6×12,
+  one challenge across two facing pages). Each tray size keeps its own book.
+- Add random challenges by difficulty, the Build tray, or a checked picture. Change the
+  stars (green easy, yellow medium, red hard), reorder, delete, or play a challenge in Build.
+- Default front and back covers (the back lists every challenge), or upload your own
+  pictures.
+- Preview as a **3D book** with pages to turn, as flat **spreads**, or as the **print sheets**.
+- **PDF to print as a booklet**: square pages (14 cm on A4, 13 cm on US Letter), two per
+  sheet side, in saddle-stitch order. Sheet 1 has the back and front covers on the outside
+  and the first and last pages on the inside. Print on both sides (flip on the short edge),
+  stack, fold, staple on the fold, and trim to the corner marks. There is also a PDF with one
+  page per page, for a print shop or a screen.
+- **Save book (.json)** keeps the challenges, stars, answers, title and covers;
+  **Open a saved book** carries on where you left off.
+
+![A 4×8 challenge across two facing pages](docs/screenshots/book.jpg)
+
+<img src="docs/screenshots/phone.jpg" alt="The app on a phone" width="280">
+
+Keys: <kbd>R</kbd> rotate, <kbd>F</kbd> flip, <kbd>T</kbd> tip over, <kbd>1</kbd>–<kbd>4</kbd>
+choose a piece, <kbd>P</kbd> remove mode, <kbd>X</kbd> x-ray, <kbd>V</kbd> 3D,
+<kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> undo/redo, arrow keys + <kbd>Enter</kbd>
+on the tray, arrow keys to turn the pages of the book.
 
 ## Development
 
 ```sh
 npm install
-npm test          # model and solver tests, including exhaustive cross-checks
+npm test          # model, solver and book tests, including exhaustive cross-checks
 npm run build     # bundles src/ into index.html
 npm run dev       # rebuilds index.html whenever src/ changes
 ```
@@ -67,9 +93,12 @@ fails if `index.html` is out of date.
 | `src/geometry.js` | The 12 half-cube shapes, the 16 cube + prism orientations, what a square looks like from above, 3D solids. |
 | `src/board.js` | Tray model: placing (no overlap, only complementary halves share a square, loose roofs need a ramp), removing, top-view looks, board codes. |
 | `src/solver.js` | Decides whether a picture can be built and returns an arrangement; random arrangements. |
+| `src/book.js` | Challenge books: pages, saddle-stitch imposition, saving and opening. |
+| `src/bookpages.js` | Page layouts, drawn as shapes that become SVG (preview) or PDF (printing). |
+| `src/pdf.js`, `src/fonts.js` | A small PDF writer (vector shapes, Helvetica text, JPEG covers) and font widths. |
 | `src/presets.js` | The two photos as layouts. |
-| `src/render2d.js`, `src/render3d.js` | Photo-style top view; 3D icons and 3D tray view. |
-| `src/app.js`, `src/styles.css`, `src/index.html` | The app. |
+| `src/render2d.js`, `src/render3d.js` | Photo-style top view; 3D icons and the clickable 3D tray. |
+| `src/app.js`, `src/bookui.js`, `src/styles.css`, `src/index.html` | The app. |
 | `src/worker.js` | Runs the solver in a Web Worker. |
 
 ### How the checker works
@@ -82,4 +111,5 @@ here" and "a prism must come from there" messages between neighbouring squares a
 remembering dead ends. It tries the board in several mirrored and turned directions plus
 randomised restarts; a sweep that finishes without an arrangement has ruled out every
 possibility. The tests compare it with a brute-force search over every arrangement of the
-real pieces on 2×2, 1×4 and 2×4 trays.
+real pieces on 2×2, 1×4 and 2×4 trays. Very large, busy pictures (12×12) can come back as
+"couldn't decide"; *Search longer* gives the search more time.

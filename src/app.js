@@ -1,23 +1,29 @@
-// The app: three modes (Build, Check a picture, Challenge) around one tray.
+// The app: Build (with challenges), Check a picture, and Challenge book.
 
 import { Board, KINDS, MAX_SIZE, decodeBoard, encodeBoard, pieceName, sizeProblem } from './board.js';
-import { LOOK, MIX_ORIENTS, flipMix, flipTri, isCap, isRamp, rotateMix, rotateTri, thickSide, tipMix, tipTri } from './geometry.js';
+import { DIFFICULTY } from './book.js';
+import { createBookUI } from './bookui.js';
+import { LOOK, MIX_ORIENTS, flipMix, flipTri, isRamp, rotateMix, rotateTri, thickSide, tipMix, tipTri } from './geometry.js';
 import { ICONS } from './icons.js';
 import { PRESETS } from './presets.js';
 import { boardMarkup, cellFromPoint, flatPicture, pictureMarkup } from './render2d.js';
 import { board3d, pieceIcon } from './render3d.js';
-import { makeRng, patternStats, quickCheck, randomArrangement, solvePattern } from './solver.js';
+import { makeRng, quickCheck, randomArrangement, solvePattern } from './solver.js';
 
-const STORAGE_KEY = 'building-blocks-simulator:v1';
+const STORAGE_KEY = 'building-blocks-simulator:v2';
+const OLD_STORAGE_KEY = 'building-blocks-simulator:v1';
 const MAX_HISTORY = 300;
 const CHECK_BUDGET = 1500000;
-const DIFFICULTY = { easy: 0.12, medium: 0.45, hard: 0.85 };
+const LONG_CHECK_BUDGET = 8000000;
+// Random challenges: how often pieces stand up, and the share of split squares to aim for.
+const LEVEL_SPLIT = [0, 0.12, 0.45, 0.85];
+const LEVEL_TARGET = [0, 0.08, 0.25, 0.42];
 
-const KIND_INFO = {
-  mixW: { type: 'mix', color: 'W', label: 'White cube + prism', short: 'Cube + prism' },
-  mixB: { type: 'mix', color: 'B', label: 'Black cube + prism', short: 'Cube + prism' },
-  triW: { type: 'tri', color: 'W', label: 'White prism', short: 'Prism' },
-  triB: { type: 'tri', color: 'B', label: 'Black prism', short: 'Prism' },
+export const KIND_INFO = {
+  mixW: { type: 'mix', color: 'W', label: 'White cube + prism' },
+  mixB: { type: 'mix', color: 'B', label: 'Black cube + prism' },
+  triW: { type: 'tri', color: 'W', label: 'White prism' },
+  triB: { type: 'tri', color: 'B', label: 'Black prism' },
 };
 
 const DIR_WORD = ['up', 'right', 'down', 'left'];
@@ -32,40 +38,7 @@ const PALETTE = [
   { look: LOOK.SLASH_BW, label: 'Split, black top-left' },
   { look: LOOK.BACK_WB, label: 'Split, white top-right' },
   { look: LOOK.BACK_BW, label: 'Split, black top-right' },
-  { look: LOOK.ANY, label: 'Any (leave open)' },
-];
-
-// ---- Sample pictures ---------------------------------------------------------------------
-
-const { WHITE: W, BLACK: B, SLASH_WB, SLASH_BW, BACK_WB, BACK_BW } = LOOK;
-const SAMPLES = [
-  {
-    id: 'all-split',
-    name: 'Every square split',
-    make: (rows, cols) => new Array(rows * cols).fill(BACK_WB),
-  },
-  {
-    id: 'diamond',
-    name: 'Diamond',
-    make: (rows, cols) => (rows === 4 && cols === 4
-      ? [W, SLASH_WB, BACK_WB, W, SLASH_WB, B, B, BACK_WB, BACK_BW, B, B, SLASH_BW, W, BACK_BW, SLASH_BW, W]
-      : null),
-  },
-  {
-    id: 'checker',
-    name: 'Checkerboard',
-    make: (rows, cols) => Array.from({ length: rows * cols }, (_, i) => ((Math.floor(i / cols) + (i % cols)) % 2 ? B : W)),
-  },
-  {
-    id: 'stripes',
-    name: 'Stripes',
-    make: (rows, cols) => Array.from({ length: rows * cols }, (_, i) => (Math.floor(i / cols) % 2 ? B : W)),
-  },
-  ...PRESETS.map((p) => ({
-    id: `pic-${p.id}`,
-    name: p.name.replace(/\s*\(.*\)/, ''),
-    make: (rows, cols) => (rows === p.rows && cols === p.cols ? Board.fromJSON(p).looks() : null),
-  })),
+  { look: LOOK.ANY, label: 'Erase (any)' },
 ];
 
 // ---- State -------------------------------------------------------------------------------
@@ -96,13 +69,12 @@ class History {
 }
 
 let state;
-const pointer = { down: false, id: null, type: 'mouse', startCell: null };
+let bookUI;
+const pointer = { down: false, id: null, type: 'mouse', erase: false };
 let statusTimer = 0;
 let saveTimer = 0;
 
-function freshChallenge(rows, cols, difficulty = 'medium') {
-  return { board: new Board(rows, cols), history: new History(), target: null, answer: null, difficulty, moves: 0, solved: false, revealed: false };
-}
+const finePointer = () => typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches;
 
 function defaultState() {
   const photo = PRESETS[0];
@@ -112,9 +84,9 @@ function defaultState() {
     cols: photo.cols,
     sizeDraft: { rows: photo.rows, cols: photo.cols },
     build: Board.fromJSON(photo),
-    buildHistory: new History(),
-    challenge: freshChallenge(photo.rows, photo.cols),
-    pattern: SAMPLES[1].make(4, 4),
+    history: new History(),
+    challenge: null,
+    pattern: [LOOK.WHITE, LOOK.SLASH_WB, LOOK.BACK_WB, LOOK.WHITE, LOOK.SLASH_WB, LOOK.BLACK, LOOK.BLACK, LOOK.BACK_WB, LOOK.BACK_BW, LOOK.BLACK, LOOK.BLACK, LOOK.SLASH_BW, LOOK.WHITE, LOOK.BACK_BW, LOOK.SLASH_BW, LOOK.WHITE],
     paint: LOOK.BLACK,
     check: { status: 'idle' },
     selected: 'mixW',
@@ -122,65 +94,55 @@ function defaultState() {
     tool: 'place',
     xray: false,
     view: 'top',
-    azimuth: 22,
+    azimuth: 0,
     hover: null,
     hoverCell: -1,
     fresh: new Set(),
+    books: {},
+    bookKey: 'square-4',
+    bookView: '3d',
+    bookLeaf: 0,
   };
 }
 
 function snapshot() {
-  const ch = state.challenge;
   return {
-    v: 1,
+    v: 2,
     mode: state.mode,
     rows: state.rows,
     cols: state.cols,
     build: encodeBoard(state.build),
+    challenge: state.challenge,
     pattern: state.pattern,
     paint: state.paint,
     selected: state.selected,
     orient: state.orient,
     xray: state.xray,
-    challenge: {
-      board: encodeBoard(ch.board),
-      target: ch.target,
-      answer: ch.answer,
-      difficulty: ch.difficulty,
-      moves: ch.moves,
-      solved: ch.solved,
-      revealed: ch.revealed,
-    },
+    books: state.books,
+    bookKey: state.bookKey,
+    bookView: state.bookView,
   };
 }
 
 function restore(data) {
   const base = defaultState();
-  if (!data || data.v !== 1) return base;
+  if (!data || (data.v !== 1 && data.v !== 2)) return base;
   try {
-    const rows = data.rows;
-    const cols = data.cols;
+    const { rows, cols } = data;
     if (sizeProblem(rows, cols)) return base;
     const build = decodeBoard(data.build);
     if (build.rows !== rows || build.cols !== cols) return base;
-    const chBoard = decodeBoard(data.challenge.board);
     const pattern = Array.isArray(data.pattern) && data.pattern.length === rows * cols ? data.pattern.map(Number) : new Array(rows * cols).fill(LOOK.ANY);
+    const ch = data.v === 2 ? data.challenge : null;
+    const challenge = ch && Array.isArray(ch.target) && ch.target.length === rows * cols ? ch : null;
     return {
       ...base,
-      mode: ['build', 'check', 'challenge'].includes(data.mode) ? data.mode : 'build',
+      mode: ['build', 'check', 'book'].includes(data.mode) ? data.mode : 'build',
       rows,
       cols,
       sizeDraft: { rows, cols },
       build,
-      challenge: {
-        ...freshChallenge(rows, cols, data.challenge.difficulty in DIFFICULTY ? data.challenge.difficulty : 'medium'),
-        board: chBoard,
-        target: Array.isArray(data.challenge.target) && data.challenge.target.length === rows * cols ? data.challenge.target : null,
-        answer: Array.isArray(data.challenge.answer) ? data.challenge.answer : null,
-        moves: data.challenge.moves | 0,
-        solved: !!data.challenge.solved,
-        revealed: !!data.challenge.revealed,
-      },
+      challenge,
       pattern,
       paint: Number.isInteger(data.paint) ? data.paint : LOOK.BLACK,
       selected: KINDS.includes(data.selected) ? data.selected : 'mixW',
@@ -189,6 +151,9 @@ function restore(data) {
         tri: Number.isInteger(data.orient?.tri) ? data.orient.tri % 12 : 3,
       },
       xray: !!data.xray,
+      books: data.books && typeof data.books === 'object' ? data.books : {},
+      bookKey: typeof data.bookKey === 'string' ? data.bookKey : base.bookKey,
+      bookView: ['3d', 'spreads', 'sheets'].includes(data.bookView) ? data.bookView : '3d',
     };
   } catch {
     return base;
@@ -201,16 +166,14 @@ function scheduleSave() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot()));
     } catch {
-      /* storage may be unavailable: the app works without it */
+      // Storage can be missing or full (large cover pictures); the app works without it.
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...snapshot(), books: {} }));
+      } catch {
+        /* ignore */
+      }
     }
-  }, 250);
-}
-
-const activeBoard = () => (state.mode === 'challenge' ? state.challenge.board : state.build);
-const activeHistory = () => (state.mode === 'challenge' ? state.challenge.history : state.buildHistory);
-function setActiveBoard(board) {
-  if (state.mode === 'challenge') state.challenge.board = board;
-  else state.build = board;
+  }, 300);
 }
 
 // ---- Words -------------------------------------------------------------------------------
@@ -218,7 +181,7 @@ function setActiveBoard(board) {
 function describeOrientation(type, o) {
   if (type === 'mix') {
     const m = MIX_ORIENTS[o];
-    const where = `prism ${DIR_WORD[m.dir] === 'up' || DIR_WORD[m.dir] === 'down' ? DIR_WORD[m.dir] : `to the ${DIR_WORD[m.dir]}`}`;
+    const where = `prism ${m.dir === 0 || m.dir === 2 ? DIR_WORD[m.dir] : `to the ${DIR_WORD[m.dir]}`}`;
     if (m.pose === 2) return `Lying, ${where} as a ramp (slope up)`;
     if (m.pose === 3) return `Lying, ${where} as a roof (slope down, hollow underneath)`;
     return `Standing, ${where}, right angle ${CORNER_WORD[m.half]}`;
@@ -232,11 +195,11 @@ function failureText(res, piece) {
   const name = pieceName(piece);
   switch (res.code) {
     case 'none-left':
-      return `No ${name} left. Take one out of the tray or choose another piece.`;
+      return `No ${name} left. Remove one from the tray or choose another piece.`;
     case 'outside':
-      return piece.type === 'mix' ? 'The prism part would stick out of the tray. Turn the piece or pick another square.' : 'That is outside the tray.';
+      return piece.type === 'mix' ? 'The prism part would stick out of the tray. Rotate the piece or pick another square.' : 'That is outside the tray.';
     case 'taken':
-      return 'That square is already full. Use Pick up (or right-click) to take a piece out.';
+      return `That square is already full. ${finePointer() ? 'Right-click a piece to remove it.' : 'Turn on Remove to take a piece out.'}`;
     case 'clash':
       return 'Only the matching half fits next to the piece already in that square.';
     case 'needs-ramp':
@@ -247,7 +210,7 @@ function failureText(res, piece) {
 }
 
 function progressText() {
-  const board = activeBoard();
+  const board = state.build;
   const placed = board.pieces.size;
   const total = board.totalPieces();
   const hollow = board.hollowCells().length;
@@ -256,14 +219,19 @@ function progressText() {
   return text;
 }
 
+export function starsHtml(level, { label = true } = {}) {
+  const d = DIFFICULTY[level];
+  const stars = [1, 2, 3].map((k) => `<span class="star${k <= level ? ' on' : ''}">★</span>`).join('');
+  return `<span class="stars level-${level}" title="${d.name}"><span aria-hidden="true">${stars}</span>${label ? `<span class="stars-name">${d.name}</span>` : `<span class="sr-only">${d.name}</span>`}</span>`;
+}
+
 // ---- Rendering ---------------------------------------------------------------------------
 
 const $ = (sel) => document.querySelector(sel);
 
 function render() {
   renderTabs();
-  renderBoard();
-  renderStageBar();
+  renderStage();
   renderPanel();
   if (!statusTimer) setStatus(defaultStatus(), false);
   scheduleSave();
@@ -278,90 +246,119 @@ function renderTabs() {
   document.body.dataset.mode = state.mode;
 }
 
+function renderStage() {
+  const book = state.mode === 'book';
+  $('#boardWrap').hidden = book;
+  $('#bookStage').hidden = !book;
+  if (book) {
+    bookUI.renderStage($('#bookStage'));
+    $('#stageTop').innerHTML = '';
+    $('#stageBar').innerHTML = '';
+    $('#status').hidden = true;
+    return;
+  }
+  $('#status').hidden = false;
+  renderStageTop();
+  renderBoard();
+  renderStageBar();
+}
+
+function renderStageTop() {
+  const top = $('#stageTop');
+  const ch = state.challenge;
+  if (state.mode !== 'build' || !ch) {
+    top.innerHTML = '';
+    return;
+  }
+  const prog = challengeProgress();
+  const status = ch.solved
+    ? `<p class="win">${ch.revealed ? 'Answer shown.' : `Solved in ${ch.moves} moves!`}</p>`
+    : `<p><b>${prog.match}</b> of ${prog.total} squares match · ${ch.moves} moves</p>`;
+  top.innerHTML = `<div class="challenge-bar">
+<div class="challenge-pic">${flatPicture(state.rows, state.cols, ch.target, { cell: 18, gap: 1.6, mismatches: prog.mismatch })}</div>
+<div class="challenge-info"><p class="challenge-title">${ch.label ?? 'Challenge'} ${starsHtml(ch.difficulty)}</p>${status}
+<div class="row-buttons">${ch.solved ? `<button type="button" class="btn small primary" data-action="next-challenge">${ICONS.dice}Next challenge</button>` : ch.answer ? `<button type="button" class="btn small" data-action="reveal">Show answer</button>` : ''}<button type="button" class="btn small" data-action="stop-challenge">End challenge</button></div></div>
+</div>`;
+}
+
 function renderBoard() {
   const svg = $('#board');
   let view;
   if (state.mode === 'check') {
     view = pictureMarkup(state.rows, state.cols, state.pattern, { hoverCell: state.hoverCell });
-    svg.setAttribute('aria-label', `Picture to check, ${state.rows} by ${state.cols}. Tap squares to paint them.`);
-  } else if (state.view === '3d') {
-    const b = board3d(activeBoard(), { azimuth: state.azimuth });
-    view = { viewBox: b.viewBox, markup: b.markup };
-    svg.setAttribute('aria-label', `Tray in 3D. ${progressText()}`);
+    svg.setAttribute('aria-label', `Picture to check, ${state.rows} by ${state.cols}.`);
   } else {
-    const board = activeBoard();
+    const board = state.build;
     let ghost = null;
     let hoverId = 0;
     if (state.hover) {
       if (state.tool === 'place' && state.selected) {
         const piece = currentPiece(state.hover.r, state.hover.c);
         ghost = { piece, ok: board.check(piece).ok };
-      } else if (state.tool === 'pickup') {
-        hoverId = board.pieceAt(state.hover.r, state.hover.c, state.hover.fx, state.hover.fy);
+      } else {
+        hoverId = state.hover.id ?? board.pieceAt(state.hover.r, state.hover.c, state.hover.fx, state.hover.fy);
       }
     }
-    view = boardMarkup(board, { xray: state.xray, ghost, hoverId, freshIds: state.fresh });
-    svg.setAttribute('aria-label', `Tray, ${state.rows} rows by ${state.cols} columns. ${progressText()}`);
+    if (state.view === '3d') view = board3d(board, { azimuth: state.azimuth, ghost, hoverId });
+    else view = boardMarkup(board, { xray: state.xray, ghost, hoverId, freshIds: state.fresh });
+    svg.setAttribute('aria-label', `Tray, ${state.rows} rows by ${state.cols} columns${state.view === '3d' ? ', 3D view' : ''}. ${progressText()}`);
   }
   svg.setAttribute('viewBox', view.viewBox);
   svg.innerHTML = view.markup;
-  svg.classList.toggle('is-3d', state.mode !== 'check' && state.view === '3d');
-  svg.classList.toggle('is-pickup', state.mode !== 'check' && state.tool === 'pickup');
+  svg.classList.toggle('is-3d', state.mode === 'build' && state.view === '3d');
+  svg.classList.toggle('is-remove', state.mode === 'build' && state.tool === 'remove');
+  $('#viewTurn').hidden = !(state.mode === 'build' && state.view === '3d');
   state.fresh = new Set();
 }
 
-function toolButton(action, icon, label, { pressed = null, disabled = false, hint = '' } = {}) {
+function toolButton(action, icon, label, { pressed = null, disabled = false, hint = '', cls = '' } = {}) {
   const aria = pressed === null ? '' : ` aria-pressed="${pressed ? 'true' : 'false'}"`;
-  return `<button type="button" class="tool" data-action="${action}"${aria}${disabled ? ' disabled' : ''} title="${hint || label}">${icon}<span>${label}</span></button>`;
+  return `<button type="button" class="tool${cls ? ` ${cls}` : ''}" data-action="${action}"${aria}${disabled ? ' disabled' : ''} title="${hint || label}">${icon}<span>${label}</span></button>`;
 }
 
 function renderStageBar() {
   const bar = $('#stageBar');
   if (state.mode === 'check') {
-    const st = patternStats(state.pattern);
-    const maxSplit = state.rows * state.cols - (activeInventory().mixW + activeInventory().mixB);
-    bar.innerHTML = `<p class="stats"><span><b>${st.diagonal}</b> split of at most ${maxSplit}</span><span><b>${st.white}</b> white</span><span><b>${st.black}</b> black</span>${st.any ? `<span><b>${st.any}</b> any</span>` : ''}</p>`;
+    bar.innerHTML = `<div class="check-result" id="checkResult" aria-live="polite">${checkResultMarkup()}</div>
+<div class="palette" role="group" aria-label="Paint">${PALETTE.map(({ look, label }) => {
+      const on = state.paint === look;
+      return `<button type="button" class="swatch-btn${on ? ' is-on' : ''}" data-action="paint" data-look="${look}" aria-pressed="${on}" title="${label}">${flatPicture(1, 1, [look], { cell: 26, gap: 0 })}<span>${label}</span></button>`;
+    }).join('')}</div>
+<p class="hint">${finePointer() ? '<b>Left-click</b> paints a square, <b>right-click</b> erases it. Drag to paint several.' : 'Tap or drag to paint. Choose <b>Erase</b> to clear squares.'}</p>`;
     return;
   }
-  const hist = activeHistory();
-  let html = '<div class="tools">';
-  html += toolButton('undo', ICONS.undo, 'Undo', { disabled: !hist.past.length, hint: 'Undo (Ctrl+Z)' });
-  html += toolButton('redo', ICONS.redo, 'Redo', { disabled: !hist.future.length, hint: 'Redo (Ctrl+Y)' });
-  html += toolButton('pickup', ICONS.hand, 'Pick up', { pressed: state.tool === 'pickup', hint: 'Pick up pieces (P). Right-click also picks up.' });
-  html += toolButton('xray', ICONS.xray, 'X-ray', { pressed: state.xray, hint: 'See pieces hidden under roofs (X)' });
-  html += toolButton('view', state.view === '3d' ? ICONS.board : ICONS.cube, state.view === '3d' ? 'Top view' : '3D', { hint: 'Switch between the top view and 3D (V)' });
-  if (state.view === '3d') {
-    html += toolButton('turn-view-left', ICONS.turnLeft, 'Turn', { hint: 'Turn the tray' });
-    html += toolButton('turn-view-right', ICONS.turnRight, 'Turn', { hint: 'Turn the tray the other way' });
-  }
-  html += '</div>';
-  if (state.mode === 'challenge' && state.challenge.target) {
-    const prog = challengeProgress();
-    html += `<div class="target-mini" aria-label="Target picture">${flatPicture(state.rows, state.cols, state.challenge.target, { cell: 14, gap: 1.2 })}<p><b>${prog.match}</b> of ${prog.total} squares match</p></div>`;
-  }
-  bar.innerHTML = html;
-}
-
-function activeInventory() {
-  return activeBoard().inventory;
-}
-
-function binMarkup() {
-  const board = activeBoard();
-  return KINDS.map((kind, i) => {
+  const board = state.build;
+  const kinds = KINDS.map((kind, i) => {
     const info = KIND_INFO[kind];
     const left = board.remaining(kind);
-    const on = state.selected === kind;
-    const icon = pieceIcon(info.type, info.color, state.orient[info.type], { size: info.type === 'mix' ? 66 : 50 });
-    return `<button type="button" class="bin-slot${on ? ' is-selected' : ''}${left === 0 ? ' is-empty' : ''}" data-action="select" data-kind="${kind}" aria-pressed="${on}" title="${info.label} (${i + 1})">
-<span class="bin-icon">${icon}</span>
-<span class="bin-text"><span class="bin-name"><i class="swatch ${info.color}"></i>${info.short}</span><span class="bin-count"><b>${left}</b> left</span></span>
-</button>`;
+    const on = state.selected === kind && state.tool === 'place';
+    return `<button type="button" class="kind${on ? ' is-on' : ''}${left === 0 ? ' is-empty' : ''}" data-action="select" data-kind="${kind}" aria-pressed="${on}" title="${info.label} (key ${i + 1})" aria-label="${info.label}, ${left} left">
+<span class="kind-icon">${pieceIcon(info.type, info.color, state.orient[info.type], { size: info.type === 'mix' ? 44 : 30 })}</span><span class="kind-count">${left}</span></button>`;
   }).join('');
+  const noPiece = !state.selected || state.tool !== 'place';
+  const hist = state.history;
+  bar.innerHTML = `<div class="dock">
+<div class="dock-kinds" role="group" aria-label="Choose a piece">${kinds}</div>
+<div class="dock-turn" role="group" aria-label="Turn the piece">
+${toolButton('turn', ICONS.rotate, 'Rotate', { disabled: noPiece, hint: 'Rotate the piece a quarter turn (R)', cls: 'turn' })}
+${toolButton('flip', ICONS.flip, 'Flip', { disabled: noPiece, hint: 'Turn the piece upside down (F)', cls: 'turn' })}
+${toolButton('tip', ICONS.tip, 'Tip over', { disabled: noPiece, hint: 'Stand the piece up or lay it down (T)', cls: 'turn' })}
+</div>
+</div>
+<div class="tools">
+${toolButton('undo', ICONS.undo, 'Undo', { disabled: !hist.past.length, hint: 'Undo (Ctrl+Z)' })}
+${toolButton('redo', ICONS.redo, 'Redo', { disabled: !hist.future.length, hint: 'Redo (Ctrl+Y)' })}
+${toolButton('remove', ICONS.hand, 'Remove', { pressed: state.tool === 'remove', hint: 'Remove pieces with a tap or click (P)' })}
+${toolButton('xray', ICONS.xray, 'X-ray', { pressed: state.xray, disabled: state.view === '3d', hint: 'See pieces hidden under roofs (X)' })}
+${toolButton('view', state.view === '3d' ? ICONS.board : ICONS.cube, state.view === '3d' ? 'Top view' : '3D', { hint: 'Switch between the top view and the 3D view (V)' })}
+</div>
+<p class="hint">${finePointer()
+    ? '<b>Left-click</b> places the piece (its cube goes where you click). <b>Right-click</b> removes a piece.'
+    : 'Tap a square to place the piece (its cube goes there). To take pieces out, turn on <b>Remove</b> and tap them.'}</p>`;
 }
 
 function orientMarkup() {
-  if (!state.selected) return '<p class="muted">Choose a piece above to see the ways it can be turned.</p>';
+  if (!state.selected) return '<p class="muted">Choose a piece under the tray to see every way it can be turned.</p>';
   const info = KIND_INFO[state.selected];
   const cur = state.orient[info.type];
   const button = (o, size) => {
@@ -378,17 +375,9 @@ function orientMarkup() {
     });
   } else {
     const rows = [['Standing', [0, 1, 2, 3]], ['Lying, slope up', [4, 5, 6, 7]], ['Lying, slope down', [8, 9, 10, 11]]];
-    for (const [label, list] of rows) {
-      grid += `<div class="orient-row"><span class="orient-label">${label}</span>${list.map((o) => button(o, 46)).join('')}</div>`;
-    }
+    for (const [label, list] of rows) grid += `<div class="orient-row"><span class="orient-label">${label}</span>${list.map((o) => button(o, 44)).join('')}</div>`;
   }
-  return `<div class="orient-grid ${info.type}">${grid}</div>
-<p class="orient-now">${describeOrientation(info.type, cur)}</p>
-<div class="turn-buttons">
-${toolButton('turn', ICONS.rotate, 'Turn', { hint: 'Quarter turn (R)' })}
-${toolButton('flip', ICONS.flip, 'Flip over', { hint: 'Turn upside down (F)' })}
-${toolButton('tip', ICONS.tip, 'Tip over', { hint: 'Stand up / lay down (T)' })}
-</div>`;
+  return `<div class="orient-grid ${info.type}">${grid}</div><p class="orient-now">${info.label}: ${describeOrientation(info.type, cur).toLowerCase()}</p>`;
 }
 
 function sizeMarkup() {
@@ -411,152 +400,92 @@ function sizeMarkup() {
 ${note}<div class="chips" role="group" aria-label="Common sizes">${quick}</div>`;
 }
 
-function trayCard() {
+function buildPanel() {
+  const ch = state.challenge;
+  const levels = [1, 2, 3]
+    .map((level) => `<button type="button" class="btn level level-${level}" data-action="new-challenge" data-level="${level}">${starsHtml(level)}</button>`)
+    .join('');
+  const challengeCard = ch
+    ? ''
+    : `<section class="card" aria-labelledby="ch-h">
+<h2 id="ch-h">Play a challenge</h2>
+<p class="muted">Get a picture made from a real arrangement of the pieces and rebuild it in the tray.</p>
+<div class="row-buttons">${levels}</div>
+</section>`;
   const presets = PRESETS.map((p) => `<button type="button" class="chip" data-action="preset" data-id="${p.id}">${p.name}</button>`).join('');
-  const code = encodeBoard(state.build);
-  return `<section class="card" aria-labelledby="tray-h">
+  return `${challengeCard}
+<section class="card" aria-labelledby="turn-h">
+<h2 id="turn-h">Every way to turn the piece</h2>
+${orientMarkup()}
+</section>
+<section class="card" aria-labelledby="tray-h">
 <h2 id="tray-h">Tray</h2>
 ${sizeMarkup()}
 <div class="chips" role="group" aria-label="Fill the tray">${presets}
 <button type="button" class="chip" data-action="random-fill">${ICONS.dice}Random fill</button>
 <button type="button" class="chip" data-action="clear-board">${ICONS.trash}Empty tray</button></div>
 <details class="share"><summary>Board code (save or share a layout)</summary>
-<div class="code-row"><label class="sr-only" for="codeOut">Code of the Build tray</label><input id="codeOut" readonly value="${code}"><button type="button" class="btn" data-action="copy-code">${ICONS.copy}Copy</button></div>
+<div class="code-row"><label class="sr-only" for="codeOut">Code of the tray</label><input id="codeOut" readonly value="${encodeBoard(state.build)}"><button type="button" class="btn" data-action="copy-code">${ICONS.copy}Copy</button></div>
 <div class="code-row"><label class="sr-only" for="codeIn">Paste a board code</label><input id="codeIn" placeholder="Paste a code like 4x4:…" autocomplete="off" spellcheck="false"><button type="button" class="btn" data-action="load-code">Load</button></div>
 </details>
 </section>`;
 }
 
-function piecesCards(title) {
-  const board = activeBoard();
-  const allIn = KINDS.every((k) => board.remaining(k) === 0);
-  return `<section class="card" aria-labelledby="bin-h">
-<h2 id="bin-h">${title}</h2>
-<div class="bin">${binMarkup()}</div>
-${allIn ? '<p class="hint">Every piece is in the tray. Use <b>Pick up</b> to take pieces out and rearrange them, or empty the tray below.</p>' : ''}
-</section>
-<section class="card" aria-labelledby="turn-h">
-<h2 id="turn-h">Turn the piece</h2>
-${orientMarkup()}
-<p class="hint">Tap a square to place it: the cube goes where you tap. Keys: <kbd>R</kbd> turn, <kbd>F</kbd> flip, <kbd>T</kbd> tip, <kbd>P</kbd> pick up.</p>
-</section>`;
-}
-
-function checkResultMarkup() {
-  const ck = state.check;
-  const quick = quickCheck(state.rows, state.cols, state.pattern, activeInventoryFor());
-  if (ck.status === 'running') {
-    return `<div class="result is-running" role="status"><span class="spinner" aria-hidden="true"></span><p>Searching every way to place the pieces…</p><button type="button" class="btn" data-action="cancel-check">Cancel</button></div>`;
-  }
-  if (ck.status === 'possible') {
-    return `<div class="result is-possible"><span class="pill ok">Possible</span><p>The pieces can make this picture.</p><button type="button" class="btn primary" data-action="show-solution">${ICONS.play}Build it on the tray</button></div>`;
-  }
-  if (ck.status === 'impossible') {
-    return `<div class="result is-impossible"><span class="pill bad">Impossible</span><p>${ck.reason}</p></div>`;
-  }
-  if (ck.status === 'unknown') {
-    return `<div class="result is-unknown"><span class="pill warn">Couldn't decide</span><p>${ck.reason}</p></div>`;
-  }
-  if (!quick.ok) {
-    return `<div class="result is-impossible"><span class="pill bad">Impossible</span><p>${quick.reason}</p></div>`;
-  }
-  return '<div class="result"><p class="muted">Paint a picture, then check whether the pieces can make it.</p></div>';
-}
-
-function activeInventoryFor() {
-  return state.build.inventory;
-}
-
 function checkPanel() {
-  const swatches = PALETTE.map(({ look, label }) => {
-    const on = state.paint === look;
-    return `<button type="button" class="swatch-btn${on ? ' is-on' : ''}" data-action="paint" data-look="${look}" aria-pressed="${on}" title="${label}">${flatPicture(1, 1, [look], { cell: 28, gap: 0 })}<span>${label}</span></button>`;
-  }).join('');
-  const samples = SAMPLES.map((s) => ({ s, looks: s.make(state.rows, state.cols) }))
-    .filter((x) => x.looks)
-    .map(({ s }) => `<button type="button" class="chip" data-action="sample" data-id="${s.id}">${s.name}</button>`)
-    .join('');
-  return `<section class="card" aria-labelledby="paint-h">
-<h2 id="paint-h">Paint a picture</h2>
-<div class="palette" role="group" aria-label="Paint">${swatches}</div>
-<p class="hint">Tap or drag across squares. “Any” leaves a square open for the pieces to decide.</p>
-<div class="chips" role="group" aria-label="Start from">${samples}
-<button type="button" class="chip" data-action="from-build">${ICONS.copy}Copy the Build tray</button>
-<button type="button" class="chip" data-action="random-picture">${ICONS.dice}Random possible</button>
-<button type="button" class="chip" data-action="clear-picture">${ICONS.trash}Clear</button></div>
+  const book = bookUI.currentBook();
+  const { rows, cols } = bookUI.bookTraySize();
+  const sameSize = rows === state.rows && cols === state.cols;
+  return `<section class="card" aria-labelledby="start-h">
+<h2 id="start-h">Start from</h2>
+<div class="chips" role="group" aria-label="Start from">
+<button type="button" class="chip" data-action="from-build">${ICONS.copy}The Build tray</button>
+<button type="button" class="chip" data-action="random-picture">${ICONS.dice}A random possible picture</button>
+<button type="button" class="chip" data-action="clear-picture">${ICONS.trash}An empty picture</button></div>
 </section>
-<section class="card" aria-labelledby="result-h">
-<h2 id="result-h">Can it be built?</h2>
-<button type="button" class="btn primary wide" data-action="check" ${state.check.status === 'running' ? 'disabled' : ''}>${ICONS.check}Check this picture</button>
-${checkResultMarkup()}
+<section class="card" aria-labelledby="addbook-h">
+<h2 id="addbook-h">Challenge book</h2>
+<p class="muted">${sameSize
+    ? `When the picture is possible you can add it to your ${rows}×${cols} book “${escapeHtml(book.title)}” (${book.challenges.length} challenge${book.challenges.length === 1 ? '' : 's'} so far).`
+    : `Your current book is for ${rows}×${cols} trays. Switch the tray to ${rows}×${cols} below, or pick another book in the Challenge book tab.`}</p>
+<button type="button" class="btn" data-action="add-picture-to-book" ${canAddPicture() ? '' : 'disabled'}>${ICONS.book}Add this picture to the book</button>
+${sameSize && state.pattern.includes(LOOK.ANY) ? '<p class="hint">Paint every square (no “any”) to add the picture.</p>' : ''}
 </section>
-${trayCard()}`;
-}
-
-function challengePanel() {
-  const ch = state.challenge;
-  const levels = Object.keys(DIFFICULTY)
-    .map((k) => `<button type="button" class="chip${ch.difficulty === k ? ' is-on' : ''}" data-action="difficulty" data-level="${k}" aria-pressed="${ch.difficulty === k}">${k[0].toUpperCase()}${k.slice(1)}</button>`)
-    .join('');
-  let body;
-  if (!ch.target) {
-    body = '<p class="muted">Start a challenge: you get a picture made from a real arrangement of the pieces, and you rebuild it in the tray.</p>';
-  } else {
-    const prog = challengeProgress();
-    const verdict = ch.solved
-      ? `<p class="win">${ch.revealed ? 'Answer shown.' : `Solved in ${ch.moves} moves.`}</p>`
-      : `<p><b>${prog.match}</b> of ${prog.total} squares match · ${ch.moves} moves</p>`;
-    body = `<div class="target">${flatPicture(state.rows, state.cols, ch.target, { cell: 34, gap: 2.5, mismatches: prog.mismatch })}</div>${verdict}
-<p class="hint">A red outline marks a square that is full but looks different from the picture.</p>`;
-  }
-  return `<section class="card" aria-labelledby="ch-h">
-<h2 id="ch-h">Make this picture</h2>
-${body}
-<div class="chips" role="group" aria-label="Difficulty">${levels}</div>
-<div class="row-buttons">
-<button type="button" class="btn primary" data-action="new-challenge">${ICONS.dice}New challenge</button>
-${ch.target ? `<button type="button" class="btn" data-action="restart-challenge">Start over</button><button type="button" class="btn" data-action="reveal">Show answer</button>` : ''}
-</div>
-</section>
-${piecesCards('Pieces')}
-${trayCard()}`;
-}
-
-function buildPanel() {
-  return `${piecesCards('Pieces')}${trayCard()}`;
+<section class="card" aria-labelledby="tray2-h">
+<h2 id="tray2-h">Tray size</h2>
+${sizeMarkup()}
+</section>`;
 }
 
 function renderPanel() {
   const panel = $('#panel');
-  const focusedId = document.activeElement && panel.contains(document.activeElement) ? focusKey(document.activeElement) : null;
-  const html = state.mode === 'check' ? checkPanel() : state.mode === 'challenge' ? challengePanel() : buildPanel();
+  const focused = document.activeElement && panel.contains(document.activeElement) ? focusKey(document.activeElement) : null;
   const openDetails = panel.querySelector('details[open]') !== null;
-  panel.innerHTML = html;
+  if (state.mode === 'book') panel.innerHTML = bookUI.panelMarkup();
+  else panel.innerHTML = state.mode === 'check' ? checkPanel() : buildPanel();
   if (openDetails) panel.querySelector('details')?.setAttribute('open', '');
-  if (focusedId) {
-    const el = panel.querySelector(focusedId);
-    if (el) el.focus({ preventScroll: true });
-  }
+  if (focused) panel.querySelector(focused)?.focus({ preventScroll: true });
 }
 
 function focusKey(el) {
   if (el.id) return `#${el.id}`;
   const action = el.dataset.action;
   if (!action) return null;
-  const extra = ['kind', 'o', 'look', 'key', 'id', 'level', 'rows'].map((k) => (el.dataset[k] !== undefined ? `[data-${k}="${el.dataset[k]}"]` : '')).join('');
+  const extra = ['kind', 'o', 'look', 'key', 'id', 'level', 'rows', 'index'].map((k) => (el.dataset[k] !== undefined ? `[data-${k}="${el.dataset[k]}"]` : '')).join('');
   return `[data-action="${action}"]${extra}`;
 }
 
 function defaultStatus() {
-  if (state.mode === 'check') return 'Paint squares, then press “Check this picture”.';
-  if (state.view === '3d') return `${progressText()} Switch to the top view to place pieces.`;
-  if (state.tool === 'pickup') return `Pick up: tap a piece to take it out. ${progressText()}`;
+  if (state.mode === 'check') return '';
+  if (state.view === '3d' && state.tool !== 'remove' && state.selected) {
+    const info = KIND_INFO[state.selected];
+    return `3D view. ${info.label}: ${describeOrientation(info.type, state.orient[info.type]).toLowerCase()}. ${progressText()}`;
+  }
+  if (state.tool === 'remove') return `Remove: ${finePointer() ? 'click' : 'tap'} a piece to take it out. ${progressText()}`;
   if (!state.selected) return `Choose a piece. ${progressText()}`;
   const info = KIND_INFO[state.selected];
   return `${info.label}: ${describeOrientation(info.type, state.orient[info.type]).toLowerCase()}. ${progressText()}`;
 }
 
-/** Drop any temporary message so the next render shows the normal status line. */
 function resetStatus() {
   clearTimeout(statusTimer);
   statusTimer = 0;
@@ -566,17 +495,18 @@ function setStatus(text, transient = true, tone = '') {
   const el = $('#status');
   el.textContent = text;
   el.dataset.tone = tone;
-  clearTimeout(statusTimer);
-  statusTimer = 0;
+  resetStatus();
   if (transient) {
     statusTimer = setTimeout(() => {
       statusTimer = 0;
       setStatus(defaultStatus(), false);
-    }, 4200);
+    }, 4500);
   }
 }
 
-// ---- Actions -----------------------------------------------------------------------------
+const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+// ---- Build actions -----------------------------------------------------------------------
 
 function currentPiece(r, c) {
   const info = KIND_INFO[state.selected];
@@ -584,7 +514,7 @@ function currentPiece(r, c) {
 }
 
 function placeAt(h) {
-  const board = activeBoard();
+  const board = state.build;
   const piece = currentPiece(h.r, h.c);
   const res = board.check(piece);
   if (!res.ok) {
@@ -592,39 +522,34 @@ function placeAt(h) {
     pulseBoard();
     return;
   }
-  activeHistory().record(board);
+  state.history.record(board);
   const placed = board.place(piece);
   state.fresh = new Set([placed.id]);
-  if (state.mode === 'challenge') {
-    state.challenge.moves += 1;
-    afterChallengeMove();
-  }
+  afterMove();
   if (board.remaining(state.selected) === 0) {
     const next = KINDS.find((k) => KIND_INFO[k].type === KIND_INFO[state.selected].type && board.remaining(k) > 0)
       ?? KINDS.find((k) => board.remaining(k) > 0);
     if (next) {
-      setStatus(`That was the last ${pieceName(piece)}. Switched to ${KIND_INFO[next].label.toLowerCase()}.`);
+      setStatus(`That was the last ${pieceName(piece)}. Switched to the ${KIND_INFO[next].label.toLowerCase()}.`);
       state.selected = next;
     }
   }
   render();
 }
 
-function pickUpAt(h) {
-  const board = activeBoard();
-  const id = board.pieceAt(h.r, h.c, h.fx, h.fy);
+function removeAt(h) {
+  const board = state.build;
+  const id = h.id ?? board.pieceAt(h.r, h.c, h.fx ?? 0.5, h.fy ?? 0.5);
   if (!id) {
-    setStatus('Nothing to pick up there.', true);
+    setStatus('Nothing to remove there.', true);
     return;
   }
   const piece = board.pieces.get(id);
-  activeHistory().record(board);
+  state.history.record(board);
   const removed = board.remove(id);
-  if (state.mode === 'challenge') {
-    state.challenge.moves += 1;
-    afterChallengeMove();
-  }
-  setStatus(removed.length > 1 ? `Took out the ${pieceName(piece)} and the prism resting on it.` : `Took out the ${pieceName(piece)}.`);
+  afterMove();
+  setStatus(removed.length > 1 ? `Removed the ${pieceName(piece)} and the prism resting on it.` : `Removed the ${pieceName(piece)}.`);
+  state.hover = null;
   render();
 }
 
@@ -636,18 +561,18 @@ function pulseBoard() {
 }
 
 function undo() {
-  const board = activeHistory().undo(activeBoard());
+  const board = state.history.undo(state.build);
   if (!board) return;
-  setActiveBoard(board);
-  if (state.mode === 'challenge') afterChallengeMove();
+  state.build = board;
+  afterMove(false);
   render();
 }
 
 function redo() {
-  const board = activeHistory().redo(activeBoard());
+  const board = state.history.redo(state.build);
   if (!board) return;
-  setActiveBoard(board);
-  if (state.mode === 'challenge') afterChallengeMove();
+  state.build = board;
+  afterMove(false);
   render();
 }
 
@@ -655,6 +580,7 @@ function changeOrientation(fn) {
   if (!state.selected) return;
   const type = KIND_INFO[state.selected].type;
   state.orient[type] = fn(type, state.orient[type]);
+  state.tool = 'place';
   resetStatus();
   render();
 }
@@ -668,31 +594,36 @@ function setMode(mode) {
   state.mode = mode;
   state.hover = null;
   state.hoverCell = -1;
-  if (mode === 'challenge' && !state.challenge.target) newChallenge();
   resetStatus();
+  if (mode === 'check') scheduleCheck(0);
   render();
-  setStatus(defaultStatus(), false);
 }
 
-async function setSize(rows, cols) {
+function emptyPicture(rows, cols) {
+  return new Array(rows * cols).fill(LOOK.ANY);
+}
+
+/** Switch to a new tray size; asks first when that would throw work away. */
+async function setSize(rows, cols, { ask = true } = {}) {
   const problem = sizeProblem(rows, cols);
   if (problem) {
     setStatus(problem, true, 'bad');
-    return;
+    return false;
   }
-  const busy = state.build.pieces.size || state.challenge.board.pieces.size;
-  if (busy && !(await confirmDialog(`Start a new ${rows}×${cols} tray? The pieces in the trays and the current picture will be cleared.`, 'New tray'))) return;
+  if (rows === state.rows && cols === state.cols) return true;
+  const busy = state.build.pieces.size || state.pattern.some((l) => l !== LOOK.ANY);
+  if (ask && busy && !(await confirmDialog(`Use a ${rows}×${cols} tray? The pieces in the tray and the painted picture will be cleared.`, `Use ${rows}×${cols}`))) return false;
   state.rows = rows;
   state.cols = cols;
   state.sizeDraft = { rows, cols };
   state.build = new Board(rows, cols);
-  state.buildHistory = new History();
-  state.challenge = freshChallenge(rows, cols, state.challenge.difficulty);
-  state.pattern = new Array(rows * cols).fill(LOOK.ANY);
+  state.history = new History();
+  state.challenge = null;
+  state.pattern = emptyPicture(rows, cols);
   state.check = { status: 'idle' };
-  if (state.mode === 'challenge') newChallenge();
   render();
   setStatus(`New ${rows}×${cols} tray with ${(rows * cols) / 4} of each piece.`);
+  return true;
 }
 
 function loadPieces(pieces, rows, cols) {
@@ -708,62 +639,42 @@ async function usePreset(id) {
   const preset = PRESETS.find((p) => p.id === id);
   if (!preset) return;
   if (preset.rows !== state.rows || preset.cols !== state.cols) {
-    const busy = state.build.pieces.size || state.challenge.board.pieces.size;
-    if (busy && !(await confirmDialog(`${preset.name} uses a ${preset.rows}×${preset.cols} tray. Switch size? The other trays will be cleared.`, 'Switch'))) return;
-    state.rows = preset.rows;
-    state.cols = preset.cols;
-    state.sizeDraft = { rows: preset.rows, cols: preset.cols };
-    state.buildHistory = new History();
-    state.challenge = freshChallenge(preset.rows, preset.cols, state.challenge.difficulty);
-    state.pattern = new Array(preset.rows * preset.cols).fill(LOOK.ANY);
-    state.check = { status: 'idle' };
-  } else {
-    state.buildHistory.record(state.build);
+    if (!(await setSize(preset.rows, preset.cols))) return;
   }
+  state.history.record(state.build);
   state.build = Board.fromJSON(preset);
-  state.mode = 'build';
+  state.challenge = null;
   render();
-  setStatus(`Loaded ${preset.name}: every square looks full because each cube + prism lies as a ramp with a prism on top.`);
+  setStatus(`Loaded ${preset.name}: each cube + prism lies as a ramp with a prism on top, so every square looks full.`);
 }
 
 function randomFill() {
-  const board = activeBoard();
-  activeHistory().record(board);
-  const pieces = randomArrangement(state.rows, state.cols, board.inventory, makeRng(Date.now() >>> 0), 0.5);
-  setActiveBoard(loadPieces(pieces, state.rows, state.cols));
-  if (state.mode === 'challenge') {
-    state.challenge.moves += 1;
-    afterChallengeMove();
-  }
+  state.history.record(state.build);
+  const pieces = randomArrangement(state.rows, state.cols, state.build.inventory, makeRng(Date.now() >>> 0), 0.5);
+  state.build = loadPieces(pieces, state.rows, state.cols);
+  afterMove();
   render();
   setStatus('Filled the tray with a random arrangement.');
 }
 
 async function clearBoard() {
-  const board = state.mode === 'check' ? state.build : activeBoard();
-  if (!board.pieces.size) return;
+  if (!state.build.pieces.size) return;
   if (!(await confirmDialog('Take every piece out of the tray?', 'Empty tray'))) return;
-  if (state.mode === 'challenge') {
-    state.challenge.history.record(board);
-    state.challenge.board = new Board(state.rows, state.cols);
-    afterChallengeMove();
-  } else {
-    state.buildHistory.record(state.build);
-    state.build = new Board(state.rows, state.cols);
-  }
+  state.history.record(state.build);
+  state.build = new Board(state.rows, state.cols);
+  afterMove(false);
   render();
   setStatus('The tray is empty. Undo brings the pieces back.');
 }
 
-async function copyCode() {
-  const code = encodeBoard(state.build);
-  const input = $('#codeOut');
+async function copyText(text, what) {
   try {
-    await navigator.clipboard.writeText(code);
-    setStatus('Board code copied.');
+    await navigator.clipboard.writeText(text);
+    setStatus(`${what} copied.`);
+    return true;
   } catch {
-    input?.select();
-    setStatus('Select the code and copy it.', true);
+    setStatus(`Could not copy the ${what.toLowerCase()} here.`, true, 'bad');
+    return false;
   }
 }
 
@@ -775,14 +686,14 @@ function loadCode() {
       state.rows = board.rows;
       state.cols = board.cols;
       state.sizeDraft = { rows: board.rows, cols: board.cols };
-      state.challenge = freshChallenge(board.rows, board.cols, state.challenge.difficulty);
-      state.pattern = new Array(board.rows * board.cols).fill(LOOK.ANY);
+      state.pattern = emptyPicture(board.rows, board.cols);
       state.check = { status: 'idle' };
-      state.buildHistory = new History();
+      state.history = new History();
     } else {
-      state.buildHistory.record(state.build);
+      state.history.record(state.build);
     }
     state.build = board;
+    state.challenge = null;
     state.mode = 'build';
     render();
     setStatus('Loaded the board code.');
@@ -791,12 +702,91 @@ function loadCode() {
   }
 }
 
+// ---- Challenges --------------------------------------------------------------------------
+
+function randomChallenge(rows, cols, level, rng = makeRng((Date.now() ^ (Math.random() * 1e9)) >>> 0)) {
+  const inventory = new Board(rows, cols).inventory;
+  const want = LEVEL_TARGET[level] * rows * cols;
+  let best = null;
+  for (let k = 0; k < 10; k += 1) {
+    const pieces = randomArrangement(rows, cols, inventory, rng, LEVEL_SPLIT[level]);
+    const looks = loadPieces(pieces, rows, cols).looks();
+    const score = Math.abs(looks.filter((l) => l >= 3).length - want);
+    if (!best || score < best.score) best = { pieces, looks, score };
+  }
+  return { target: best.looks, answer: best.pieces };
+}
+
+/** Start a challenge in the Build tray. */
+async function startChallenge({ target, answer, difficulty, label, rows = state.rows, cols = state.cols }) {
+  if (rows !== state.rows || cols !== state.cols) {
+    if (!(await setSize(rows, cols))) return false;
+  } else if (state.build.pieces.size && !state.challenge) {
+    if (!(await confirmDialog('Start the challenge? The tray will be emptied first (Undo brings your pieces back).', 'Start'))) return false;
+  }
+  state.history.record(state.build);
+  state.build = new Board(rows, cols);
+  state.challenge = { target, answer, difficulty, label, moves: 0, solved: false, revealed: false };
+  state.mode = 'build';
+  state.tool = 'place';
+  render();
+  setStatus('Fill the tray so that, seen from above, it looks like the picture.');
+  return true;
+}
+
+function newChallenge(level) {
+  const { target, answer } = randomChallenge(state.rows, state.cols, level);
+  startChallenge({ target, answer, difficulty: level, label: 'Challenge' });
+}
+
+function challengeProgress() {
+  const { target } = state.challenge;
+  const looks = state.build.looks();
+  let match = 0;
+  // Only squares that are full but show the wrong look count as mistakes.
+  const mismatch = looks.map((l, i) => {
+    const ok = l >= 0 && (target[i] === LOOK.ANY || l === target[i]);
+    if (ok) match += 1;
+    return l >= 0 && !ok;
+  });
+  return { match, total: looks.length, mismatch };
+}
+
+function afterMove(countMove = true) {
+  const ch = state.challenge;
+  if (!ch || ch.solved) return;
+  if (countMove) ch.moves += 1;
+  const prog = challengeProgress();
+  if (prog.match === prog.total && state.build.isComplete()) {
+    ch.solved = true;
+    setTimeout(() => setStatus(`Solved in ${ch.moves} moves!`, true, 'ok'), 0);
+    const wrap = $('#boardWrap');
+    wrap.classList.remove('is-win');
+    void wrap.offsetWidth;
+    wrap.classList.add('is-win');
+  }
+}
+
+async function revealAnswer() {
+  const ch = state.challenge;
+  if (!ch?.answer) return;
+  if (!ch.solved && !(await confirmDialog('Show the answer? The pieces in the tray will be replaced.', 'Show answer'))) return;
+  state.history.record(state.build);
+  state.build = loadPieces(ch.answer, state.rows, state.cols);
+  ch.revealed = true;
+  ch.solved = true;
+  render();
+  setStatus('This is the arrangement the picture was made from. Turn on X-ray to see the pieces under roofs.');
+}
+
 // ---- Check a picture ---------------------------------------------------------------------
 
 let worker = null;
 let workerBroken = false;
 let pendingCheck = null;
 let checkSeq = 0;
+let checkTimer = 0;
+let spinnerTimer = 0;
 
 function getWorker() {
   if (worker || workerBroken) return worker;
@@ -804,8 +794,7 @@ function getWorker() {
     // eslint-disable-next-line no-undef
     const source = typeof __WORKER_SOURCE__ === 'string' ? __WORKER_SOURCE__ : null;
     if (!source) throw new Error('no worker source');
-    const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-    worker = new Worker(url);
+    worker = new Worker(URL.createObjectURL(new Blob([source], { type: 'text/javascript' })));
     worker.onmessage = (event) => {
       if (pendingCheck && event.data.id === pendingCheck.id) {
         const { resolve } = pendingCheck;
@@ -829,163 +818,177 @@ function getWorker() {
   return worker;
 }
 
-function runSolver(rows, cols, looks, inventory) {
-  const args = [rows, cols, looks, inventory, { maxNodes: CHECK_BUDGET }];
+function stopWorker() {
+  if (pendingCheck && worker) {
+    worker.terminate();
+    worker = null;
+  }
+  pendingCheck = null;
+}
+
+function runSolver(rows, cols, looks, inventory, maxNodes) {
+  const args = [rows, cols, looks, inventory, { maxNodes }];
+  stopWorker();
   const w = getWorker();
-  if (!w) return new Promise((resolve) => setTimeout(() => resolve(solvePattern(...args)), 30));
+  if (!w) return new Promise((resolve) => setTimeout(() => resolve(solvePattern(...args)), 20));
   checkSeq += 1;
   const id = checkSeq;
   return new Promise((resolve) => {
     pendingCheck = { id, resolve, args };
-    w.postMessage({ id, rows, cols, looks, inventory, maxNodes: CHECK_BUDGET });
+    w.postMessage({ id, rows, cols, looks, inventory, maxNodes });
   });
 }
 
-async function checkPicture() {
+function scheduleCheck(delay = 220) {
+  clearTimeout(checkTimer);
+  checkTimer = setTimeout(() => runCheck(CHECK_BUDGET), delay);
+}
+
+/** Decide the current picture: instantly for the counting rules, otherwise in the worker. */
+async function runCheck(budget) {
   const looks = state.pattern.slice();
-  const key = looks.join(',');
+  const key = `${state.rows}x${state.cols}:${looks.join('')}`;
+  if (state.check.key === key && state.check.status !== 'unknown' && budget === CHECK_BUDGET) return;
+  const inventory = state.build.inventory;
+  clearTimeout(spinnerTimer);
+  if (looks.every((l) => l === LOOK.ANY)) {
+    stopWorker();
+    state.check = { status: 'empty', key };
+    updateCheckResult();
+    return;
+  }
+  const quick = quickCheck(state.rows, state.cols, looks, inventory);
+  if (!quick.ok) {
+    stopWorker();
+    state.check = { status: 'impossible', reason: quick.reason, key };
+    updateCheckResult();
+    return;
+  }
   state.check = { status: 'running', key };
-  render();
-  const res = await runSolver(state.rows, state.cols, looks, state.build.inventory);
-  if (state.check.status !== 'running' || state.check.key !== key) return;
+  // Show the spinner only if the answer takes a moment.
+  spinnerTimer = setTimeout(updateCheckResult, 160);
+  const res = await runSolver(state.rows, state.cols, looks, inventory, budget);
+  clearTimeout(spinnerTimer);
+  if (state.check.key !== key) return;
   state.check = { ...res, key };
-  render();
-  const words = { possible: 'Possible.', impossible: 'Impossible.', unknown: 'Could not decide.' };
-  setStatus(`${words[res.status]} ${res.status === 'possible' ? 'Press “Build it on the tray” to see how.' : res.reason ?? ''}`, true, res.status === 'possible' ? 'ok' : 'bad');
+  updateCheckResult();
 }
 
-function cancelCheck() {
-  if (worker) worker.terminate();
-  worker = null;
-  pendingCheck = null;
-  state.check = { status: 'idle' };
-  render();
-  setStatus('Check cancelled.');
+function checkResultMarkup() {
+  const ck = state.check;
+  if (ck.status === 'running') return '<div class="result is-running"><span class="spinner" aria-hidden="true"></span><p>Checking every way to place the pieces…</p></div>';
+  if (ck.status === 'possible') {
+    return `<div class="result is-possible"><span class="pill ok">Possible</span><p>The pieces can make this picture.</p>
+<button type="button" class="btn small primary" data-action="show-solution">${ICONS.play}Build it in the tray</button></div>`;
+  }
+  if (ck.status === 'impossible') return `<div class="result is-impossible"><span class="pill bad">Impossible</span><p>${escapeHtml(ck.reason)}</p></div>`;
+  if (ck.status === 'unknown') {
+    return `<div class="result is-unknown"><span class="pill warn">Couldn't decide</span><p>${escapeHtml(ck.reason)}</p>
+<button type="button" class="btn small" data-action="check-longer">Search longer</button></div>`;
+  }
+  if (ck.status === 'empty') return '<div class="result"><p class="muted">Paint some squares. The answer appears here as you paint.</p></div>';
+  return '<div class="result"><p class="muted">Checking…</p></div>';
 }
 
-function patternChanged() {
-  if (state.check.status !== 'idle' && state.check.status !== 'running') state.check = { status: 'idle' };
+function updateCheckResult() {
+  const box = $('#checkResult');
+  if (box) box.innerHTML = checkResultMarkup();
+  if (state.mode === 'check') {
+    const btn = document.querySelector('[data-action="add-picture-to-book"]');
+    if (btn) btn.disabled = !canAddPicture();
+  }
 }
 
-function paintCell(index) {
-  if (index < 0 || state.pattern[index] === state.paint) return;
-  state.pattern = state.pattern.slice();
-  state.pattern[index] = state.paint;
-  patternChanged();
-  render();
+function canAddPicture() {
+  const { rows, cols } = bookUI.bookTraySize();
+  return state.check.status === 'possible' && rows === state.rows && cols === state.cols && !state.pattern.includes(LOOK.ANY);
+}
+
+function setPattern(looks) {
+  state.pattern = looks;
+  scheduleCheck(state.check.status === 'idle' ? 0 : 220);
+}
+
+function paintCell(index, look) {
+  if (index < 0 || state.pattern[index] === look) return;
+  const next = state.pattern.slice();
+  next[index] = look;
+  setPattern(next);
+  renderBoard();
 }
 
 function showSolution() {
   if (state.check.status !== 'possible') return;
-  state.buildHistory.record(state.build);
+  state.history.record(state.build);
   state.build = loadPieces(state.check.pieces, state.rows, state.cols);
+  state.challenge = null;
   state.mode = 'build';
   state.view = 'top';
   render();
   setStatus('Here is one way to build the picture. Turn on X-ray to see the pieces hidden under roofs.');
 }
 
-function samplePicture(id) {
-  const sample = SAMPLES.find((s) => s.id === id);
-  const looks = sample?.make(state.rows, state.cols);
-  if (!looks) return;
-  state.pattern = looks.slice();
-  patternChanged();
-  render();
-}
-
 function pictureFromBuild() {
-  state.pattern = state.build.looks().map((l) => (l < 0 ? LOOK.ANY : l));
-  patternChanged();
+  setPattern(state.build.looks().map((l) => (l < 0 ? LOOK.ANY : l)));
   render();
-  setStatus('Copied the Build tray. Squares that are not full became “Any”.');
+  setStatus('Copied the Build tray. Squares that are not full became “any”.');
 }
 
 function randomPicture() {
   const pieces = randomArrangement(state.rows, state.cols, state.build.inventory, makeRng(Date.now() >>> 0), 0.55);
-  state.pattern = loadPieces(pieces, state.rows, state.cols).looks();
-  patternChanged();
+  setPattern(loadPieces(pieces, state.rows, state.cols).looks());
   render();
-  setStatus('A random picture that the pieces can make.');
 }
 
 function clearPicture() {
-  state.pattern = new Array(state.rows * state.cols).fill(LOOK.ANY);
-  patternChanged();
+  setPattern(emptyPicture(state.rows, state.cols));
   render();
 }
 
-// ---- Challenge ---------------------------------------------------------------------------
+// ---- Files -------------------------------------------------------------------------------
 
-function newChallenge() {
-  const ch = state.challenge;
-  const rng = makeRng((Date.now() ^ (Math.random() * 1e9)) >>> 0);
-  let best = null;
-  // Prefer pictures that use the split look a fitting number of times for the level.
-  const wantSplit = { easy: 0.08, medium: 0.25, hard: 0.42 }[ch.difficulty] * state.rows * state.cols;
-  for (let k = 0; k < 8; k += 1) {
-    const pieces = randomArrangement(state.rows, state.cols, ch.board.inventory, rng, DIFFICULTY[ch.difficulty]);
-    const looks = loadPieces(pieces, state.rows, state.cols).looks();
-    const split = looks.filter((l) => l >= 3).length;
-    const score = Math.abs(split - wantSplit);
-    if (!best || score < best.score) best = { pieces, looks, score };
+let downloadsPromise = null;
+
+function downloadsCapability() {
+  if (!downloadsPromise) {
+    const use = window.claude?.use;
+    downloadsPromise = typeof use === 'function'
+      ? Promise.race([Promise.resolve(use.call(window.claude, 'downloads')).catch(() => null), new Promise((r) => setTimeout(() => r(null), 10000))])
+      : Promise.resolve(null);
   }
-  state.challenge = { ...freshChallenge(state.rows, state.cols, ch.difficulty), target: best.looks, answer: best.pieces };
-  render();
-  setStatus('New challenge: fill the tray so it shows the picture.');
+  return downloadsPromise;
 }
 
-function challengeProgress() {
-  const { board, target } = state.challenge;
-  const looks = board.looks();
-  let match = 0;
-  // Only squares that are already full but show the wrong look count as mistakes.
-  const mismatch = looks.map((l, i) => {
-    const ok = l >= 0 && (target[i] === LOOK.ANY || l === target[i]);
-    if (ok) match += 1;
-    return l >= 0 && !ok;
-  });
-  return { match, total: looks.length, mismatch };
-}
-
-function afterChallengeMove() {
-  const ch = state.challenge;
-  if (!ch.target || ch.solved) return;
-  const prog = challengeProgress();
-  if (prog.match === prog.total && ch.board.isComplete()) {
-    ch.solved = true;
-    setTimeout(() => setStatus(`Solved in ${ch.moves} moves!`, true, 'ok'), 0);
-    celebrate();
+/** Offer a file to the viewer. Resolves 'saved', 'declined' or 'failed'. */
+async function saveFile(filename, data, mime) {
+  const cap = await downloadsCapability();
+  if (cap) {
+    try {
+      await cap.save({ filename, data });
+      return 'saved';
+    } catch (err) {
+      if (err?.code === 'declined') return 'declined';
+      if (err?.code === 'rate_limited') {
+        setStatus('Another download is waiting for your answer.', true, 'bad');
+        return 'failed';
+      }
+      // Fall back to a normal browser download below.
+    }
   }
-}
-
-function celebrate() {
-  const wrap = $('#boardWrap');
-  wrap.classList.remove('is-win');
-  void wrap.offsetWidth;
-  wrap.classList.add('is-win');
-}
-
-async function revealAnswer() {
-  const ch = state.challenge;
-  if (!ch.answer) return;
-  if (!ch.solved && !(await confirmDialog('Show the answer? Your pieces in the tray will be replaced.', 'Show answer'))) return;
-  ch.history.record(ch.board);
-  ch.board = loadPieces(ch.answer, state.rows, state.cols);
-  ch.revealed = true;
-  ch.solved = true;
-  render();
-  setStatus('This is the arrangement the picture was made from. Other arrangements can make it too.');
-}
-
-function restartChallenge() {
-  const ch = state.challenge;
-  ch.history.record(ch.board);
-  ch.board = new Board(state.rows, state.cols);
-  ch.moves = 0;
-  ch.solved = false;
-  ch.revealed = false;
-  render();
+  try {
+    const blob = data instanceof Blob ? data : new Blob([data], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return 'saved';
+  } catch {
+    return 'failed';
+  }
 }
 
 // ---- Dialog ------------------------------------------------------------------------------
@@ -1022,38 +1025,42 @@ function confirmDialog(message, okLabel) {
   });
 }
 
-// ---- Events ------------------------------------------------------------------------------
+// ---- Board events ------------------------------------------------------------------------
 
 function svgPoint(evt) {
-  const svg = $('#board');
-  const m = svg.getScreenCTM();
+  const m = $('#board').getScreenCTM();
   if (!m) return null;
-  const pt = new DOMPoint(evt.clientX, evt.clientY).matrixTransform(m.inverse());
-  return pt;
+  return new DOMPoint(evt.clientX, evt.clientY).matrixTransform(m.inverse());
 }
 
-function hoverFromEvent(evt) {
+/** What the pointer is over: { r, c, fx, fy } in the top view, { r, c, id } in 3D. */
+function pointerTarget(evt) {
+  if (state.mode === 'build' && state.view === '3d') {
+    const el = document.elementFromPoint(evt.clientX, evt.clientY);
+    const face = el?.closest?.('#board [data-cell]');
+    if (!face) return null;
+    const [r, c] = face.dataset.cell.split(',').map(Number);
+    return { r, c, id: Number(face.dataset.id || 0) || null };
+  }
   const p = svgPoint(evt);
-  if (!p) return null;
-  return cellFromPoint(state.rows, state.cols, p.x, p.y);
+  return p ? cellFromPoint(state.rows, state.cols, p.x, p.y) : null;
 }
 
-function sameHover(a, b) {
+function sameTarget(a, b) {
   if (!a || !b) return a === b;
   if (a.r !== b.r || a.c !== b.c) return false;
-  if (state.tool !== 'pickup') return true;
-  return activeBoard().pieceAt(a.r, a.c, a.fx, a.fy) === activeBoard().pieceAt(b.r, b.c, b.fx, b.fy);
+  if (state.tool === 'place' && state.selected) return true;
+  const idA = a.id ?? state.build.pieceAt(a.r, a.c, a.fx, a.fy);
+  const idB = b.id ?? state.build.pieceAt(b.r, b.c, b.fx, b.fy);
+  return idA === idB;
 }
 
 function onPointerMove(evt) {
   if (!pointer.down) pointer.type = evt.pointerType;
-  if (state.mode !== 'check' && state.view === '3d') return;
-  const h = hoverFromEvent(evt);
+  const h = pointerTarget(evt);
   if (state.mode === 'check') {
     const index = h ? h.r * state.cols + h.c : -1;
-    if (pointer.down && index >= 0) {
-      paintCell(index);
-    }
+    if (pointer.down && index >= 0) paintCell(index, pointer.erase ? LOOK.ANY : state.paint);
     if (index !== state.hoverCell) {
       state.hoverCell = index;
       renderBoard();
@@ -1061,7 +1068,7 @@ function onPointerMove(evt) {
     return;
   }
   if (!pointer.down && evt.pointerType !== 'mouse') return;
-  if (!sameHover(h, state.hover)) {
+  if (!sameTarget(h, state.hover)) {
     state.hover = h;
     renderBoard();
   } else if (h) {
@@ -1070,21 +1077,28 @@ function onPointerMove(evt) {
 }
 
 function onPointerDown(evt) {
-  if (evt.button !== 0) return;
-  if (state.mode !== 'check' && state.view === '3d') {
-    setStatus('Switch to the top view to place or pick up pieces.', true);
+  const right = evt.button === 2;
+  if (evt.button !== 0 && !right) return;
+  pointer.type = evt.pointerType;
+  const h = pointerTarget(evt);
+  if (state.mode === 'check') {
+    $('#board').setPointerCapture?.(evt.pointerId);
+    pointer.down = true;
+    pointer.id = evt.pointerId;
+    pointer.erase = right;
+    if (h) paintCell(h.r * state.cols + h.c, right ? LOOK.ANY : state.paint);
+    evt.preventDefault();
     return;
   }
-  const svg = $('#board');
-  svg.setPointerCapture?.(evt.pointerId);
+  if (right) {
+    // Right-click removes, whatever tool is on.
+    evt.preventDefault();
+    if (h) removeAt(h);
+    return;
+  }
+  if (state.view !== '3d') $('#board').setPointerCapture?.(evt.pointerId);
   pointer.down = true;
   pointer.id = evt.pointerId;
-  pointer.type = evt.pointerType;
-  const h = hoverFromEvent(evt);
-  if (state.mode === 'check') {
-    if (h) paintCell(h.r * state.cols + h.c);
-    return;
-  }
   state.hover = h;
   renderBoard();
   evt.preventDefault();
@@ -1094,12 +1108,11 @@ function onPointerUp(evt) {
   if (!pointer.down || evt.pointerId !== pointer.id) return;
   pointer.down = false;
   if (state.mode === 'check') return;
-  const h = hoverFromEvent(evt) ?? null;
+  const h = pointerTarget(evt);
   if (h) {
     state.hover = h;
-    if (state.tool === 'pickup') pickUpAt(h);
-    else if (state.selected) placeAt(h);
-    else pickUpAt(h);
+    if (state.tool === 'remove' || !state.selected) removeAt(h);
+    else placeAt(h);
   }
   if (evt.pointerType !== 'mouse') {
     state.hover = null;
@@ -1116,26 +1129,12 @@ function onPointerLeave() {
   }
 }
 
-function onContextMenu(evt) {
-  if (state.mode === 'check' || state.view === '3d') return;
-  evt.preventDefault();
-  // Right-click picks up with a mouse; a long press on a touch screen does nothing, so a
-  // slow tap never removes a piece by accident.
-  if (pointer.type !== 'mouse') return;
-  const h = hoverFromEvent(evt);
-  if (h) pickUpAt(h);
-}
-
 function moveCursor(dr, dc) {
-  const h = state.hover ?? { r: 0, c: 0, fx: 0.5, fy: 0.5 };
+  const h = state.hover ?? { r: 0, c: 0 };
   const r = Math.max(0, Math.min(state.rows - 1, h.r + dr));
   const c = Math.max(0, Math.min(state.cols - 1, h.c + dc));
-  if (state.mode === 'check') {
-    state.hoverCell = r * state.cols + c;
-    state.hover = { r, c, fx: 0.5, fy: 0.5 };
-  } else {
-    state.hover = { r, c, fx: 0.5, fy: 0.5 };
-  }
+  state.hover = { r, c, fx: 0.5, fy: 0.5 };
+  if (state.mode === 'check') state.hoverCell = r * state.cols + c;
   renderBoard();
 }
 
@@ -1152,20 +1151,23 @@ function onBoardKey(evt) {
       moveCursor(0, 0);
       return;
     }
-    if (state.mode === 'check') paintCell(state.hover.r * state.cols + state.hover.c);
-    else if (state.view !== '3d') {
-      if (state.tool === 'pickup' || !state.selected) pickUpAt(state.hover);
-      else placeAt(state.hover);
-    }
-  } else if ((evt.key === 'Delete' || evt.key === 'Backspace') && state.hover && state.mode !== 'check') {
+    if (state.mode === 'check') paintCell(state.hover.r * state.cols + state.hover.c, state.paint);
+    else if (state.tool === 'remove' || !state.selected) removeAt({ ...state.hover, id: null });
+    else placeAt(state.hover);
+  } else if ((evt.key === 'Delete' || evt.key === 'Backspace') && state.hover) {
     evt.preventDefault();
-    pickUpAt(state.hover);
+    if (state.mode === 'check') paintCell(state.hover.r * state.cols + state.hover.c, LOOK.ANY);
+    else removeAt({ ...state.hover, id: null });
   }
 }
 
 function onGlobalKey(evt) {
   if (!$('#modal').hidden) return;
   if (evt.target.closest?.('input, textarea, select')) return;
+  if (state.mode === 'book') {
+    bookUI.onKey(evt);
+    return;
+  }
   const key = evt.key.toLowerCase();
   if ((evt.ctrlKey || evt.metaKey) && key === 'z') {
     evt.preventDefault();
@@ -1178,17 +1180,13 @@ function onGlobalKey(evt) {
     redo();
     return;
   }
-  if (evt.ctrlKey || evt.metaKey || evt.altKey) return;
-  if (state.mode === 'check') return;
+  if (evt.ctrlKey || evt.metaKey || evt.altKey || state.mode !== 'build') return;
   if (key === 'r') turn();
   else if (key === 'f') flip();
   else if (key === 't') tip();
-  else if (['1', '2', '3', '4'].includes(key)) {
-    state.selected = KINDS[Number(key) - 1];
-    state.tool = 'place';
-    render();
-  } else if (key === 'p') toggleTool();
-  else if (key === 'x') {
+  else if (['1', '2', '3', '4'].includes(key)) ACTIONS.select({ dataset: { kind: KINDS[Number(key) - 1] } });
+  else if (key === 'p') toggleRemove();
+  else if (key === 'x' && state.view !== '3d') {
     state.xray = !state.xray;
     render();
   } else if (key === 'v') toggleView();
@@ -1198,8 +1196,8 @@ function onGlobalKey(evt) {
   }
 }
 
-function toggleTool() {
-  state.tool = state.tool === 'pickup' ? 'place' : 'pickup';
+function toggleRemove() {
+  state.tool = state.tool === 'remove' ? 'place' : 'remove';
   resetStatus();
   render();
 }
@@ -1230,19 +1228,23 @@ const ACTIONS = {
   tip,
   undo,
   redo,
-  pickup: toggleTool,
+  remove: toggleRemove,
   xray: () => {
     state.xray = !state.xray;
     render();
   },
   view: toggleView,
-  'turn-view-left': () => {
-    state.azimuth = (state.azimuth + 90) % 360;
-    render();
+  'view-left': () => {
+    state.azimuth = (state.azimuth + 45) % 360;
+    renderBoard();
   },
-  'turn-view-right': () => {
-    state.azimuth = (state.azimuth + 270) % 360;
-    render();
+  'view-right': () => {
+    state.azimuth = (state.azimuth + 315) % 360;
+    renderBoard();
+  },
+  'view-reset': () => {
+    state.azimuth = 0;
+    renderBoard();
   },
   'size-inc': (el) => {
     state.sizeDraft = { ...state.sizeDraft, [el.dataset.key]: Math.min(MAX_SIZE, state.sizeDraft[el.dataset.key] + 1) };
@@ -1253,34 +1255,28 @@ const ACTIONS = {
     renderPanel();
   },
   'apply-size': () => setSize(state.sizeDraft.rows, state.sizeDraft.cols),
-  'quick-size': (el) => {
-    const rows = Number(el.dataset.rows);
-    const cols = Number(el.dataset.cols);
-    if (rows === state.rows && cols === state.cols) return;
-    setSize(rows, cols);
-  },
+  'quick-size': (el) => setSize(Number(el.dataset.rows), Number(el.dataset.cols)),
   preset: (el) => usePreset(el.dataset.id),
   'random-fill': randomFill,
   'clear-board': clearBoard,
-  'copy-code': copyCode,
+  'copy-code': () => copyText(encodeBoard(state.build), 'Board code'),
   'load-code': loadCode,
   paint: (el) => {
     state.paint = Number(el.dataset.look);
-    renderPanel();
+    renderStageBar();
   },
-  sample: (el) => samplePicture(el.dataset.id),
   'from-build': pictureFromBuild,
   'random-picture': randomPicture,
   'clear-picture': clearPicture,
-  check: checkPicture,
-  'cancel-check': cancelCheck,
+  'check-longer': () => runCheck(LONG_CHECK_BUDGET),
   'show-solution': showSolution,
-  difficulty: (el) => {
-    state.challenge.difficulty = el.dataset.level;
-    newChallenge();
+  'add-picture-to-book': () => bookUI.addFromCheck(),
+  'new-challenge': (el) => newChallenge(Number(el.dataset.level)),
+  'next-challenge': () => newChallenge(state.challenge?.difficulty ?? 2),
+  'stop-challenge': () => {
+    state.challenge = null;
+    render();
   },
-  'new-challenge': newChallenge,
-  'restart-challenge': restartChallenge,
   reveal: revealAnswer,
 };
 
@@ -1292,8 +1288,8 @@ function onClick(evt) {
   }
   const el = evt.target.closest('[data-action]');
   if (!el || el.disabled) return;
-  const action = ACTIONS[el.dataset.action];
-  if (action) action(el);
+  const action = ACTIONS[el.dataset.action] ?? bookUI.actions[el.dataset.action];
+  if (action) action(el, evt);
 }
 
 function onTabKey(evt) {
@@ -1314,16 +1310,30 @@ function onTabKey(evt) {
 
 export function start(hotData) {
   let saved = null;
-  if (hotData && hotData.v === 1) saved = hotData;
+  if (hotData && (hotData.v === 1 || hotData.v === 2)) saved = hotData;
   else {
     try {
-      saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
+      saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(OLD_STORAGE_KEY) ?? 'null');
     } catch {
       saved = null;
     }
   }
   state = restore(saved);
+  bookUI = createBookUI({
+    getState: () => state,
+    render,
+    renderPanel,
+    setStatus,
+    confirmDialog,
+    saveFile,
+    copyText,
+    startChallenge,
+    randomChallenge,
+    setSize,
+    scheduleSave,
+  });
   window.claude?.hot?.snapshot?.(() => snapshot());
+  downloadsCapability();
 
   const svg = $('#board');
   svg.addEventListener('pointermove', onPointerMove);
@@ -1335,13 +1345,10 @@ export function start(hotData) {
     renderBoard();
   });
   svg.addEventListener('pointerleave', onPointerLeave);
-  svg.addEventListener('contextmenu', onContextMenu);
+  svg.addEventListener('contextmenu', (evt) => evt.preventDefault());
   svg.addEventListener('keydown', onBoardKey);
-  svg.addEventListener('blur', () => {
-    if (state.hover && pointer.type !== 'mouse') {
-      state.hover = null;
-      renderBoard();
-    }
+  document.addEventListener('pointerup', () => {
+    pointer.down = false;
   });
   document.addEventListener('click', onClick);
   document.addEventListener('keydown', onGlobalKey);
@@ -1349,7 +1356,9 @@ export function start(hotData) {
   $('#panel').addEventListener('keydown', (evt) => {
     if (evt.key === 'Enter' && evt.target.id === 'codeIn') loadCode();
   });
+  bookUI.attach();
+  if (state.mode === 'check') scheduleCheck(0);
   render();
 }
 
-export const _test = { describeOrientation, failureText, SAMPLES, isCap };
+export const _test = { describeOrientation, failureText, KIND_INFO };

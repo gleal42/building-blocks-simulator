@@ -43,7 +43,7 @@ function shade(paletteKey, normal) {
   const lambert = Math.max(0, dot(normal, LIGHT));
   const t = Math.min(1, 0.22 + 0.82 * lambert);
   const c = dark.map((x, i) => Math.round(x + (light[i] - x) * t));
-  return `rgb(${c[0]},${c[1]},${c[2]})`;
+  return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
 /** Faces of a convex solid with outward normals: [{ pts: [[x,y,z]], normal }]. */
@@ -141,8 +141,12 @@ function layerOf(h) {
   return 1;
 }
 
-/** SVG markup for a rotation icon of one piece. */
-export function pieceIcon(type, color, o, { size = 56, azimuth = 30, elevation = 36 } = {}) {
+/**
+ * Polygons of a piece seen from the front and above (the same view for every icon, so
+ * a piece pointing right is drawn pointing right). Returns { floor, faces, box } in
+ * drawing units; box = { x, y, w, h } is a frame shared by all pieces of the same type.
+ */
+export function pieceIconShapes(type, color, o, { azimuth = 0, elevation = 57 } = {}) {
   const camera = makeCamera(azimuth, elevation);
   // Footprint (squares the piece stands on), with the cube's square at the origin.
   const cells = [[0, 0]];
@@ -154,7 +158,7 @@ export function pieceIcon(type, color, o, { size = 56, azimuth = 30, elevation =
   } else {
     solid = halfSolid(o);
   }
-  const footprint = cells.map(([x, y]) => [[x, y, 0], [x + 1, y, 0], [x + 1, y + 1, 0], [x, y + 1, 0]]);
+  const floor = cells.map(([x, y]) => [[x, y, 0], [x + 1, y, 0], [x + 1, y + 1, 0], [x, y + 1, 0]].map(camera.project));
   // Frame of a fixed size centred on the footprint, so all icons of a kind share one scale.
   const cx = cells.reduce((acc, q) => acc + q[0] + 0.5, 0) / cells.length;
   const cy = cells.reduce((acc, q) => acc + q[1] + 0.5, 0) / cells.length;
@@ -166,22 +170,29 @@ export function pieceIcon(type, color, o, { size = 56, azimuth = 30, elevation =
   const minY = Math.min(...frame.map((p) => p[1]));
   const maxY = Math.max(...frame.map((p) => p[1]));
   const pad = 0.06;
-  const w = maxX - minX + 2 * pad;
-  const h = maxY - minY + 2 * pad;
-  const vb = `${fmt3(minX - pad)} ${fmt3(minY - pad)} ${fmt3(w)} ${fmt3(h)}`;
-  const edge = color === 'W' ? 'rgba(70,68,60,0.75)' : 'rgba(205,212,222,0.45)';
-  const shadow = footprint
-    .map((quad) => `<polygon points="${quad.map((p) => camera.project(p).map(fmt3).join(',')).join(' ')}" class="icon-floor"/>`)
-    .join('');
-  const body = facesOf(solid, (p) => p)
+  const edge = color === 'W' ? '#6b685f' : '#8d949d';
+  const faces = facesOf(solid, (p) => p)
     .filter((f) => dot(f.normal, camera.d) > 1e-6)
-    .map((f) => polygonSvg(f.pts.map(camera.project), shade(color, f.normal), edge, 0.022))
-    .join('');
-  return `<svg viewBox="${vb}" width="${size}" height="${Math.round((size * h) / w)}" aria-hidden="true" focusable="false">${shadow}${body}</svg>`;
+    .map((f) => ({ pts: f.pts.map(camera.project), fill: shade(color, f.normal), stroke: edge }));
+  return { floor, faces, box: { x: minX - pad, y: minY - pad, w: maxX - minX + 2 * pad, h: maxY - minY + 2 * pad } };
 }
 
-/** SVG markup of the whole board in 3D. */
-export function board3d(board, { azimuth = 22, elevation = 48 } = {}) {
+/** SVG markup for a rotation icon of one piece. */
+export function pieceIcon(type, color, o, { size = 56, azimuth = 0, elevation = 57 } = {}) {
+  const { floor, faces, box } = pieceIconShapes(type, color, o, { azimuth, elevation });
+  const vb = `${fmt3(box.x)} ${fmt3(box.y)} ${fmt3(box.w)} ${fmt3(box.h)}`;
+  const shadow = floor.map((quad) => `<polygon points="${quad.map((p) => p.map(fmt3).join(',')).join(' ')}" class="icon-floor"/>`).join('');
+  const body = faces.map((f) => polygonSvg(f.pts, f.fill, f.stroke, 0.022)).join('');
+  return `<svg viewBox="${vb}" width="${size}" height="${Math.round((size * box.h) / box.w)}" aria-hidden="true" focusable="false">${shadow}${body}</svg>`;
+}
+
+/**
+ * SVG markup of the whole board in 3D. Every face of a piece carries data-cell="r,c" and
+ * data-id, and the floor is drawn square by square with data-cell, so a pointer can be
+ * mapped to what it touches with document.elementFromPoint().
+ * opts: { azimuth, elevation, ghost: { piece, ok }, hoverId }
+ */
+export function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hoverId = 0 } = {}) {
   const camera = makeCamera(azimuth, elevation);
   const R = board.rows;
   const C = board.cols;
@@ -207,37 +218,79 @@ export function board3d(board, { azimuth = 22, elevation = 48 } = {}) {
     }
   };
   pushSolid(base, 'tray', 0);
-  const floor = [[0, 0, 0.001], [C, 0, 0.001], [C, R, 0.001], [0, R, 0.001]];
-  shapes.push({ pts: floor, fill: shade('floor', [0, 0, 1]), tier: 1, order: 0 });
+  const floorFill = shade('floor', [0, 0, 1]);
+  for (let r = 0; r < R; r += 1) {
+    for (let c = 0; c < C; c += 1) {
+      const y0 = R - 1 - r;
+      shapes.push({
+        pts: [[c, y0, 0.001], [c + 1, y0, 0.001], [c + 1, y0 + 1, 0.001], [c, y0 + 1, 0.001]],
+        fill: floorFill,
+        stroke: 'rgba(110,84,40,0.35)',
+        width: 0.02,
+        tier: 1,
+        order: 0,
+        attrs: ` data-cell="${r},${c}"`,
+      });
+    }
+  }
   const centreDepth = camera.depth([C / 2, R / 2, 0]);
   for (const wall of walls) {
     const mid = wall.toWorld([0.5, 0.5, 0.5]);
     pushSolid(wall, 'tray', camera.depth(mid) < centreDepth ? 2 : 4, camera.depth(mid));
   }
   // Pieces, square by square from the back to the front; lower halves before upper ones.
-  const parts = [];
   for (const piece of board.pieces.values()) {
-    for (const part of pieceParts(piece, R, 0.035)) parts.push({ part, color: piece.color });
-  }
-  for (const { part, color } of parts) {
-    const [r, c] = part.cell;
-    const cellDepth = camera.depth([c + 0.5, R - 1 - r + 0.5, 0]);
-    const faces = facesOf(part.solid, part.toWorld);
-    const partDepth = camera.depth(faces.reduce((a, f) => [a[0] + f.centre[0], a[1] + f.centre[1], a[2] + f.centre[2]], [0, 0, 0]).map((x) => x / faces.length));
-    for (const face of faces) {
-      if (dot(face.normal, camera.d) <= 1e-6) continue;
-      shapes.push({ pts: face.pts, fill: shade(color, face.normal), tier: 3, order: cellDepth * 1000 + part.layer * 10 + partDepth * 0.01 });
+    const hot = piece.id === hoverId;
+    for (const part of pieceParts(piece, R, 0.035)) {
+      const [r, c] = part.cell;
+      const cellDepth = camera.depth([c + 0.5, R - 1 - r + 0.5, 0]);
+      const faces = facesOf(part.solid, part.toWorld);
+      const partDepth = camera.depth(faces.reduce((a, f) => [a[0] + f.centre[0], a[1] + f.centre[1], a[2] + f.centre[2]], [0, 0, 0]).map((x) => x / faces.length));
+      for (const face of faces) {
+        if (dot(face.normal, camera.d) <= 1e-6) continue;
+        const fill = shade(piece.color, face.normal);
+        shapes.push({
+          pts: face.pts,
+          fill,
+          stroke: hot ? 'var(--accent, #2b55d4)' : fill,
+          width: hot ? 0.05 : 0.012,
+          tier: 3,
+          order: cellDepth * 1000 + part.layer * 10 + partDepth * 0.01,
+          attrs: ` data-cell="${r},${c}" data-id="${piece.id}"`,
+        });
+      }
     }
   }
   shapes.sort((a, b) => a.tier - b.tier || a.order - b.order);
-  const all = shapes.flatMap((s) => s.pts.map(camera.project));
-  const minX = Math.min(...all.map((p) => p[0]));
-  const maxX = Math.max(...all.map((p) => p[0]));
-  const minY = Math.min(...all.map((p) => p[1]));
-  const maxY = Math.max(...all.map((p) => p[1]));
+  // The frame depends only on the tray, so it stays still while the pointer moves.
+  const corners = [];
+  for (const x of [-rim, C + rim]) for (const y of [-rim, R + rim]) for (const z of [-0.18, 1]) corners.push(camera.project([x, y, z]));
+  const minX = Math.min(...corners.map((p) => p[0]));
+  const maxX = Math.max(...corners.map((p) => p[0]));
+  const minY = Math.min(...corners.map((p) => p[1]));
+  const maxY = Math.max(...corners.map((p) => p[1]));
   const pad = 0.3;
   const vb = `${fmt(minX - pad)} ${fmt(minY - pad)} ${fmt(maxX - minX + 2 * pad)} ${fmt(maxY - minY + 2 * pad)}`;
-  const body = shapes.map((s) => polygonSvg(s.pts.map(camera.project), s.fill)).join('');
+  const polygon = (sh) => {
+    const d = sh.pts.map(camera.project).map(([x, y]) => `${fmt3(x)},${fmt3(y)}`).join(' ');
+    return `<polygon points="${d}" fill="${sh.fill}" stroke="${sh.stroke ?? sh.fill}" stroke-width="${sh.width ?? 0.012}" stroke-linejoin="round"${sh.attrs ?? ''}/>`;
+  };
+  let body = shapes.map(polygon).join('');
+  if (ghost) {
+    // The piece about to be placed, drawn see-through on top (it does not catch the pointer).
+    const faces = [];
+    for (const part of pieceParts(ghost.piece, R, 0.035)) {
+      for (const face of facesOf(part.solid, part.toWorld)) {
+        if (dot(face.normal, camera.d) <= 1e-6) continue;
+        faces.push({ face, depth: camera.depth(face.centre) + part.layer * 0.001 });
+      }
+    }
+    faces.sort((a, b) => a.depth - b.depth);
+    const line = ghost.ok ? 'var(--accent, #2b55d4)' : 'var(--bad, #bf3a2b)';
+    body += `<g class="ghost3d${ghost.ok ? '' : ' is-bad'}">${faces
+      .map(({ face }) => polygonSvg(face.pts.map(camera.project), shade(ghost.piece.color, face.normal), line, 0.03))
+      .join('')}</g>`;
+  }
   return { viewBox: vb, markup: body, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
 }
 
