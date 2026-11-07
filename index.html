@@ -1,0 +1,3786 @@
+<!DOCTYPE html>
+<!-- Built by "npm run build" from the files in src/. Edit those, not this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Place cube + prism pieces and loose prisms in a tray, turn them every way they can go, and check which black-and-white pictures can be made.">
+<title>Building Blocks Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;family=Unbounded:wght@500;700&amp;display=swap">
+<style>:root {
+  /* Layout: the tray is the hero, lying on a tabletop; the controls sit beside it like a
+     parts bin (below it on phones). */
+  --table: #e8e2d4;
+  --table-deep: #dcd3c0;
+  --panel: #f8f5ee;
+  --ink: #1c1b18;
+  --muted: #696354;
+  --line: #d6cdb9;
+  --accent: #2b55d4;
+  --accent-ink: #ffffff;
+  --ok: #1f7a4a;
+  --bad: #bf3a2b;
+  --warn: #9a6200;
+  --weave: rgba(80, 64, 30, 0.05);
+  --font-display: "Unbounded", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --table: #23221c;
+    --table-deep: #1a1914;
+    --panel: #2d2b24;
+    --ink: #f1ebde;
+    --muted: #b1a891;
+    --line: #48432f;
+    --accent: #8ba6ff;
+    --accent-ink: #10131d;
+    --ok: #63c891;
+    --bad: #ff8371;
+    --warn: #f2b552;
+    --weave: rgba(255, 240, 200, 0.035);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --table: #23221c;
+  --table-deep: #1a1914;
+  --panel: #2d2b24;
+  --ink: #f1ebde;
+  --muted: #b1a891;
+  --line: #48432f;
+  --accent: #8ba6ff;
+  --accent-ink: #10131d;
+  --ok: #63c891;
+  --bad: #ff8371;
+  --warn: #f2b552;
+  --weave: rgba(255, 240, 200, 0.035);
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--table);
+  background-image:
+    repeating-linear-gradient(45deg, var(--weave) 0 2px, transparent 2px 5px),
+    repeating-linear-gradient(-45deg, var(--weave) 0 1px, transparent 1px 6px);
+  color: var(--ink);
+  font: 15px/1.45 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 16px 28px;
+}
+
+/* ---- Header ---------------------------------------------------------------------------- */
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.brand h1 span {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--table-deep);
+}
+
+.tabs button {
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.tabs button[aria-selected="true"] {
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  /* The active tab carries the puzzle's own motif: a corner split into black and white. */
+  background-image: linear-gradient(135deg, transparent 82%, var(--ink) 82%);
+}
+
+/* ---- Layout ---------------------------------------------------------------------------- */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 14px;
+}
+
+@media (min-width: 920px) {
+  .layout {
+    grid-template-columns: minmax(0, 1.3fr) minmax(330px, 0.85fr);
+    align-items: start;
+  }
+
+  .stage {
+    position: sticky;
+    top: 12px;
+  }
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.board-wrap {
+  border-radius: 18px;
+}
+
+.board-wrap svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(70vh, 780px);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: crosshair;
+  border-radius: 18px;
+}
+
+.board-wrap svg.is-pickup {
+  cursor: grab;
+}
+
+.board-wrap svg.is-3d {
+  cursor: default;
+}
+
+body[data-mode="check"] .board-wrap svg {
+  cursor: cell;
+}
+
+.status {
+  min-height: 2.9em;
+  margin: 0;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.status[data-tone="bad"] {
+  color: var(--bad);
+}
+
+.status[data-tone="ok"] {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.stage-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--panel);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.tool:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.tool[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats b {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+
+.target-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.target-mini svg {
+  width: auto;
+  height: 56px;
+  border-radius: 4px;
+}
+
+.target-mini p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* ---- Panel ----------------------------------------------------------------------------- */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.card {
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+}
+
+.card h2 {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.hint {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font: 600 12px/1.5 var(--font-body);
+  text-align: center;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.btn.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.btn.wide {
+  width: 100%;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.row-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.chip svg {
+  width: 16px;
+  height: 16px;
+}
+
+.chip.is-on {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--panel);
+}
+
+/* Parts bin: compartments in the colour of the tray. */
+.bin {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.bin-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 74px;
+  padding: 6px 10px 6px 6px;
+  border: 2px solid transparent;
+  border-radius: 13px;
+  background: linear-gradient(180deg, #d2b67e, #e3cb96 30%, #e8d3a3);
+  box-shadow: inset 0 2px 5px rgba(80, 55, 15, 0.35);
+  color: #2a2418;
+  text-align: left;
+}
+
+.bin-slot.is-selected {
+  border-color: var(--accent);
+  box-shadow: inset 0 2px 5px rgba(80, 55, 15, 0.35), 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.bin-slot.is-empty .bin-icon {
+  opacity: 0.4;
+}
+
+.bin-icon {
+  display: grid;
+  place-items: center;
+  width: 70px;
+  flex: none;
+}
+
+.bin-icon svg {
+  max-width: 70px;
+  height: auto;
+}
+
+.bin-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bin-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+}
+
+.swatch.W {
+  background: #fafaf7;
+}
+
+.swatch.B {
+  background: #1d1f22;
+}
+
+.bin-count {
+  font-size: 13px;
+  color: #5a4f38;
+  font-variant-numeric: tabular-nums;
+}
+
+.bin-count b {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: #2a2418;
+}
+
+/* Rotation picker */
+.orient-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.orient-head,
+.orient-row {
+  display: grid;
+  grid-template-columns: minmax(64px, 1fr) repeat(4, minmax(46px, 62px));
+  align-items: center;
+  gap: 4px;
+}
+
+.orient-grid.tri .orient-row {
+  grid-template-columns: minmax(64px, 1fr) repeat(4, minmax(42px, 56px));
+}
+
+.orient-head span {
+  text-align: center;
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.orient-label {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.2;
+}
+
+.orient {
+  display: grid;
+  place-items: center;
+  min-height: 46px;
+  padding: 2px;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--table) 70%, transparent);
+}
+
+.orient svg {
+  width: 100%;
+  max-width: 54px;
+  height: auto;
+}
+
+.orient:hover {
+  border-color: var(--line);
+}
+
+.orient.is-on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+}
+
+.orient-now {
+  margin: 10px 0 0;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.turn-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.icon-floor {
+  fill: rgba(120, 92, 40, 0.2);
+}
+
+/* Tray size */
+.size-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+}
+
+.stepper {
+  display: grid;
+  grid-template-columns: 38px 40px 38px;
+  grid-template-rows: auto 38px;
+  align-items: center;
+}
+
+.stepper-label {
+  grid-column: 1 / -1;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.stepper button {
+  height: 38px;
+  border: 1px solid var(--line);
+  background: transparent;
+  font-size: 18px;
+}
+
+.stepper button:first-of-type {
+  border-radius: 10px 0 0 10px;
+}
+
+.stepper button:last-of-type {
+  border-radius: 0 10px 10px 0;
+}
+
+.stepper button:disabled {
+  opacity: 0.35;
+}
+
+.stepper output {
+  display: grid;
+  place-items: center;
+  height: 38px;
+  border-block: 1px solid var(--line);
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.size-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.size-note.is-bad {
+  color: var(--bad);
+}
+
+.share {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.share summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.code-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.code-row input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--table);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+/* Paint palette */
+.palette {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 6px;
+}
+
+.swatch-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 6px 8px;
+  border: 1.5px solid var(--line);
+  border-radius: 11px;
+  background: transparent;
+  text-align: left;
+  font-size: 12.5px;
+  line-height: 1.2;
+}
+
+.swatch-btn svg {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.swatch-btn.is-on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+}
+
+/* Flat pictures */
+.fp-w {
+  fill: #f6f6f2;
+}
+
+.fp-b {
+  fill: #1d1f22;
+}
+
+.fp-any {
+  fill: #cdb27c;
+  opacity: 0.55;
+}
+
+.fp-miss {
+  fill: none;
+  stroke: var(--bad);
+  stroke-width: 1.6;
+}
+
+.flat-picture {
+  background: #b89c63;
+  border-radius: 6px;
+}
+
+.target {
+  display: flex;
+  justify-content: center;
+  padding: 10px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #d2b67e, #e8d3a3);
+}
+
+.target svg {
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  max-height: 300px;
+}
+
+.win {
+  margin: 10px 0 0;
+  color: var(--ok);
+  font-weight: 600;
+}
+
+/* Result of a check */
+.result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 12px;
+}
+
+.result p {
+  flex: 1 1 220px;
+  margin: 0;
+}
+
+.pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+
+.pill.ok {
+  background: var(--ok);
+}
+
+.pill.bad {
+  background: var(--bad);
+}
+
+.pill.warn {
+  background: var(--warn);
+}
+
+:root[data-theme="dark"] .pill,
+.pill {
+  color: var(--panel);
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ---- Board details --------------------------------------------------------------------- */
+
+.ghost-body {
+  opacity: 0.55;
+}
+
+.ghost-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 4;
+}
+
+.ghost.is-bad .ghost-line {
+  stroke: var(--bad);
+  stroke-dasharray: 10 7;
+}
+
+.ghost.is-bad .ghost-body {
+  opacity: 0.3;
+}
+
+.piece.is-hover {
+  filter: drop-shadow(0 0 5px var(--accent)) drop-shadow(0 0 2px var(--accent));
+}
+
+.piece.is-glass {
+  opacity: 0.38;
+}
+
+.glass-line {
+  fill: none;
+  stroke: #1c1b18;
+  stroke-width: 2.5;
+  stroke-dasharray: 8 6;
+}
+
+.hollow-mark {
+  fill: none;
+  stroke: #bf3a2b;
+  stroke-width: 3;
+  stroke-dasharray: 8 6;
+  opacity: 0.75;
+}
+
+.paint-hover {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 5;
+}
+
+.any-cell {
+  opacity: 0.8;
+}
+
+.piece.is-fresh {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: drop 0.18s ease-out;
+}
+
+.board-wrap.is-shake {
+  animation: shake 0.28s ease-in-out;
+}
+
+.board-wrap.is-win {
+  animation: win 1.2s ease-out;
+}
+
+/* ---- Footer and dialog ----------------------------------------------------------------- */
+
+.foot {
+  margin-top: 22px;
+  max-width: 68ch;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.foot p {
+  margin: 0;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(20, 18, 12, 0.5);
+}
+
+.modal[hidden] {
+  display: none;
+}
+
+.modal-card {
+  width: min(420px, 100%);
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+.modal-text {
+  margin: 0 0 16px;
+  font-size: 15.5px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes drop {
+  from {
+    transform: scale(1.06);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shake {
+  25% {
+    transform: translateX(-5px);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+}
+
+@keyframes win {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 70%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 26px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .piece.is-fresh,
+  .board-wrap.is-shake,
+  .board-wrap.is-win {
+    animation: none;
+  }
+
+  .spinner {
+    animation-duration: 2s;
+  }
+}
+
+@media (max-width: 520px) {
+  .app {
+    padding-inline: 12px;
+  }
+
+  .brand h1 {
+    font-size: 16px;
+  }
+
+  .tabs {
+    width: 100%;
+  }
+
+  .tabs button {
+    flex: 1;
+    padding: 8px 6px;
+    font-size: 13px;
+  }
+
+  .tool {
+    padding: 0 10px;
+    font-size: 13px;
+  }
+
+  .tools .tool[data-action="undo"] span,
+  .tools .tool[data-action="redo"] span,
+  .tools .tool[data-action^="turn-view"] span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .target-mini svg {
+    height: 72px;
+  }
+
+  .bin {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .bin-icon {
+    width: 56px;
+  }
+
+  .bin-icon svg {
+    max-width: 56px;
+  }
+
+  .orient-head,
+  .orient-row {
+    grid-template-columns: 58px repeat(4, minmax(0, 1fr));
+  }
+
+  .orient-grid.tri .orient-row {
+    grid-template-columns: 58px repeat(4, minmax(0, 1fr));
+  }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 40 40" width="38" height="38" aria-hidden="true">
+        <rect x="1" y="1" width="38" height="38" rx="8" fill="#e6cf9b" stroke="#b49a63"/>
+        <rect x="6" y="6" width="13" height="13" rx="2" fill="#f7f7f4"/>
+        <path d="M21 6h13v13Z" fill="#1d1f22"/><path d="M21 6v13h13Z" fill="#f7f7f4"/>
+        <path d="M6 21h13v13Z" fill="#f7f7f4"/><path d="M6 21v13h13Z" fill="#1d1f22"/>
+        <rect x="21" y="21" width="13" height="13" rx="2" fill="#1d1f22"/>
+      </svg>
+      <h1>Building Blocks <span>Simulator</span></h1>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Mode">
+      <button type="button" role="tab" data-tab="build" aria-selected="true">Build</button>
+      <button type="button" role="tab" data-tab="check" aria-selected="false" tabindex="-1">Check a picture</button>
+      <button type="button" role="tab" data-tab="challenge" aria-selected="false" tabindex="-1">Challenge</button>
+    </nav>
+  </header>
+  <main class="layout">
+    <section class="stage" aria-label="Tray">
+      <div class="board-wrap" id="boardWrap">
+        <svg id="board" role="application" tabindex="0" aria-label="Tray" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <p class="status" id="status" aria-live="polite"></p>
+      <div class="stage-bar" id="stageBar"></div>
+    </section>
+    <aside class="panel" id="panel" aria-label="Controls"></aside>
+  </main>
+  <footer class="foot">
+    <p>Every 2 squares of a tray come with one cube + prism and one loose prism; half the pieces are white, half black. A cube always shows as a full square, so at most half the squares can show a split.</p>
+  </footer>
+</div>
+<div class="modal" id="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalText">
+    <p class="modal-text" id="modalText"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn" data-answer="no">Cancel</button>
+      <button type="button" class="btn primary" data-answer="yes">OK</button>
+    </div>
+  </div>
+</div>
+<script>(() => {
+  // src/geometry.js
+  var N = 0;
+  var E = 1;
+  var S = 2;
+  var W = 3;
+  var SIDE_NAMES = ["N", "E", "S", "W"];
+  var DR = [-1, 0, 1, 0];
+  var DC = [0, 1, 0, -1];
+  var opposite = (side) => (side + 2) % 4;
+  var HALVES = [
+    "U_NW",
+    "U_NE",
+    "U_SE",
+    "U_SW",
+    "R_N",
+    "R_E",
+    "R_S",
+    "R_W",
+    "O_N",
+    "O_E",
+    "O_S",
+    "O_W"
+  ];
+  var HALF = Object.freeze(Object.fromEntries(HALVES.map((name, i) => [name, i])));
+  var COMPLEMENT = Object.freeze([2, 3, 0, 1, 10, 11, 8, 9, 6, 7, 4, 5]);
+  var PAIRS = Object.freeze([
+    [0, 2],
+    // upright, split along "/" (NW + SE)
+    [1, 3],
+    // upright, split along "\" (NE + SW)
+    [4, 10],
+    // lying, ramp high at N + overhang thick at S
+    [5, 11],
+    [6, 8],
+    [7, 9]
+  ]);
+  var isUpright = (h) => h < 4;
+  var isRamp = (h) => h >= 4 && h < 8;
+  var isCap = (h) => h >= 8;
+  var thickSide = (h) => isUpright(h) ? -1 : (h - 4) % 4;
+  var SOURCE_SIDES = Object.freeze([
+    [N, W],
+    [N, E],
+    [S, E],
+    [S, W],
+    [N],
+    [E],
+    [S],
+    [W],
+    [N],
+    [E],
+    [S],
+    [W]
+  ]);
+  var HALVES_FROM_SIDE = Object.freeze(
+    [0, 1, 2, 3].map((side) => HALVES.map((_, h) => h).filter((h) => SOURCE_SIDES[h].includes(side)))
+  );
+  function cornerOf(a, b) {
+    const has = (s) => a === s || b === s;
+    if (has(N) && has(W)) return 0;
+    if (has(N) && has(E)) return 1;
+    if (has(S) && has(E)) return 2;
+    return 3;
+  }
+  function mixWedgeHalf(dir, pose) {
+    const shared = opposite(dir);
+    if (pose === 2) return 4 + shared;
+    if (pose === 3) return 8 + shared;
+    const side = pose === 0 ? (dir + 3) % 4 : (dir + 1) % 4;
+    return cornerOf(shared, side);
+  }
+  var MIX_ORIENTS = Object.freeze(
+    Array.from({ length: 16 }, (_, o) => {
+      const dir = o >> 2;
+      const pose = o & 3;
+      return Object.freeze({ o, dir, pose, half: mixWedgeHalf(dir, pose) });
+    })
+  );
+  function mixOrientFor(dir, half) {
+    const found = MIX_ORIENTS.find((m) => m.dir === dir && m.half === half);
+    if (!found) throw new Error(`No cube+prism orientation puts half ${HALVES[half]} towards ${SIDE_NAMES[dir]}`);
+    return found.o;
+  }
+  var rotateMix = (o) => ((o >> 2) + 1) % 4 * 4 + (o & 3);
+  var flipMix = (o) => o & ~3 | [1, 0, 3, 2][o & 3];
+  var tipMix = (o) => o & ~3 | [3, 2, 0, 1][o & 3];
+  function rotateTri(h) {
+    const group = h >> 2;
+    return group * 4 + ((h & 3) + 1) % 4;
+  }
+  function flipTri(h) {
+    if (isUpright(h)) return [1, 0, 3, 2][h];
+    return isRamp(h) ? h + 4 : h - 4;
+  }
+  var tipTri = (h) => (h + 4) % 12;
+  var LOOK = Object.freeze({
+    ANY: 0,
+    WHITE: 1,
+    BLACK: 2,
+    SLASH_WB: 3,
+    // split along "/" : white top-left, black bottom-right
+    SLASH_BW: 4,
+    // split along "/" : black top-left, white bottom-right
+    BACK_WB: 5,
+    // split along "\" : white top-right, black bottom-left
+    BACK_BW: 6
+    // split along "\" : black top-right, white bottom-left
+  });
+  var isDiagonalLook = (look) => look >= 3;
+  var solidLook = (color) => color === 0 ? LOOK.WHITE : LOOK.BLACK;
+  function splitLook(h1, c1, h2, c2) {
+    if (COMPLEMENT[h1] !== h2) throw new Error(`${HALVES[h1]} and ${HALVES[h2]} do not fill a square`);
+    if (isUpright(h1)) {
+      if (h1 === 0 || h1 === 2) {
+        const nw = h1 === 0 ? c1 : c2;
+        const se = h1 === 0 ? c2 : c1;
+        if (nw === se) return solidLook(nw);
+        return nw === 0 ? LOOK.SLASH_WB : LOOK.SLASH_BW;
+      }
+      const ne = h1 === 1 ? c1 : c2;
+      const sw = h1 === 1 ? c2 : c1;
+      if (ne === sw) return solidLook(ne);
+      return ne === 0 ? LOOK.BACK_WB : LOOK.BACK_BW;
+    }
+    return solidLook(isCap(h1) ? c1 : c2);
+  }
+  function diagonalHalfColor(look, h) {
+    switch (look) {
+      case LOOK.SLASH_WB:
+        return h === 0 ? 0 : h === 2 ? 1 : -1;
+      case LOOK.SLASH_BW:
+        return h === 0 ? 1 : h === 2 ? 0 : -1;
+      case LOOK.BACK_WB:
+        return h === 1 ? 0 : h === 3 ? 1 : -1;
+      case LOOK.BACK_BW:
+        return h === 1 ? 1 : h === 3 ? 0 : -1;
+      default:
+        return -1;
+    }
+  }
+  function halfFitsLook(look, h, color) {
+    if (look === LOOK.ANY) return true;
+    if (isUpright(h)) {
+      if (look === LOOK.WHITE || look === LOOK.BLACK) return solidLook(color) === look;
+      return diagonalHalfColor(look, h) === color;
+    }
+    if (isRamp(h)) return look === LOOK.WHITE || look === LOOK.BLACK;
+    return solidLook(color) === look;
+  }
+  var cubeFitsLook = (look, color) => look === LOOK.ANY || look === solidLook(color);
+  var FULL = [[0, 0], [1, 0], [1, 1], [0, 1]];
+  var HALF_OUTLINE = Object.freeze([
+    [[0, 0], [1, 0], [0, 1]],
+    // U_NW
+    [[0, 0], [1, 0], [1, 1]],
+    // U_NE
+    [[1, 0], [1, 1], [0, 1]],
+    // U_SE
+    [[0, 0], [1, 1], [0, 1]],
+    // U_SW
+    FULL,
+    FULL,
+    FULL,
+    FULL,
+    FULL,
+    FULL,
+    FULL,
+    FULL
+  ]);
+  function uprightContains(h, fx, fy) {
+    switch (h) {
+      case 0:
+        return fx + fy <= 1;
+      case 1:
+        return fx >= fy;
+      case 2:
+        return fx + fy >= 1;
+      case 3:
+        return fx <= fy;
+      default:
+        return true;
+    }
+  }
+  function prism(tri2d, to3d) {
+    const bottom = tri2d.map(([a, b]) => to3d(a, b, 0));
+    const top = tri2d.map(([a, b]) => to3d(a, b, 1));
+    const verts = [...bottom, ...top];
+    const faces = [
+      [0, 1, 2],
+      [3, 4, 5],
+      [0, 1, 4, 3],
+      [1, 2, 5, 4],
+      [2, 0, 3, 5]
+    ];
+    return { verts, faces };
+  }
+  var UPRIGHT_TRI = [
+    [[0, 1], [1, 1], [0, 0]],
+    // U_NW (u, v)
+    [[1, 1], [0, 1], [1, 0]],
+    // U_NE
+    [[1, 0], [1, 1], [0, 0]],
+    // U_SE
+    [[0, 0], [0, 1], [1, 0]]
+    // U_SW
+  ];
+  var RAMP_SECTION = [[0, 0], [1, 0], [1, 1]];
+  var CAP_SECTION = [[1, 0], [1, 1], [0, 1]];
+  function halfSolid(h) {
+    if (isUpright(h)) return prism(UPRIGHT_TRI[h], (u, v, t) => [u, v, t]);
+    const side = thickSide(h);
+    const section = isRamp(h) ? RAMP_SECTION : CAP_SECTION;
+    switch (side) {
+      case E:
+        return prism(section, (a, w, t) => [a, t, w]);
+      case W:
+        return prism(section, (a, w, t) => [1 - a, t, w]);
+      case N:
+        return prism(section, (a, w, t) => [t, a, w]);
+      default:
+        return prism(section, (a, w, t) => [t, 1 - a, w]);
+    }
+  }
+  function cubeSolid() {
+    const verts = [];
+    for (const w of [0, 1]) for (const [u, v] of [[0, 0], [1, 0], [1, 1], [0, 1]]) verts.push([u, v, w]);
+    const faces = [
+      [0, 1, 2, 3],
+      [4, 5, 6, 7],
+      [0, 1, 5, 4],
+      [1, 2, 6, 5],
+      [2, 3, 7, 6],
+      [3, 0, 4, 7]
+    ];
+    return { verts, faces };
+  }
+
+  // src/board.js
+  var KINDS = Object.freeze(["mixW", "mixB", "triW", "triB"]);
+  var kindOf = (piece) => `${piece.type}${piece.color}`;
+  var colorBit = (color) => color === "W" ? 0 : 1;
+  var colorOf = (bit) => bit === 0 ? "W" : "B";
+  var MIN_SIZE = 1;
+  var MAX_SIZE = 12;
+  function sizeProblem(rows, cols) {
+    if (!Number.isInteger(rows) || !Number.isInteger(cols)) return "Rows and columns must be whole numbers.";
+    if (rows < MIN_SIZE || cols < MIN_SIZE || rows > MAX_SIZE || cols > MAX_SIZE) {
+      return `Rows and columns must be between ${MIN_SIZE} and ${MAX_SIZE}.`;
+    }
+    if (rows * cols % 4 !== 0) {
+      return "The number of squares must be a multiple of 4: every 2 squares take one cube + prism and one loose prism, and white and black get the same number of each.";
+    }
+    return null;
+  }
+  function defaultInventory(rows, cols) {
+    const problem = sizeProblem(rows, cols);
+    if (problem) throw new Error(problem);
+    const q = rows * cols / 4;
+    return { mixW: q, mixB: q, triW: q, triB: q };
+  }
+  function occupancy(piece) {
+    if (piece.type === "tri") return [{ r: piece.r, c: piece.c, cube: false, h: piece.o }];
+    const m = MIX_ORIENTS[piece.o];
+    return [
+      { r: piece.r, c: piece.c, cube: true, h: -1 },
+      { r: piece.r + DR[m.dir], c: piece.c + DC[m.dir], cube: false, h: m.half }
+    ];
+  }
+  var Board = class _Board {
+    constructor(rows, cols, inventory = defaultInventory(rows, cols)) {
+      this.rows = rows;
+      this.cols = cols;
+      this.inventory = { ...inventory };
+      this.pieces = /* @__PURE__ */ new Map();
+      this.cells = Array.from({ length: rows * cols }, () => ({ cube: 0, halves: [] }));
+      this.nextId = 1;
+    }
+    index(r, c) {
+      return r * this.cols + c;
+    }
+    inBounds(r, c) {
+      return r >= 0 && c >= 0 && r < this.rows && c < this.cols;
+    }
+    cell(r, c) {
+      return this.cells[this.index(r, c)];
+    }
+    placedCount(kind) {
+      let n = 0;
+      for (const p of this.pieces.values()) if (kindOf(p) === kind) n += 1;
+      return n;
+    }
+    remaining(kind) {
+      return this.inventory[kind] - this.placedCount(kind);
+    }
+    totalPieces() {
+      return KINDS.reduce((sum, k) => sum + this.inventory[k], 0);
+    }
+    /**
+     * Can this piece go in? Returns { ok: true } or { ok: false, code, r, c, otherId }.
+     * Codes: none-left, outside, taken, clash, needs-ramp.
+     */
+    check(piece) {
+      if (this.remaining(kindOf(piece)) <= 0) return { ok: false, code: "none-left" };
+      const occ = occupancy(piece);
+      for (const part of occ) {
+        if (!this.inBounds(part.r, part.c)) return { ok: false, code: "outside", r: part.r, c: part.c };
+      }
+      for (const part of occ) {
+        const cell = this.cell(part.r, part.c);
+        if (cell.cube) return { ok: false, code: "taken", r: part.r, c: part.c, otherId: cell.cube };
+        if (part.cube) {
+          if (cell.halves.length) return { ok: false, code: "taken", r: part.r, c: part.c, otherId: cell.halves[0].id };
+          continue;
+        }
+        if (cell.halves.length >= 2) return { ok: false, code: "taken", r: part.r, c: part.c, otherId: cell.halves[0].id };
+        if (cell.halves.length === 1 && cell.halves[0].h !== COMPLEMENT[part.h]) {
+          return { ok: false, code: "clash", r: part.r, c: part.c, otherId: cell.halves[0].id };
+        }
+        if (piece.type === "tri" && isCap(part.h) && cell.halves.length === 0) {
+          return { ok: false, code: "needs-ramp", r: part.r, c: part.c };
+        }
+      }
+      return { ok: true };
+    }
+    /** Place a piece. Returns { ok, id } or the failed check. */
+    place(piece) {
+      const res = this.check(piece);
+      if (!res.ok) return res;
+      const id = piece.id && !this.pieces.has(piece.id) ? piece.id : this.nextId;
+      this.nextId = Math.max(this.nextId, id + 1);
+      const stored = { id, type: piece.type, color: piece.color, r: piece.r, c: piece.c, o: piece.o };
+      this.pieces.set(id, stored);
+      for (const part of occupancy(stored)) {
+        const cell = this.cell(part.r, part.c);
+        if (part.cube) cell.cube = id;
+        else cell.halves.push({ h: part.h, id });
+      }
+      return { ok: true, id };
+    }
+    /**
+     * Take a piece out. A loose prism resting on its ramp part would fall, so it comes out
+     * too. Returns the ids removed (the piece first).
+     */
+    remove(id) {
+      const piece = this.pieces.get(id);
+      if (!piece) return [];
+      const removed = [id];
+      for (const part of occupancy(piece)) {
+        const cell = this.cell(part.r, part.c);
+        if (part.cube) {
+          cell.cube = 0;
+          continue;
+        }
+        cell.halves = cell.halves.filter((x) => x.id !== id);
+        if (isRamp(part.h)) {
+          const top = cell.halves.find((x) => isCap(x.h) && this.pieces.get(x.id)?.type === "tri");
+          if (top) removed.push(...this.remove(top.id));
+        }
+      }
+      this.pieces.delete(id);
+      return removed;
+    }
+    clear() {
+      this.pieces.clear();
+      for (const cell of this.cells) {
+        cell.cube = 0;
+        cell.halves = [];
+      }
+    }
+    /** The piece you would pick up when touching point (fx, fy) of square (r, c). */
+    pieceAt(r, c, fx = 0.5, fy = 0.5) {
+      if (!this.inBounds(r, c)) return 0;
+      const cell = this.cell(r, c);
+      if (cell.cube) return cell.cube;
+      if (cell.halves.length === 0) return 0;
+      if (cell.halves.length === 1) return cell.halves[0].id;
+      const [a, b] = cell.halves;
+      if (isUpright(a.h)) return uprightContains(a.h, fx, fy) ? a.id : b.id;
+      return isCap(a.h) ? a.id : b.id;
+    }
+    isCellFull(r, c) {
+      const cell = this.cell(r, c);
+      return cell.cube !== 0 || cell.halves.length === 2;
+    }
+    isComplete() {
+      for (let r = 0; r < this.rows; r += 1) for (let c = 0; c < this.cols; c += 1) if (!this.isCellFull(r, c)) return false;
+      return true;
+    }
+    /** Look code of a finished square (see LOOK), or -1 while it is not full. */
+    lookAt(r, c) {
+      const cell = this.cell(r, c);
+      if (cell.cube) return solidLook(colorBit(this.pieces.get(cell.cube).color));
+      if (cell.halves.length < 2) return -1;
+      const [a, b] = cell.halves;
+      return splitLook(a.h, colorBit(this.pieces.get(a.id).color), b.h, colorBit(this.pieces.get(b.id).color));
+    }
+    looks() {
+      const out = [];
+      for (let r = 0; r < this.rows; r += 1) for (let c = 0; c < this.cols; c += 1) out.push(this.lookAt(r, c));
+      return out;
+    }
+    /** Squares with an overhang that has nothing underneath yet. */
+    hollowCells() {
+      const out = [];
+      this.cells.forEach((cell, i) => {
+        if (cell.halves.length === 1 && isCap(cell.halves[0].h)) out.push({ r: Math.floor(i / this.cols), c: i % this.cols });
+      });
+      return out;
+    }
+    /**
+     * What can be seen in square (r, c) from above, top layer first:
+     * { cube: piece|null, halves: [{ h, piece, visible }] }.
+     */
+    describeCell(r, c) {
+      const cell = this.cell(r, c);
+      return {
+        cube: cell.cube ? this.pieces.get(cell.cube) : null,
+        halves: cell.halves.map(({ h, id }) => ({
+          h,
+          piece: this.pieces.get(id),
+          visible: !(isRamp(h) && cell.halves.length === 2)
+        }))
+      };
+    }
+    /** Is the ramp part (half h) of a piece in square (r, c) covered by an overhang? */
+    isCovered(r, c, h) {
+      if (!isRamp(h)) return false;
+      return this.cell(r, c).halves.some((x) => x.h === COMPLEMENT[h]);
+    }
+    /** Pieces in an order that can be placed back one by one (overhangs after their ramps). */
+    orderedPieces() {
+      const rank = (p) => p.type === "mix" ? 0 : isCap(p.o) ? 2 : 1;
+      return [...this.pieces.values()].sort((a, b) => rank(a) - rank(b) || a.id - b.id);
+    }
+    toJSON() {
+      return {
+        rows: this.rows,
+        cols: this.cols,
+        inventory: { ...this.inventory },
+        pieces: this.orderedPieces().map(({ type, color, r, c, o }) => ({ type, color, r, c, o }))
+      };
+    }
+    static fromJSON(data) {
+      const board = new _Board(data.rows, data.cols, data.inventory ?? defaultInventory(data.rows, data.cols));
+      for (const p of data.pieces ?? []) {
+        const res = board.place(p);
+        if (!res.ok) throw new Error(`Cannot place ${p.type}${p.color} at ${p.r},${p.c}: ${res.code}`);
+      }
+      return board;
+    }
+    clone() {
+      return _Board.fromJSON(this.toJSON());
+    }
+  };
+  function pieceName(piece) {
+    const color = piece.color === "W" ? "white" : "black";
+    return piece.type === "mix" ? `${color} cube + prism` : `${color} prism`;
+  }
+  var ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  function encodeBoard(board) {
+    let s = `${board.rows}x${board.cols}:`;
+    for (const p of board.orderedPieces()) {
+      const base = p.type === "mix" ? p.color === "W" ? 0 : 16 : p.color === "W" ? 32 : 44;
+      s += ALPHABET[base + p.o] + ALPHABET[p.r] + ALPHABET[p.c];
+    }
+    return s;
+  }
+  function decodeBoard(text) {
+    const m = /^\s*(\d+)x(\d+):([0-9a-zA-Z]*)\s*$/.exec(text ?? "");
+    if (!m) throw new Error('That does not look like a board code (it should start like "4x4:").');
+    const rows = Number(m[1]);
+    const cols = Number(m[2]);
+    const problem = sizeProblem(rows, cols);
+    if (problem) throw new Error(problem);
+    const body = m[3];
+    if (body.length % 3 !== 0) throw new Error("The board code is cut off.");
+    const board = new Board(rows, cols);
+    for (let i = 0; i < body.length; i += 3) {
+      const k = ALPHABET.indexOf(body[i]);
+      const r = ALPHABET.indexOf(body[i + 1]);
+      const c = ALPHABET.indexOf(body[i + 2]);
+      if (k < 0 || k > 55) throw new Error("The board code has an unknown piece.");
+      const piece = k < 32 ? { type: "mix", color: k < 16 ? "W" : "B", o: k % 16, r, c } : { type: "tri", color: k < 44 ? "W" : "B", o: (k - 32) % 12, r, c };
+      const res = board.place(piece);
+      if (!res.ok) throw new Error("The board code has pieces that do not fit together.");
+    }
+    return board;
+  }
+
+  // src/icons.js
+  var svg = (body) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
+  var ICONS = {
+    undo: svg('<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>'),
+    redo: svg('<path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/>'),
+    hand: svg('<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12"/><path d="M11 11.5v-7a1.5 1.5 0 0 1 3 0V12"/><path d="M14 6.5a1.5 1.5 0 0 1 3 0V13"/><path d="M17 9.5a1.5 1.5 0 0 1 3 0v4.5a7 7 0 0 1-7 7h-1.3a7 7 0 0 1-5.6-2.8L3.4 14.6a1.6 1.6 0 0 1 2.4-2.1L8 14.5"/>'),
+    xray: svg('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'),
+    cube: svg('<path d="m12 2.5 8.5 4.75v9.5L12 21.5l-8.5-4.75v-9.5Z"/><path d="M12 12 3.5 7.25M12 12l8.5-4.75M12 12v9.5"/>'),
+    grid: svg('<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M3.5 12h17M12 3.5v17"/>'),
+    trash: svg('<path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>'),
+    rotate: svg('<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>'),
+    flip: svg('<path d="M12 3v18"/><path d="M8 7 3 12l5 5V7Z"/><path d="M16 7l5 5-5 5V7Z"/>'),
+    tip: svg('<path d="M4 20h16"/><path d="M6 20V10l6-6"/><path d="M12 4h8v8"/>'),
+    dice: svg('<rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/>'),
+    check: svg('<path d="m4 12.5 5 5L20 6.5"/>'),
+    copy: svg('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>'),
+    play: svg('<path d="M7 4.5v15l12-7.5Z"/>'),
+    eyeOff: svg('<path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.4-1"/>'),
+    turnLeft: svg('<path d="M4 11a8 8 0 1 1 2.3 5.7"/><path d="M4 4v7h7"/>'),
+    turnRight: svg('<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>'),
+    board: svg('<rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>')
+  };
+
+  // src/presets.js
+  var mixO = (dir, pose) => MIX_ORIENTS.find((m) => m.dir === dir && m.pose === pose).o;
+  var RAMP = 2;
+  var RIGHT = 1;
+  function brickRows(rowsFrom, rowsTo) {
+    const pieces = [];
+    for (let r = rowsFrom; r < rowsTo; r += 1) {
+      pieces.push({ type: "mix", color: "W", r, c: 0, o: mixO(E, RAMP) });
+      pieces.push({ type: "tri", color: "W", r, c: 1, o: HALF.O_E });
+      pieces.push({ type: "mix", color: "B", r, c: 3, o: mixO(W, RAMP) });
+      pieces.push({ type: "tri", color: "B", r, c: 2, o: HALF.O_W });
+    }
+    return pieces;
+  }
+  var PRESETS = Object.freeze([
+    {
+      id: "photo-1",
+      name: "Photo 1 (4×4)",
+      rows: 4,
+      cols: 4,
+      pieces: [
+        // Top row: two standing cube + prism pieces, prisms pointing left, and two loose
+        // standing prisms filling the lower-left halves.
+        { type: "mix", color: "W", r: 0, c: 1, o: mixO(W, RIGHT) },
+        { type: "tri", color: "B", r: 0, c: 0, o: HALF.U_SW },
+        { type: "mix", color: "B", r: 0, c: 3, o: mixO(W, RIGHT) },
+        { type: "tri", color: "W", r: 0, c: 2, o: HALF.U_SW },
+        ...brickRows(1, 4)
+      ]
+    },
+    {
+      id: "photo-2",
+      name: "Photo 2 (8×4)",
+      rows: 8,
+      cols: 4,
+      pieces: brickRows(0, 8)
+    }
+  ]);
+
+  // src/render2d.js
+  var CELL = 100;
+  var RIM = 34;
+  var GAP = 1.7;
+  var RADIUS = 7;
+  var SQUARE = [[0, 0], [1, 0], [1, 1], [0, 1]];
+  var f1 = (n) => (Math.round(n * 10) / 10).toString();
+  function trayFrame(rows, cols) {
+    return { width: cols * CELL + 2 * RIM, height: rows * CELL + 2 * RIM };
+  }
+  var at = (r, c, [x, y]) => [RIM + (c + x) * CELL, RIM + (r + y) * CELL];
+  function convexHull(points) {
+    const pts = [...new Map(points.map((p) => [`${f1(p[0])},${f1(p[1])}`, p])).values()].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    if (pts.length < 3) return pts;
+    const crossZ = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lower = [];
+    for (const p of pts) {
+      while (lower.length >= 2 && crossZ(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+      lower.push(p);
+    }
+    const upper = [];
+    for (let i = pts.length - 1; i >= 0; i -= 1) {
+      const p = pts[i];
+      while (upper.length >= 2 && crossZ(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+      upper.push(p);
+    }
+    upper.pop();
+    lower.pop();
+    return lower.concat(upper);
+  }
+  function insetConvex(points, d) {
+    const n = points.length;
+    const cx = points.reduce((a, p) => a + p[0], 0) / n;
+    const cy = points.reduce((a, p) => a + p[1], 0) / n;
+    const lines = points.map((a, i) => {
+      const b = points[(i + 1) % n];
+      const dx = b[0] - a[0];
+      const dy = b[1] - a[1];
+      const len = Math.hypot(dx, dy) || 1;
+      let nx = -dy / len;
+      let ny = dx / len;
+      if (nx * (cx - a[0]) + ny * (cy - a[1]) < 0) {
+        nx = -nx;
+        ny = -ny;
+      }
+      return { x: a[0] + nx * d, y: a[1] + ny * d, dx, dy };
+    });
+    return lines.map((l2, i) => {
+      const l1 = lines[(i - 1 + n) % n];
+      const det = l1.dx * l2.dy - l1.dy * l2.dx;
+      if (Math.abs(det) < 1e-9) return [l2.x, l2.y];
+      const t = ((l2.x - l1.x) * l2.dy - (l2.y - l1.y) * l2.dx) / det;
+      return [l1.x + l1.dx * t, l1.y + l1.dy * t];
+    });
+  }
+  function roundedPath(points, radius) {
+    const n = points.length;
+    let d = "";
+    for (let i = 0; i < n; i += 1) {
+      const prev = points[(i - 1 + n) % n];
+      const cur = points[i];
+      const next = points[(i + 1) % n];
+      const l1 = Math.hypot(prev[0] - cur[0], prev[1] - cur[1]);
+      const l2 = Math.hypot(next[0] - cur[0], next[1] - cur[1]);
+      const t1 = Math.min(radius / l1, 0.45);
+      const t2 = Math.min(radius / l2, 0.45);
+      const a = [cur[0] + (prev[0] - cur[0]) * t1, cur[1] + (prev[1] - cur[1]) * t1];
+      const b = [cur[0] + (next[0] - cur[0]) * t2, cur[1] + (next[1] - cur[1]) * t2];
+      d += `${i === 0 ? "M" : "L"}${f1(a[0])} ${f1(a[1])}Q${f1(cur[0])} ${f1(cur[1])} ${f1(b[0])} ${f1(b[1])}`;
+    }
+    return `${d}Z`;
+  }
+  var outlinePath = (points) => roundedPath(insetConvex(points, GAP), RADIUS);
+  function pieceShape(board, piece, { xray = false } = {}) {
+    if (piece.type === "tri") {
+      const h = piece.o;
+      if (isUpright(h)) return { outline: HALF_OUTLINE[h].map((p) => at(piece.r, piece.c, p)), slope: null, under: false, capped: false };
+      const square = SQUARE.map((p) => at(piece.r, piece.c, p));
+      if (isRamp(h)) {
+        const covered2 = board ? board.isCovered(piece.r, piece.c, h) : false;
+        if (covered2 && !xray) return null;
+        return { outline: square, slope: { r: piece.r, c: piece.c, side: thickSide(h) }, under: covered2, capped: false };
+      }
+      return { outline: square, slope: null, under: false, capped: true };
+    }
+    const m = MIX_ORIENTS[piece.o];
+    const r2 = piece.r + DR[m.dir];
+    const c2 = piece.c + DC[m.dir];
+    const cube = SQUARE.map((p) => at(piece.r, piece.c, p));
+    if (isUpright(m.half)) {
+      return { outline: convexHull([...cube, ...HALF_OUTLINE[m.half].map((p) => at(r2, c2, p))]), slope: null, under: false, capped: false };
+    }
+    const both = convexHull([...cube, ...SQUARE.map((p) => at(r2, c2, p))]);
+    if (isCap(m.half)) {
+      const hollow = board && board.inBounds(r2, c2) && board.cell(r2, c2).halves.length === 1 ? { r: r2, c: c2 } : null;
+      const xrayParts = { solid: cube, roof: SQUARE.map((p) => at(r2, c2, p)) };
+      return { outline: both, slope: null, under: false, capped: true, hollow, xrayParts };
+    }
+    const covered = board ? board.isCovered(r2, c2, m.half) : false;
+    if (covered && !xray) return { outline: cube, slope: null, under: false, capped: false };
+    return { outline: both, slope: { r: r2, c: c2, side: thickSide(m.half) }, under: covered, capped: false };
+  }
+  function slopeGradient(id, side, dark, light) {
+    const v = [
+      ["0", "1", "0", "0"],
+      // N: high edge at the top
+      ["0", "0", "1", "0"],
+      // E
+      ["0", "0", "0", "1"],
+      // S
+      ["1", "0", "0", "0"]
+      // W
+    ][side];
+    return `<linearGradient id="${id}" x1="${v[0]}" y1="${v[1]}" x2="${v[2]}" y2="${v[3]}"><stop offset="0" stop-color="${dark}"/><stop offset="1" stop-color="${light}"/></linearGradient>`;
+  }
+  function boardDefs() {
+    const lit = [false, true, true, false];
+    let slopes = "";
+    for (let side = 0; side < 4; side += 1) {
+      slopes += slopeGradient(`slW${side}`, side, lit[side] ? "#cfcfc7" : "#b3b3aa", lit[side] ? "#fbfbf8" : "#e3e3dd");
+      slopes += slopeGradient(`slB${side}`, side, lit[side] ? "#0d0e10" : "#060708", lit[side] ? "#4a5057" : "#2b2f33");
+    }
+    return `<defs>
+<linearGradient id="trayG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3e3bb"/><stop offset=".55" stop-color="#e6cf9b"/><stop offset="1" stop-color="#d4b981"/></linearGradient>
+<linearGradient id="wellG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b4955d"/><stop offset=".08" stop-color="#c7a96f"/><stop offset="1" stop-color="#cfb27a"/></linearGradient>
+<linearGradient id="flatW" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e4e4de"/></linearGradient>
+<linearGradient id="flatB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b4045"/><stop offset=".6" stop-color="#202326"/><stop offset="1" stop-color="#15171a"/></linearGradient>
+<linearGradient id="bevW" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#f1f1ec"/><stop offset="1" stop-color="#a9a9a1"/></linearGradient>
+<linearGradient id="bevB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b828a"/><stop offset=".45" stop-color="#2d3135"/><stop offset="1" stop-color="#030304"/></linearGradient>
+<radialGradient id="glossB" cx=".28" cy=".22" r=".75"><stop offset="0" stop-color="#ffffff" stop-opacity=".2"/><stop offset=".5" stop-color="#ffffff" stop-opacity=".05"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+<radialGradient id="glossW" cx=".3" cy=".25" r=".8"><stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+${slopes}
+<pattern id="hatch" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="14" height="14" fill="#cdb07a"/><line x1="0" y1="0" x2="0" y2="14" stroke="#a88b55" stroke-width="5" stroke-opacity=".45"/></pattern>
+<filter id="pieceShadow" x="-15%" y="-15%" width="130%" height="130%"><feDropShadow dx="1.6" dy="2.6" stdDeviation="2.2" flood-color="#3a280c" flood-opacity=".5"/></filter>
+<filter id="trayShadow" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity=".35"/></filter>
+</defs>`;
+  }
+  function trayMarkup(rows, cols) {
+    const { width, height } = trayFrame(rows, cols);
+    const wx = RIM - 7;
+    const ww = cols * CELL + 14;
+    const wh = rows * CELL + 14;
+    let grid = "";
+    for (let r = 1; r < rows; r += 1) grid += `<line x1="${RIM}" y1="${RIM + r * CELL}" x2="${RIM + cols * CELL}" y2="${RIM + r * CELL}"/>`;
+    for (let c = 1; c < cols; c += 1) grid += `<line x1="${RIM + c * CELL}" y1="${RIM}" x2="${RIM + c * CELL}" y2="${RIM + rows * CELL}"/>`;
+    return `<g class="tray">
+<rect x="0" y="0" width="${width}" height="${height}" rx="18" fill="url(#trayG)" stroke="#b49a63" stroke-width="1.5" filter="url(#trayShadow)"/>
+<rect x="3.5" y="3.5" width="${width - 7}" height="${height - 7}" rx="15" fill="none" stroke="#fff6dc" stroke-opacity=".7" stroke-width="2"/>
+<rect x="${wx}" y="${wx}" width="${ww}" height="${wh}" rx="8" fill="url(#wellG)" stroke="#a7894f" stroke-width="1.2"/>
+<g class="grid" stroke="#8f7240" stroke-opacity=".22" stroke-width="1.2">${grid}</g>
+</g>`;
+  }
+  function pieceMarkup(shape, color, { id = 0, cls = "", translucent = false } = {}) {
+    const path = outlinePath(shape.outline);
+    const clipId = `clip${id || Math.random().toString(36).slice(2)}`;
+    let s = `<g class="piece ${cls}${translucent ? " is-glass" : ""}"${id ? ` data-id="${id}"` : ""}>`;
+    s += `<path d="${path}" fill="url(#flat${color})"/>`;
+    if (shape.slope) {
+      const [x, y] = at(shape.slope.r, shape.slope.c, [0, 0]);
+      s += `<clipPath id="${clipId}"><path d="${path}"/></clipPath>`;
+      s += `<rect x="${x}" y="${y}" width="${CELL}" height="${CELL}" fill="url(#sl${color}${shape.slope.side})" clip-path="url(#${clipId})"/>`;
+    }
+    if (color === "B") s += `<path d="${path}" fill="url(#glossB)"/>`;
+    s += `<path d="${path}" fill="none" stroke="url(#bev${color})" stroke-width="2.6"/>`;
+    if (translucent) s += `<path class="glass-line" d="${path}"/>`;
+    s += "</g>";
+    return s;
+  }
+  function hollowMarkup({ r, c }) {
+    const [x, y] = at(r, c, [0, 0]);
+    return `<rect class="hollow-mark" x="${x + 14}" y="${y + 14}" width="${CELL - 28}" height="${CELL - 28}" rx="6"/>`;
+  }
+  function boardMarkup(board, opts = {}) {
+    const { xray = false, ghost = null, hoverId = 0, freshIds = /* @__PURE__ */ new Set() } = opts;
+    const under = [];
+    const over = [];
+    const glass = [];
+    const marks = [];
+    for (const piece of board.pieces.values()) {
+      const shape = pieceShape(board, piece, { xray });
+      if (!shape) continue;
+      const cls = [piece.id === hoverId ? "is-hover" : "", freshIds.has(piece.id) ? "is-fresh" : ""].join(" ");
+      if (xray && shape.capped) {
+        if (shape.xrayParts) {
+          over.push(pieceMarkup({ outline: shape.xrayParts.solid }, piece.color, { id: piece.id, cls }));
+          glass.push(pieceMarkup({ outline: shape.xrayParts.roof }, piece.color, { cls, translucent: true }));
+        } else {
+          glass.push(pieceMarkup(shape, piece.color, { id: piece.id, cls, translucent: true }));
+        }
+      } else {
+        (shape.under ? under : over).push(pieceMarkup(shape, piece.color, { id: piece.id, cls }));
+      }
+      if (shape.hollow) marks.push(hollowMarkup(shape.hollow));
+    }
+    if (xray) {
+      for (const { r, c } of board.hollowCells()) {
+        const [x, y] = at(r, c, [0, 0]);
+        under.unshift(`<rect x="${x + 4}" y="${y + 4}" width="${CELL - 8}" height="${CELL - 8}" fill="url(#hatch)" opacity=".9"/>`);
+      }
+    }
+    let ghostMarkup = "";
+    if (ghost) {
+      const shape = pieceShape(null, ghost.piece, {});
+      if (shape) {
+        ghostMarkup = `<g class="ghost ${ghost.ok ? "is-ok" : "is-bad"}">${pieceMarkup(shape, ghost.piece.color, { cls: "ghost-body" })}<path class="ghost-line" d="${outlinePath(shape.outline)}"/></g>`;
+      }
+    }
+    const { width, height } = trayFrame(board.rows, board.cols);
+    return {
+      viewBox: `-14 -10 ${width + 28} ${height + 36}`,
+      markup: `${boardDefs()}${trayMarkup(board.rows, board.cols)}<g filter="url(#pieceShadow)">${under.join("")}${over.join("")}</g>${glass.join("")}${marks.join("")}${ghostMarkup}`
+    };
+  }
+  var LOOK_PARTS = {
+    [LOOK.SLASH_WB]: [[0, "W"], [2, "B"]],
+    [LOOK.SLASH_BW]: [[0, "B"], [2, "W"]],
+    [LOOK.BACK_WB]: [[1, "W"], [3, "B"]],
+    [LOOK.BACK_BW]: [[1, "B"], [3, "W"]]
+  };
+  function lookCellMarkup(r, c, look) {
+    if (look === LOOK.ANY) {
+      const [x, y] = at(r, c, [0, 0]);
+      return `<rect class="any-cell" x="${x + 3}" y="${y + 3}" width="${CELL - 6}" height="${CELL - 6}" rx="6" fill="url(#hatch)"/>`;
+    }
+    if (look === LOOK.WHITE || look === LOOK.BLACK) {
+      return pieceMarkup({ outline: SQUARE.map((p) => at(r, c, p)) }, look === LOOK.WHITE ? "W" : "B");
+    }
+    return LOOK_PARTS[look].map(([h, color]) => pieceMarkup({ outline: HALF_OUTLINE[h].map((p) => at(r, c, p)) }, color)).join("");
+  }
+  function pictureMarkup(rows, cols, looks, { hoverCell = -1 } = {}) {
+    const cells = [];
+    for (let r = 0; r < rows; r += 1) for (let c = 0; c < cols; c += 1) cells.push(lookCellMarkup(r, c, looks[r * cols + c]));
+    let hover = "";
+    if (hoverCell >= 0) {
+      const [x, y] = at(Math.floor(hoverCell / cols), hoverCell % cols, [0, 0]);
+      hover = `<rect class="paint-hover" x="${x + 2}" y="${y + 2}" width="${CELL - 4}" height="${CELL - 4}" rx="8"/>`;
+    }
+    const { width, height } = trayFrame(rows, cols);
+    return {
+      viewBox: `-14 -10 ${width + 28} ${height + 36}`,
+      markup: `${boardDefs()}${trayMarkup(rows, cols)}<g filter="url(#pieceShadow)">${cells.join("")}</g>${hover}`
+    };
+  }
+  function flatPicture(rows, cols, looks, { cell = 20, gap = 1.5, mismatches = null } = {}) {
+    const parts = [];
+    const tri = {
+      0: (x, y, s) => `${x},${y} ${x + s},${y} ${x},${y + s}`,
+      1: (x, y, s) => `${x},${y} ${x + s},${y} ${x + s},${y + s}`,
+      2: (x, y, s) => `${x + s},${y} ${x + s},${y + s} ${x},${y + s}`,
+      3: (x, y, s) => `${x},${y} ${x + s},${y + s} ${x},${y + s}`
+    };
+    for (let r = 0; r < rows; r += 1) {
+      for (let c = 0; c < cols; c += 1) {
+        const look = looks[r * cols + c];
+        const x = c * cell + gap / 2;
+        const y = r * cell + gap / 2;
+        const s = cell - gap;
+        if (look === LOOK.ANY || look < 0) parts.push(`<rect x="${x}" y="${y}" width="${s}" height="${s}" class="fp-any"/>`);
+        else if (look === LOOK.WHITE) parts.push(`<rect x="${x}" y="${y}" width="${s}" height="${s}" class="fp-w"/>`);
+        else if (look === LOOK.BLACK) parts.push(`<rect x="${x}" y="${y}" width="${s}" height="${s}" class="fp-b"/>`);
+        else for (const [h, color] of LOOK_PARTS[look]) parts.push(`<polygon points="${tri[h](x, y, s)}" class="${color === "W" ? "fp-w" : "fp-b"}"/>`);
+        if (mismatches && mismatches[r * cols + c]) parts.push(`<rect x="${x + 1}" y="${y + 1}" width="${s - 2}" height="${s - 2}" class="fp-miss"/>`);
+      }
+    }
+    return `<svg viewBox="0 0 ${cols * cell} ${rows * cell}" class="flat-picture" role="img" aria-label="Target picture, ${rows} by ${cols}">${parts.join("")}</svg>`;
+  }
+  function cellFromPoint(rows, cols, x, y) {
+    const fx = (x - RIM) / CELL;
+    const fy = (y - RIM) / CELL;
+    const c = Math.floor(fx);
+    const r = Math.floor(fy);
+    if (r < 0 || c < 0 || r >= rows || c >= cols) return null;
+    return { r, c, fx: fx - c, fy: fy - r };
+  }
+
+  // src/render3d.js
+  var deg = Math.PI / 180;
+  var dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  var sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  var cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  var norm = (a) => {
+    const l = Math.hypot(a[0], a[1], a[2]) || 1;
+    return [a[0] / l, a[1] / l, a[2] / l];
+  };
+  var fmt = (n) => (Math.round(n * 100) / 100).toString();
+  function makeCamera(azimuth = 22, elevation = 52) {
+    const az = azimuth * deg;
+    const el = elevation * deg;
+    const d = [Math.sin(az) * Math.cos(el), -Math.cos(az) * Math.cos(el), Math.sin(el)];
+    const right = [Math.cos(az), Math.sin(az), 0];
+    const up = cross(d, right);
+    return {
+      d,
+      project: (p) => [dot(p, right), -dot(p, up)],
+      depth: (p) => dot(p, d)
+    };
+  }
+  var LIGHT = norm([-0.42, -0.55, 0.8]);
+  var PALETTE = {
+    W: { dark: [138, 139, 135], light: [253, 253, 251] },
+    B: { dark: [5, 6, 7], light: [70, 74, 80] },
+    tray: { dark: [150, 120, 70], light: [244, 226, 182] },
+    floor: { dark: [160, 128, 78], light: [214, 190, 140] }
+  };
+  function shade(paletteKey, normal) {
+    const { dark, light } = PALETTE[paletteKey];
+    const lambert = Math.max(0, dot(normal, LIGHT));
+    const t = Math.min(1, 0.22 + 0.82 * lambert);
+    const c = dark.map((x, i) => Math.round(x + (light[i] - x) * t));
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  }
+  function facesOf(solid, toWorld) {
+    const verts = solid.verts.map(toWorld);
+    const centre = verts.reduce((a, v) => [a[0] + v[0] / verts.length, a[1] + v[1] / verts.length, a[2] + v[2] / verts.length], [0, 0, 0]);
+    return solid.faces.map((f) => {
+      const pts = f.map((i) => verts[i]);
+      let n = norm(cross(sub(pts[1], pts[0]), sub(pts[2], pts[0])));
+      const fc = pts.reduce((a, v) => [a[0] + v[0] / pts.length, a[1] + v[1] / pts.length, a[2] + v[2] / pts.length], [0, 0, 0]);
+      if (dot(n, sub(fc, centre)) < 0) n = n.map((x) => -x);
+      return { pts, normal: n, centre: fc };
+    });
+  }
+  function polygonSvg(points2d, fill, stroke = fill, width = 0.012) {
+    const d = points2d.map(([x, y]) => `${fmt3(x)},${fmt3(y)}`).join(" ");
+    return `<polygon points="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}" stroke-linejoin="round"/>`;
+  }
+  var fmt3 = (n) => (Math.round(n * 1e3) / 1e3).toString();
+  function pieceParts(piece, rows, shrink = 0) {
+    const parts = [];
+    const cellWorld = (r, c) => [c, rows - 1 - r];
+    const cells = [];
+    if (piece.type === "tri") {
+      cells.push({ r: piece.r, c: piece.c, solid: halfSolid(piece.o), layer: layerOf(piece.o) });
+    } else {
+      const m = MIX_ORIENTS[piece.o];
+      cells.push({ r: piece.r, c: piece.c, solid: cubeSolid(), layer: 1 });
+      cells.push({ r: piece.r + DR[m.dir], c: piece.c + DC[m.dir], solid: halfSolid(m.half), layer: layerOf(m.half) });
+    }
+    const centre = cells.reduce(
+      (a, x) => {
+        const [wx, wy] = cellWorld(x.r, x.c);
+        return [a[0] + (wx + 0.5) / cells.length, a[1] + (wy + 0.5) / cells.length];
+      },
+      [0, 0]
+    );
+    const k = 1 - shrink;
+    for (const x of cells) {
+      const [wx, wy] = cellWorld(x.r, x.c);
+      const toWorld = ([u, v, w]) => [centre[0] + (wx + u - centre[0]) * k, centre[1] + (wy + v - centre[1]) * k, w];
+      parts.push({ solid: x.solid, toWorld, cell: [x.r, x.c], layer: x.layer });
+    }
+    return parts;
+  }
+  function mixSolid(o) {
+    const m = MIX_ORIENTS[o];
+    const off = [[0, 1], [1, 0], [0, -1], [-1, 0]][m.dir];
+    const pts = [...cubeSolid().verts, ...halfSolid(m.half).verts.map(([u, v, w]) => [u + off[0], v + off[1], w])];
+    const axis = isUpright(m.half) ? 2 : m.dir === 1 || m.dir === 3 ? 1 : 0;
+    const [a, b] = [0, 1, 2].filter((k) => k !== axis);
+    const section = hull2d(pts.map((p) => [p[a], p[b]]));
+    const lift = (q, t) => {
+      const out = [0, 0, 0];
+      out[a] = q[0];
+      out[b] = q[1];
+      out[axis] = t;
+      return out;
+    };
+    const n = section.length;
+    const verts = [...section.map((q) => lift(q, 0)), ...section.map((q) => lift(q, 1))];
+    const faces = [section.map((_, i) => i), section.map((_, i) => n + i)];
+    for (let i = 0; i < n; i += 1) faces.push([i, (i + 1) % n, n + (i + 1) % n, n + i]);
+    return { verts, faces };
+  }
+  function hull2d(points) {
+    const pts = [...new Map(points.map((p) => [`${p[0]},${p[1]}`, p])).values()].sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+    const crossZ = (o, p, q) => (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]);
+    const build = (list) => {
+      const out = [];
+      for (const p of list) {
+        while (out.length >= 2 && crossZ(out[out.length - 2], out[out.length - 1], p) <= 1e-12) out.pop();
+        out.push(p);
+      }
+      out.pop();
+      return out;
+    };
+    return [...build(pts), ...build([...pts].reverse())];
+  }
+  function layerOf(h) {
+    if (isRamp(h)) return 0;
+    if (isCap(h)) return 2;
+    return 1;
+  }
+  function pieceIcon(type, color, o, { size = 56, azimuth = 30, elevation = 36 } = {}) {
+    const camera = makeCamera(azimuth, elevation);
+    const cells = [[0, 0]];
+    let solid;
+    if (type === "mix") {
+      const m = MIX_ORIENTS[o];
+      cells.push([[0, 1], [1, 0], [0, -1], [-1, 0]][m.dir]);
+      solid = mixSolid(o);
+    } else {
+      solid = halfSolid(o);
+    }
+    const footprint = cells.map(([x, y]) => [[x, y, 0], [x + 1, y, 0], [x + 1, y + 1, 0], [x, y + 1, 0]]);
+    const cx = cells.reduce((acc, q) => acc + q[0] + 0.5, 0) / cells.length;
+    const cy = cells.reduce((acc, q) => acc + q[1] + 0.5, 0) / cells.length;
+    const half = type === "mix" ? 1.02 : 0.62;
+    const frame = [];
+    for (const x of [cx - half, cx + half]) for (const y of [cy - half, cy + half]) for (const z of [0, 1]) frame.push(camera.project([x, y, z]));
+    const minX = Math.min(...frame.map((p) => p[0]));
+    const maxX = Math.max(...frame.map((p) => p[0]));
+    const minY = Math.min(...frame.map((p) => p[1]));
+    const maxY = Math.max(...frame.map((p) => p[1]));
+    const pad = 0.06;
+    const w = maxX - minX + 2 * pad;
+    const h = maxY - minY + 2 * pad;
+    const vb = `${fmt3(minX - pad)} ${fmt3(minY - pad)} ${fmt3(w)} ${fmt3(h)}`;
+    const edge = color === "W" ? "rgba(70,68,60,0.75)" : "rgba(205,212,222,0.45)";
+    const shadow = footprint.map((quad) => `<polygon points="${quad.map((p) => camera.project(p).map(fmt3).join(",")).join(" ")}" class="icon-floor"/>`).join("");
+    const body = facesOf(solid, (p) => p).filter((f) => dot(f.normal, camera.d) > 1e-6).map((f) => polygonSvg(f.pts.map(camera.project), shade(color, f.normal), edge, 0.022)).join("");
+    return `<svg viewBox="${vb}" width="${size}" height="${Math.round(size * h / w)}" aria-hidden="true" focusable="false">${shadow}${body}</svg>`;
+  }
+  function board3d(board, { azimuth = 22, elevation = 48 } = {}) {
+    const camera = makeCamera(azimuth, elevation);
+    const R = board.rows;
+    const C = board.cols;
+    const rim = 0.32;
+    const wallH = 0.32;
+    const box = (x0, y0, x1, y1, z0, z1) => ({
+      solid: cubeSolid(),
+      toWorld: ([u, v, w]) => [x0 + u * (x1 - x0), y0 + v * (y1 - y0), z0 + w * (z1 - z0)]
+    });
+    const walls = [
+      box(-rim, R, C + rim, R + rim, 0, wallH),
+      // north
+      box(-rim, -rim, C + rim, 0, 0, wallH),
+      // south
+      box(C, 0, C + rim, R, 0, wallH),
+      // east
+      box(-rim, 0, 0, R, 0, wallH)
+      // west
+    ];
+    const base = box(-rim, -rim, C + rim, R + rim, -0.18, 0);
+    const shapes = [];
+    const pushSolid = (part, key, tier, order = 0) => {
+      for (const face of facesOf(part.solid, part.toWorld)) {
+        if (dot(face.normal, camera.d) <= 1e-6) continue;
+        shapes.push({ pts: face.pts, fill: shade(key, face.normal), tier, order: order + camera.depth(face.centre) * 1e-3 });
+      }
+    };
+    pushSolid(base, "tray", 0);
+    const floor = [[0, 0, 1e-3], [C, 0, 1e-3], [C, R, 1e-3], [0, R, 1e-3]];
+    shapes.push({ pts: floor, fill: shade("floor", [0, 0, 1]), tier: 1, order: 0 });
+    const centreDepth = camera.depth([C / 2, R / 2, 0]);
+    for (const wall of walls) {
+      const mid = wall.toWorld([0.5, 0.5, 0.5]);
+      pushSolid(wall, "tray", camera.depth(mid) < centreDepth ? 2 : 4, camera.depth(mid));
+    }
+    const parts = [];
+    for (const piece of board.pieces.values()) {
+      for (const part of pieceParts(piece, R, 0.035)) parts.push({ part, color: piece.color });
+    }
+    for (const { part, color } of parts) {
+      const [r, c] = part.cell;
+      const cellDepth = camera.depth([c + 0.5, R - 1 - r + 0.5, 0]);
+      const faces = facesOf(part.solid, part.toWorld);
+      const partDepth = camera.depth(faces.reduce((a, f) => [a[0] + f.centre[0], a[1] + f.centre[1], a[2] + f.centre[2]], [0, 0, 0]).map((x) => x / faces.length));
+      for (const face of faces) {
+        if (dot(face.normal, camera.d) <= 1e-6) continue;
+        shapes.push({ pts: face.pts, fill: shade(color, face.normal), tier: 3, order: cellDepth * 1e3 + part.layer * 10 + partDepth * 0.01 });
+      }
+    }
+    shapes.sort((a, b) => a.tier - b.tier || a.order - b.order);
+    const all = shapes.flatMap((s) => s.pts.map(camera.project));
+    const minX = Math.min(...all.map((p) => p[0]));
+    const maxX = Math.max(...all.map((p) => p[0]));
+    const minY = Math.min(...all.map((p) => p[1]));
+    const maxY = Math.max(...all.map((p) => p[1]));
+    const pad = 0.3;
+    const vb = `${fmt(minX - pad)} ${fmt(minY - pad)} ${fmt(maxX - minX + 2 * pad)} ${fmt(maxY - minY + 2 * pad)}`;
+    const body = shapes.map((s) => polygonSvg(s.pts.map(camera.project), s.fill)).join("");
+    return { viewBox: vb, markup: body, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+  }
+
+  // src/solver.js
+  var WEDGE = 1;
+  var WANT = 2;
+  var message = (type, h, color) => type << 5 | h << 1 | color;
+  var msgType = (m) => m >> 5;
+  var msgHalf = (m) => m >> 1 & 15;
+  var msgColor = (m) => m & 1;
+  var BudgetExceeded = class extends Error {
+  };
+  function patternStats(looks) {
+    const stats = { white: 0, black: 0, diagonal: 0, any: 0 };
+    for (const t of looks) {
+      if (t === LOOK.WHITE) stats.white += 1;
+      else if (t === LOOK.BLACK) stats.black += 1;
+      else if (isDiagonalLook(t)) stats.diagonal += 1;
+      else stats.any += 1;
+    }
+    return stats;
+  }
+  function quickCheck(rows, cols, looks, inventory) {
+    const problem = sizeProblem(rows, cols);
+    if (problem) return { ok: false, code: "size", reason: problem };
+    if (looks.length !== rows * cols) return { ok: false, code: "size", reason: "The pattern does not match the board size." };
+    const { mixW, mixB, triW, triB } = inventory;
+    const cubes = mixW + mixB;
+    const st = patternStats(looks);
+    const maxDiagonal = rows * cols - cubes;
+    if (st.diagonal > maxDiagonal) {
+      return {
+        ok: false,
+        code: "too-many-diagonals",
+        reason: `This pattern has ${st.diagonal} split squares, but at most ${maxDiagonal} are possible. Each of the ${cubes} cube + prism pieces always shows its cube as a full square, so ${cubes} squares can never be split.`
+      };
+    }
+    if (mixW > st.white + st.any) {
+      return {
+        ok: false,
+        code: "white-cubes",
+        reason: `The ${mixW} white cubes always show as full white squares, but the pattern only has ${st.white + st.any} squares that can be fully white.`
+      };
+    }
+    if (mixB > st.black + st.any) {
+      return {
+        ok: false,
+        code: "black-cubes",
+        reason: `The ${mixB} black cubes always show as full black squares, but the pattern only has ${st.black + st.any} squares that can be fully black.`
+      };
+    }
+    const needWhite = Math.max(0, st.white - mixW) + st.diagonal;
+    if (needWhite > mixW + triW) {
+      return {
+        ok: false,
+        code: "white-halves",
+        reason: `Not enough white: the pattern needs at least ${needWhite} white prism halves on top, but there are only ${mixW + triW} white prisms (loose or attached to a cube).`
+      };
+    }
+    const needBlack = Math.max(0, st.black - mixB) + st.diagonal;
+    if (needBlack > mixB + triB) {
+      return {
+        ok: false,
+        code: "black-halves",
+        reason: `Not enough black: the pattern needs at least ${needBlack} black prism halves on top, but there are only ${mixB + triB} black prisms (loose or attached to a cube).`
+      };
+    }
+    return { ok: true };
+  }
+  function weightedShuffle(list, rng, weight) {
+    const keyed = list.map((item) => ({ item, key: Math.pow(rng(), 1 / Math.max(1e-6, weight(item))) }));
+    keyed.sort((a, b) => b.key - a.key);
+    return keyed.map((x) => x.item);
+  }
+  function solvePattern(rows, cols, looks, inventory, options = {}) {
+    const quick = quickCheck(rows, cols, looks, inventory);
+    if (!quick.ok) return { status: "impossible", code: quick.code, reason: quick.reason, nodes: 0 };
+    const budget = options.maxNodes ?? 15e5;
+    const frames = [
+      { tr: false, fv: false },
+      { tr: false, fv: true },
+      { tr: true, fv: false },
+      { tr: true, fv: true }
+    ].map((f) => ({ ...f, width: f.tr ? rows : cols }));
+    frames.sort((a, b) => a.width - b.width);
+    const plan = [
+      ...frames.map((frame) => ({ frame, nodes: 6e4, seed: 0 })),
+      ...Array.from({ length: 16 }, (_, k) => ({ frame: frames[k % 4], nodes: 3e4, seed: 101 + k * 37 }))
+    ];
+    let used = 0;
+    for (const step of plan) {
+      if (used >= budget) break;
+      const run = solveInFrame(rows, cols, looks, inventory, step.frame, Math.min(step.nodes, budget - used), step.seed);
+      used += run.nodes;
+      if (run.status !== "unknown") return { ...run, nodes: used };
+    }
+    if (used < budget) {
+      const run = solveInFrame(rows, cols, looks, inventory, frames[0], budget - used, 0);
+      used += run.nodes;
+      if (run.status !== "unknown") return { ...run, nodes: used };
+    }
+    return {
+      status: "unknown",
+      reason: "This picture is too complex to decide in the time allowed. Try a smaller board, or fix more squares.",
+      nodes: used
+    };
+  }
+  var T_DIR = [W, S, E, N];
+  var T_HALF = [0, 3, 2, 1, 7, 6, 5, 4, 11, 10, 9, 8];
+  var T_LOOK = [LOOK.ANY, LOOK.WHITE, LOOK.BLACK, LOOK.SLASH_WB, LOOK.SLASH_BW, LOOK.BACK_BW, LOOK.BACK_WB];
+  var V_DIR = [S, E, N, W];
+  var V_HALF = [3, 2, 1, 0, 6, 5, 4, 7, 10, 9, 8, 11];
+  var V_LOOK = [LOOK.ANY, LOOK.WHITE, LOOK.BLACK, LOOK.BACK_BW, LOOK.BACK_WB, LOOK.SLASH_BW, LOOK.SLASH_WB];
+  function mapPiece(p, dirMap, halfMap, r, c) {
+    if (p.type === "tri") return { ...p, r, c, o: halfMap[p.o] };
+    const m = MIX_ORIENTS[p.o];
+    return { ...p, r, c, o: mixOrientFor(dirMap[m.dir], halfMap[m.half]) };
+  }
+  function solveInFrame(rows, cols, looks, inventory, frame, maxNodes, seed) {
+    let R = rows;
+    let C = cols;
+    let L = looks;
+    if (frame.tr) {
+      const next = [];
+      for (let c = 0; c < C; c += 1) for (let r = 0; r < R; r += 1) next.push(T_LOOK[L[r * C + c]]);
+      L = next;
+      [R, C] = [C, R];
+    }
+    if (frame.fv) {
+      const next = [];
+      for (let r = R - 1; r >= 0; r -= 1) for (let c = 0; c < C; c += 1) next.push(V_LOOK[L[r * C + c]]);
+      L = next;
+    }
+    const run = searchOnce(R, C, L, inventory, maxNodes, seed ? makeRng(seed) : null);
+    if (run.pieces) {
+      let pieces = run.pieces;
+      if (frame.fv) pieces = pieces.map((p) => mapPiece(p, V_DIR, V_HALF, R - 1 - p.r, p.c));
+      if (frame.tr) pieces = pieces.map((p) => mapPiece(p, T_DIR, T_HALF, p.c, p.r));
+      run.pieces = pieces;
+    }
+    return run;
+  }
+  function searchOnce(rows, cols, looks, inventory, maxNodes, rng) {
+    const total = rows * cols;
+    const res = [inventory.mixW, inventory.mixB, inventory.triW, inventory.triB, 0];
+    const down = new Uint8Array(cols);
+    let right = 0;
+    const chosen = new Array(total);
+    const deadEnds = /* @__PURE__ */ new Set();
+    let nodes = 0;
+    const sufWhite = new Int32Array(total + 1);
+    const sufBlack = new Int32Array(total + 1);
+    const sufAny = new Int32Array(total + 1);
+    const sufDiag = new Int32Array(total + 1);
+    for (let i = total - 1; i >= 0; i -= 1) {
+      const t = looks[i];
+      sufWhite[i] = sufWhite[i + 1] + (t === LOOK.WHITE ? 1 : 0);
+      sufBlack[i] = sufBlack[i + 1] + (t === LOOK.BLACK ? 1 : 0);
+      sufAny[i] = sufAny[i + 1] + (t === LOOK.ANY ? 1 : 0);
+      sufDiag[i] = sufDiag[i + 1] + (isDiagonalLook(t) ? 1 : 0);
+    }
+    const fits = (uses) => res[0] >= uses[0] && res[1] >= uses[1] && res[2] >= uses[2] && res[3] >= uses[3] && res[4] + uses[4] <= res[2] - uses[2] + res[3] - uses[3];
+    function fillersFor(h, r, c) {
+      const out = [];
+      if (isRamp(h)) out.push({ src: "tri", color: -1 });
+      else {
+        out.push({ src: "tri", color: 0 });
+        out.push({ src: "tri", color: 1 });
+      }
+      const sides = SOURCE_SIDES[h];
+      if (c + 1 < cols && sides.includes(E)) {
+        const t = looks[r * cols + c + 1];
+        for (const color of [0, 1]) if (res[color] > 0 && cubeFitsLook(t, color)) out.push({ src: "E", color });
+      }
+      if (r + 1 < rows && sides.includes(S)) {
+        const t = looks[(r + 1) * cols + c];
+        for (const color of [0, 1]) if (res[color] > 0 && cubeFitsLook(t, color)) out.push({ src: "S", color });
+      }
+      return out;
+    }
+    function splitOption(t, a, b) {
+      if (a.src === b.src && (a.src === "E" || a.src === "S")) return null;
+      const look = splitLook(a.h, Math.max(0, a.color), b.h, Math.max(0, b.color));
+      if (t !== LOOK.ANY && look !== t) return null;
+      const uses = [0, 0, 0, 0, 0];
+      let outRight = 0;
+      let outDown = 0;
+      for (const p of [a, b]) {
+        if (p.src === "tri") {
+          if (p.color < 0) uses[4] += 1;
+          else uses[2 + p.color] += 1;
+        } else if (p.src === "E") outRight = message(WANT, p.h, p.color);
+        else if (p.src === "S") outDown = message(WANT, p.h, p.color);
+      }
+      if (!fits(uses)) return null;
+      const fromCubes = (a.src === "tri" ? 0 : 1) + (b.src === "tri" ? 0 : 1);
+      const score = fromCubes === 1 ? a.src === "in" || b.src === "in" ? 0 : 1 : fromCubes === 2 && a.src === "in" && b.src === "in" ? 0 : 3;
+      return { kind: "split", parts: [a, b], uses, outRight, outDown, score };
+    }
+    function optionsAt(r, c) {
+      const i = r * cols + c;
+      const t = looks[i];
+      const up = r > 0 ? down[c] : 0;
+      const left = c > 0 ? right : 0;
+      const upType = msgType(up);
+      const leftType = msgType(left);
+      const out = [];
+      if (upType !== WANT && leftType !== WANT) {
+        const incoming = [];
+        if (upType === WEDGE) incoming.push({ h: msgHalf(up), src: "in", color: msgColor(up) });
+        if (leftType === WEDGE) incoming.push({ h: msgHalf(left), src: "in", color: msgColor(left) });
+        if (incoming.length === 2) {
+          if (COMPLEMENT[incoming[0].h] === incoming[1].h) {
+            const op = splitOption(t, incoming[0], incoming[1]);
+            if (op) out.push(op);
+          }
+        } else if (incoming.length === 1) {
+          const h1 = COMPLEMENT[incoming[0].h];
+          for (const f of fillersFor(h1, r, c)) {
+            const op = splitOption(t, incoming[0], { h: h1, ...f });
+            if (op) out.push(op);
+          }
+        } else {
+          for (const [ha, hb] of PAIRS) {
+            const fb = fillersFor(hb, r, c);
+            for (const fa of fillersFor(ha, r, c)) {
+              for (const f2 of fb) {
+                const op = splitOption(t, { h: ha, ...fa }, { h: hb, ...f2 });
+                if (op) out.push(op);
+              }
+            }
+          }
+        }
+      }
+      if (upType !== WEDGE && leftType !== WEDGE && !(upType === WANT && leftType === WANT)) {
+        if (upType === WANT || leftType === WANT) {
+          const m = upType === WANT ? up : left;
+          const color = msgColor(m);
+          if (res[color] > 0 && cubeFitsLook(t, color)) {
+            const uses = [0, 0, 0, 0, 0];
+            uses[color] = 1;
+            out.push({ kind: "cube", color, dir: upType === WANT ? N : W, h: msgHalf(m), uses, outRight: 0, outDown: 0, score: 0 });
+          }
+        } else {
+          for (const color of [0, 1]) {
+            if (res[color] === 0 || !cubeFitsLook(t, color)) continue;
+            const uses = [0, 0, 0, 0, 0];
+            uses[color] = 1;
+            if (c + 1 < cols) {
+              const tr = looks[i + 1];
+              for (const h of HALVES_FROM_SIDE[W]) {
+                if (halfFitsLook(tr, h, color)) out.push({ kind: "cube", color, dir: E, h, uses, outRight: message(WEDGE, h, color), outDown: 0, score: 1 });
+              }
+            }
+            if (r + 1 < rows) {
+              const td = looks[i + cols];
+              for (const h of HALVES_FROM_SIDE[N]) {
+                if (halfFitsLook(td, h, color)) out.push({ kind: "cube", color, dir: S, h, uses, outRight: 0, outDown: message(WEDGE, h, color), score: 1 });
+              }
+            }
+          }
+        }
+      }
+      return out;
+    }
+    function hopeful(i, c) {
+      const left = total - i;
+      const cw = res[0];
+      const cb = res[1];
+      if (cw + cb > left) return false;
+      if (cw > sufWhite[i] + sufAny[i] || cb > sufBlack[i] + sufAny[i]) return false;
+      if (sufDiag[i] > left - cw - cb) return false;
+      let inW = 0;
+      let inB = 0;
+      let wantW = 0;
+      let wantB = 0;
+      const tally = (m) => {
+        const type = msgType(m);
+        if (type === WEDGE) {
+          if (msgColor(m)) inB += 1;
+          else inW += 1;
+        } else if (type === WANT) {
+          if (msgColor(m)) wantB += 1;
+          else wantW += 1;
+        }
+      };
+      for (let k = 0; k < cols; k += 1) tally(down[k]);
+      if (c > 0) tally(right);
+      if (wantW > cw || wantB > cb) return false;
+      const needW = Math.max(0, sufWhite[i] - cw) + sufDiag[i];
+      if (needW > res[2] + cw - wantW + inW) return false;
+      const needB = Math.max(0, sufBlack[i] - cb) + sufDiag[i];
+      if (needB > res[3] + cb - wantB + inB) return false;
+      return true;
+    }
+    function dfs(i) {
+      if (i === total) return true;
+      nodes += 1;
+      if (nodes > maxNodes) throw new BudgetExceeded();
+      const r = Math.floor(i / cols);
+      const c = i - r * cols;
+      if (!hopeful(i, c)) return false;
+      const key = `${i}|${c > 0 ? right : 0}|${down.join(",")}|${res.join(",")}`;
+      if (deadEnds.has(key)) return false;
+      let opts = optionsAt(r, c);
+      const t = looks[i];
+      let lean = 0;
+      if (t === LOOK.WHITE) lean = res[0] / Math.max(1, sufWhite[i] + sufAny[i]) - 0.5;
+      else if (t === LOOK.BLACK) lean = res[1] / Math.max(1, sufBlack[i] + sufAny[i]) - 0.5;
+      else if (t === LOOK.ANY) lean = (res[0] + res[1]) / Math.max(1, total - i) - 0.5;
+      for (const op of opts) op.rank = op.score + (op.kind === "cube" ? -4 : 4) * lean;
+      if (rng) opts = weightedShuffle(opts, rng, (op) => 1 / (1 + Math.max(0, 3 * op.rank + 6)));
+      else opts.sort((a, b) => a.rank - b.rank);
+      const savedDown = down[c];
+      const savedRight = right;
+      for (const op of opts) {
+        for (let k = 0; k < 5; k += 1) res[k] -= k < 4 ? op.uses[k] : -op.uses[k];
+        down[c] = op.outDown;
+        right = op.outRight;
+        chosen[i] = op;
+        if (dfs(i + 1)) return true;
+        for (let k = 0; k < 5; k += 1) res[k] += k < 4 ? op.uses[k] : -op.uses[k];
+      }
+      down[c] = savedDown;
+      right = savedRight;
+      deadEnds.add(key);
+      return false;
+    }
+    try {
+      if (!dfs(0)) {
+        return {
+          status: "impossible",
+          code: "search",
+          reason: "No arrangement of the pieces gives this picture (every possibility was checked).",
+          nodes
+        };
+      }
+    } catch (err) {
+      if (err instanceof BudgetExceeded) return { status: "unknown", nodes };
+      throw err;
+    }
+    let whiteLeft = res[2];
+    const pieces = [];
+    chosen.forEach((op, i) => {
+      const r = Math.floor(i / cols);
+      const c = i % cols;
+      if (op.kind === "cube") {
+        pieces.push({ type: "mix", color: colorOf(op.color), r, c, o: mixOrientFor(op.dir, op.h) });
+        return;
+      }
+      for (const p of op.parts) {
+        if (p.src !== "tri") continue;
+        let color = p.color;
+        if (color < 0) {
+          color = whiteLeft > 0 ? 0 : 1;
+          if (color === 0) whiteLeft -= 1;
+        }
+        pieces.push({ type: "tri", color: colorOf(color), r, c, o: p.h });
+      }
+    });
+    const rank = (p) => p.type === "mix" ? 0 : isCap(p.o) ? 2 : 1;
+    pieces.sort((a, b) => rank(a) - rank(b));
+    return { status: "possible", pieces, nodes };
+  }
+  function makeRng(seed = Date.now()) {
+    let a = seed >>> 0;
+    return () => {
+      a = a + 1831565813 >>> 0;
+      let t = a;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function shuffle(list, rng) {
+    for (let i = list.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(rng() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    return list;
+  }
+  function randomDominoes(rows, cols, rng) {
+    const partner = new Int32Array(rows * cols);
+    const at2 = (r, c) => r * cols + c;
+    for (let r = 0; r < rows; r += 1) {
+      for (let c = 0; c < cols; c += 1) {
+        if (cols % 2 === 0) partner[at2(r, c)] = at2(r, c ^ 1);
+        else partner[at2(r, c)] = at2(r ^ 1, c);
+      }
+    }
+    const flips = rows > 1 && cols > 1 ? 30 * rows * cols : 0;
+    for (let k = 0; k < flips; k += 1) {
+      const r = Math.floor(rng() * (rows - 1));
+      const c = Math.floor(rng() * (cols - 1));
+      const a = at2(r, c);
+      const b = at2(r, c + 1);
+      const d = at2(r + 1, c);
+      const e = at2(r + 1, c + 1);
+      if (partner[a] === b && partner[d] === e) {
+        partner[a] = d;
+        partner[d] = a;
+        partner[b] = e;
+        partner[e] = b;
+      } else if (partner[a] === d && partner[b] === e) {
+        partner[a] = b;
+        partner[b] = a;
+        partner[d] = e;
+        partner[e] = d;
+      }
+    }
+    return partner;
+  }
+  function randomArrangement(rows, cols, inventory, rng = makeRng(), split = 0.5) {
+    const partner = randomDominoes(rows, cols, rng);
+    const dominoes = [];
+    for (let i = 0; i < rows * cols; i += 1) if (i < partner[i]) dominoes.push([i, partner[i]]);
+    const cubeColors = shuffle([...Array(inventory.mixW).fill("W"), ...Array(inventory.mixB).fill("B")], rng);
+    const triColors = shuffle([...Array(inventory.triW).fill("W"), ...Array(inventory.triB).fill("B")], rng);
+    if (cubeColors.length !== dominoes.length || triColors.length !== dominoes.length) {
+      throw new Error("The pieces do not match the board size.");
+    }
+    const mixes = [];
+    const loose = [];
+    dominoes.forEach(([x, y], k) => {
+      const [a, b] = rng() < 0.5 ? [x, y] : [y, x];
+      const ar = Math.floor(a / cols);
+      const ac = a % cols;
+      const br = Math.floor(b / cols);
+      const bc = b % cols;
+      const dir = [N, E, S, W].find((d) => ar + DR[d] === br && ac + DC[d] === bc);
+      const pose = rng() < split ? rng() < 0.5 ? 0 : 1 : rng() < 0.5 ? 2 : 3;
+      const o = dir * 4 + pose;
+      const half = mixWedgeHalf(dir, pose);
+      mixes.push({ type: "mix", color: cubeColors[k], r: ar, c: ac, o });
+      loose.push({ type: "tri", color: triColors[k], r: br, c: bc, o: COMPLEMENT[half] });
+    });
+    loose.sort((p, q) => (isCap(p.o) ? 1 : 0) - (isCap(q.o) ? 1 : 0));
+    return [...mixes, ...loose];
+  }
+
+  // src/app.js
+  var STORAGE_KEY = "building-blocks-simulator:v1";
+  var MAX_HISTORY = 300;
+  var CHECK_BUDGET = 15e5;
+  var DIFFICULTY = { easy: 0.12, medium: 0.45, hard: 0.85 };
+  var KIND_INFO = {
+    mixW: { type: "mix", color: "W", label: "White cube + prism", short: "Cube + prism" },
+    mixB: { type: "mix", color: "B", label: "Black cube + prism", short: "Cube + prism" },
+    triW: { type: "tri", color: "W", label: "White prism", short: "Prism" },
+    triB: { type: "tri", color: "B", label: "Black prism", short: "Prism" }
+  };
+  var DIR_WORD = ["up", "right", "down", "left"];
+  var CORNER_WORD = ["top-left", "top-right", "bottom-right", "bottom-left"];
+  var SIDE_WORD = ["top", "right", "bottom", "left"];
+  var ARROW = ["↑", "→", "↓", "←"];
+  var PALETTE2 = [
+    { look: LOOK.WHITE, label: "White" },
+    { look: LOOK.BLACK, label: "Black" },
+    { look: LOOK.SLASH_WB, label: "Split, white top-left" },
+    { look: LOOK.SLASH_BW, label: "Split, black top-left" },
+    { look: LOOK.BACK_WB, label: "Split, white top-right" },
+    { look: LOOK.BACK_BW, label: "Split, black top-right" },
+    { look: LOOK.ANY, label: "Any (leave open)" }
+  ];
+  var { WHITE: W2, BLACK: B, SLASH_WB, SLASH_BW, BACK_WB, BACK_BW } = LOOK;
+  var SAMPLES = [
+    {
+      id: "all-split",
+      name: "Every square split",
+      make: (rows, cols) => new Array(rows * cols).fill(BACK_WB)
+    },
+    {
+      id: "diamond",
+      name: "Diamond",
+      make: (rows, cols) => rows === 4 && cols === 4 ? [W2, SLASH_WB, BACK_WB, W2, SLASH_WB, B, B, BACK_WB, BACK_BW, B, B, SLASH_BW, W2, BACK_BW, SLASH_BW, W2] : null
+    },
+    {
+      id: "checker",
+      name: "Checkerboard",
+      make: (rows, cols) => Array.from({ length: rows * cols }, (_, i) => (Math.floor(i / cols) + i % cols) % 2 ? B : W2)
+    },
+    {
+      id: "stripes",
+      name: "Stripes",
+      make: (rows, cols) => Array.from({ length: rows * cols }, (_, i) => Math.floor(i / cols) % 2 ? B : W2)
+    },
+    ...PRESETS.map((p) => ({
+      id: `pic-${p.id}`,
+      name: p.name.replace(/\s*\(.*\)/, ""),
+      make: (rows, cols) => rows === p.rows && cols === p.cols ? Board.fromJSON(p).looks() : null
+    }))
+  ];
+  var History = class {
+    constructor() {
+      this.past = [];
+      this.future = [];
+    }
+    record(board) {
+      this.past.push(encodeBoard(board));
+      if (this.past.length > MAX_HISTORY) this.past.shift();
+      this.future = [];
+    }
+    undo(board) {
+      if (!this.past.length) return null;
+      this.future.push(encodeBoard(board));
+      return decodeBoard(this.past.pop());
+    }
+    redo(board) {
+      if (!this.future.length) return null;
+      this.past.push(encodeBoard(board));
+      return decodeBoard(this.future.pop());
+    }
+  };
+  var state;
+  var pointer = { down: false, id: null, type: "mouse", startCell: null };
+  var statusTimer = 0;
+  var saveTimer = 0;
+  function freshChallenge(rows, cols, difficulty = "medium") {
+    return { board: new Board(rows, cols), history: new History(), target: null, answer: null, difficulty, moves: 0, solved: false, revealed: false };
+  }
+  function defaultState() {
+    const photo = PRESETS[0];
+    return {
+      mode: "build",
+      rows: photo.rows,
+      cols: photo.cols,
+      sizeDraft: { rows: photo.rows, cols: photo.cols },
+      build: Board.fromJSON(photo),
+      buildHistory: new History(),
+      challenge: freshChallenge(photo.rows, photo.cols),
+      pattern: SAMPLES[1].make(4, 4),
+      paint: LOOK.BLACK,
+      check: { status: "idle" },
+      selected: "mixW",
+      orient: { mix: 4, tri: 3 },
+      tool: "place",
+      xray: false,
+      view: "top",
+      azimuth: 22,
+      hover: null,
+      hoverCell: -1,
+      fresh: /* @__PURE__ */ new Set()
+    };
+  }
+  function snapshot() {
+    const ch = state.challenge;
+    return {
+      v: 1,
+      mode: state.mode,
+      rows: state.rows,
+      cols: state.cols,
+      build: encodeBoard(state.build),
+      pattern: state.pattern,
+      paint: state.paint,
+      selected: state.selected,
+      orient: state.orient,
+      xray: state.xray,
+      challenge: {
+        board: encodeBoard(ch.board),
+        target: ch.target,
+        answer: ch.answer,
+        difficulty: ch.difficulty,
+        moves: ch.moves,
+        solved: ch.solved,
+        revealed: ch.revealed
+      }
+    };
+  }
+  function restore(data) {
+    const base = defaultState();
+    if (!data || data.v !== 1) return base;
+    try {
+      const rows = data.rows;
+      const cols = data.cols;
+      if (sizeProblem(rows, cols)) return base;
+      const build = decodeBoard(data.build);
+      if (build.rows !== rows || build.cols !== cols) return base;
+      const chBoard = decodeBoard(data.challenge.board);
+      const pattern = Array.isArray(data.pattern) && data.pattern.length === rows * cols ? data.pattern.map(Number) : new Array(rows * cols).fill(LOOK.ANY);
+      return {
+        ...base,
+        mode: ["build", "check", "challenge"].includes(data.mode) ? data.mode : "build",
+        rows,
+        cols,
+        sizeDraft: { rows, cols },
+        build,
+        challenge: {
+          ...freshChallenge(rows, cols, data.challenge.difficulty in DIFFICULTY ? data.challenge.difficulty : "medium"),
+          board: chBoard,
+          target: Array.isArray(data.challenge.target) && data.challenge.target.length === rows * cols ? data.challenge.target : null,
+          answer: Array.isArray(data.challenge.answer) ? data.challenge.answer : null,
+          moves: data.challenge.moves | 0,
+          solved: !!data.challenge.solved,
+          revealed: !!data.challenge.revealed
+        },
+        pattern,
+        paint: Number.isInteger(data.paint) ? data.paint : LOOK.BLACK,
+        selected: KINDS.includes(data.selected) ? data.selected : "mixW",
+        orient: {
+          mix: Number.isInteger(data.orient?.mix) ? data.orient.mix % 16 : 4,
+          tri: Number.isInteger(data.orient?.tri) ? data.orient.tri % 12 : 3
+        },
+        xray: !!data.xray
+      };
+    } catch {
+      return base;
+    }
+  }
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot()));
+      } catch {
+      }
+    }, 250);
+  }
+  var activeBoard = () => state.mode === "challenge" ? state.challenge.board : state.build;
+  var activeHistory = () => state.mode === "challenge" ? state.challenge.history : state.buildHistory;
+  function setActiveBoard(board) {
+    if (state.mode === "challenge") state.challenge.board = board;
+    else state.build = board;
+  }
+  function describeOrientation(type, o) {
+    if (type === "mix") {
+      const m = MIX_ORIENTS[o];
+      const where = `prism ${DIR_WORD[m.dir] === "up" || DIR_WORD[m.dir] === "down" ? DIR_WORD[m.dir] : `to the ${DIR_WORD[m.dir]}`}`;
+      if (m.pose === 2) return `Lying, ${where} as a ramp (slope up)`;
+      if (m.pose === 3) return `Lying, ${where} as a roof (slope down, hollow underneath)`;
+      return `Standing, ${where}, right angle ${CORNER_WORD[m.half]}`;
+    }
+    if (o < 4) return `Standing, right angle ${CORNER_WORD[o]}`;
+    if (isRamp(o)) return `Lying as a ramp, high side ${SIDE_WORD[thickSide(o)]}`;
+    return `Lying as a roof, thick side ${SIDE_WORD[thickSide(o)]} (goes on a ramp)`;
+  }
+  function failureText(res, piece) {
+    const name = pieceName(piece);
+    switch (res.code) {
+      case "none-left":
+        return `No ${name} left. Take one out of the tray or choose another piece.`;
+      case "outside":
+        return piece.type === "mix" ? "The prism part would stick out of the tray. Turn the piece or pick another square." : "That is outside the tray.";
+      case "taken":
+        return "That square is already full. Use Pick up (or right-click) to take a piece out.";
+      case "clash":
+        return "Only the matching half fits next to the piece already in that square.";
+      case "needs-ramp":
+        return "A prism lying slope-down needs a ramp under it. Put a ramp in that square first.";
+      default:
+        return "That does not fit.";
+    }
+  }
+  function progressText() {
+    const board = activeBoard();
+    const placed = board.pieces.size;
+    const total = board.totalPieces();
+    const hollow = board.hollowCells().length;
+    let text = placed === total ? `Tray full: all ${total} pieces placed.` : `${placed} of ${total} pieces placed.`;
+    if (hollow) text += ` ${hollow} roof${hollow > 1 ? "s have" : " has"} a hollow underneath.`;
+    return text;
+  }
+  var $ = (sel) => document.querySelector(sel);
+  function render() {
+    renderTabs();
+    renderBoard();
+    renderStageBar();
+    renderPanel();
+    if (!statusTimer) setStatus(defaultStatus(), false);
+    scheduleSave();
+  }
+  function renderTabs() {
+    document.querySelectorAll("[data-tab]").forEach((tab) => {
+      const on = tab.dataset.tab === state.mode;
+      tab.setAttribute("aria-selected", on ? "true" : "false");
+      tab.tabIndex = on ? 0 : -1;
+    });
+    document.body.dataset.mode = state.mode;
+  }
+  function renderBoard() {
+    const svg2 = $("#board");
+    let view;
+    if (state.mode === "check") {
+      view = pictureMarkup(state.rows, state.cols, state.pattern, { hoverCell: state.hoverCell });
+      svg2.setAttribute("aria-label", `Picture to check, ${state.rows} by ${state.cols}. Tap squares to paint them.`);
+    } else if (state.view === "3d") {
+      const b = board3d(activeBoard(), { azimuth: state.azimuth });
+      view = { viewBox: b.viewBox, markup: b.markup };
+      svg2.setAttribute("aria-label", `Tray in 3D. ${progressText()}`);
+    } else {
+      const board = activeBoard();
+      let ghost = null;
+      let hoverId = 0;
+      if (state.hover) {
+        if (state.tool === "place" && state.selected) {
+          const piece = currentPiece(state.hover.r, state.hover.c);
+          ghost = { piece, ok: board.check(piece).ok };
+        } else if (state.tool === "pickup") {
+          hoverId = board.pieceAt(state.hover.r, state.hover.c, state.hover.fx, state.hover.fy);
+        }
+      }
+      view = boardMarkup(board, { xray: state.xray, ghost, hoverId, freshIds: state.fresh });
+      svg2.setAttribute("aria-label", `Tray, ${state.rows} rows by ${state.cols} columns. ${progressText()}`);
+    }
+    svg2.setAttribute("viewBox", view.viewBox);
+    svg2.innerHTML = view.markup;
+    svg2.classList.toggle("is-3d", state.mode !== "check" && state.view === "3d");
+    svg2.classList.toggle("is-pickup", state.mode !== "check" && state.tool === "pickup");
+    state.fresh = /* @__PURE__ */ new Set();
+  }
+  function toolButton(action, icon, label, { pressed = null, disabled = false, hint = "" } = {}) {
+    const aria = pressed === null ? "" : ` aria-pressed="${pressed ? "true" : "false"}"`;
+    return `<button type="button" class="tool" data-action="${action}"${aria}${disabled ? " disabled" : ""} title="${hint || label}">${icon}<span>${label}</span></button>`;
+  }
+  function renderStageBar() {
+    const bar = $("#stageBar");
+    if (state.mode === "check") {
+      const st = patternStats(state.pattern);
+      const maxSplit = state.rows * state.cols - (activeInventory().mixW + activeInventory().mixB);
+      bar.innerHTML = `<p class="stats"><span><b>${st.diagonal}</b> split of at most ${maxSplit}</span><span><b>${st.white}</b> white</span><span><b>${st.black}</b> black</span>${st.any ? `<span><b>${st.any}</b> any</span>` : ""}</p>`;
+      return;
+    }
+    const hist = activeHistory();
+    let html = '<div class="tools">';
+    html += toolButton("undo", ICONS.undo, "Undo", { disabled: !hist.past.length, hint: "Undo (Ctrl+Z)" });
+    html += toolButton("redo", ICONS.redo, "Redo", { disabled: !hist.future.length, hint: "Redo (Ctrl+Y)" });
+    html += toolButton("pickup", ICONS.hand, "Pick up", { pressed: state.tool === "pickup", hint: "Pick up pieces (P). Right-click also picks up." });
+    html += toolButton("xray", ICONS.xray, "X-ray", { pressed: state.xray, hint: "See pieces hidden under roofs (X)" });
+    html += toolButton("view", state.view === "3d" ? ICONS.board : ICONS.cube, state.view === "3d" ? "Top view" : "3D", { hint: "Switch between the top view and 3D (V)" });
+    if (state.view === "3d") {
+      html += toolButton("turn-view-left", ICONS.turnLeft, "Turn", { hint: "Turn the tray" });
+      html += toolButton("turn-view-right", ICONS.turnRight, "Turn", { hint: "Turn the tray the other way" });
+    }
+    html += "</div>";
+    if (state.mode === "challenge" && state.challenge.target) {
+      const prog = challengeProgress();
+      html += `<div class="target-mini" aria-label="Target picture">${flatPicture(state.rows, state.cols, state.challenge.target, { cell: 14, gap: 1.2 })}<p><b>${prog.match}</b> of ${prog.total} squares match</p></div>`;
+    }
+    bar.innerHTML = html;
+  }
+  function activeInventory() {
+    return activeBoard().inventory;
+  }
+  function binMarkup() {
+    const board = activeBoard();
+    return KINDS.map((kind, i) => {
+      const info = KIND_INFO[kind];
+      const left = board.remaining(kind);
+      const on = state.selected === kind;
+      const icon = pieceIcon(info.type, info.color, state.orient[info.type], { size: info.type === "mix" ? 66 : 50 });
+      return `<button type="button" class="bin-slot${on ? " is-selected" : ""}${left === 0 ? " is-empty" : ""}" data-action="select" data-kind="${kind}" aria-pressed="${on}" title="${info.label} (${i + 1})">
+<span class="bin-icon">${icon}</span>
+<span class="bin-text"><span class="bin-name"><i class="swatch ${info.color}"></i>${info.short}</span><span class="bin-count"><b>${left}</b> left</span></span>
+</button>`;
+    }).join("");
+  }
+  function orientMarkup() {
+    if (!state.selected) return '<p class="muted">Choose a piece above to see the ways it can be turned.</p>';
+    const info = KIND_INFO[state.selected];
+    const cur = state.orient[info.type];
+    const button = (o, size) => {
+      const on = o === cur;
+      return `<button type="button" class="orient${on ? " is-on" : ""}" data-action="orient" data-o="${o}" aria-pressed="${on}" aria-label="${describeOrientation(info.type, o)}" title="${describeOrientation(info.type, o)}">${pieceIcon(info.type, info.color, o, { size })}</button>`;
+    };
+    let grid = "";
+    if (info.type === "mix") {
+      const rows = ["Standing", "Standing, mirrored", "Lying, slope up", "Lying, slope down"];
+      const dirs = [1, 2, 3, 0];
+      grid += `<div class="orient-head"><span></span>${dirs.map((d) => `<span title="Prism points ${DIR_WORD[d]}">${ARROW[d]}</span>`).join("")}</div>`;
+      rows.forEach((label, pose) => {
+        grid += `<div class="orient-row"><span class="orient-label">${label}</span>${dirs.map((d) => button(d * 4 + pose, 54)).join("")}</div>`;
+      });
+    } else {
+      const rows = [["Standing", [0, 1, 2, 3]], ["Lying, slope up", [4, 5, 6, 7]], ["Lying, slope down", [8, 9, 10, 11]]];
+      for (const [label, list] of rows) {
+        grid += `<div class="orient-row"><span class="orient-label">${label}</span>${list.map((o) => button(o, 46)).join("")}</div>`;
+      }
+    }
+    return `<div class="orient-grid ${info.type}">${grid}</div>
+<p class="orient-now">${describeOrientation(info.type, cur)}</p>
+<div class="turn-buttons">
+${toolButton("turn", ICONS.rotate, "Turn", { hint: "Quarter turn (R)" })}
+${toolButton("flip", ICONS.flip, "Flip over", { hint: "Turn upside down (F)" })}
+${toolButton("tip", ICONS.tip, "Tip over", { hint: "Stand up / lay down (T)" })}
+</div>`;
+  }
+  function sizeMarkup() {
+    const d = state.sizeDraft;
+    const problem = sizeProblem(d.rows, d.cols);
+    const changed = d.rows !== state.rows || d.cols !== state.cols;
+    const stepper = (key, label) => `<div class="stepper"><span class="stepper-label" id="lbl-${key}">${label}</span>
+<button type="button" data-action="size-dec" data-key="${key}" aria-label="Fewer ${label.toLowerCase()}" ${d[key] <= 1 ? "disabled" : ""}>−</button>
+<output aria-labelledby="lbl-${key}">${d[key]}</output>
+<button type="button" data-action="size-inc" data-key="${key}" aria-label="More ${label.toLowerCase()}" ${d[key] >= MAX_SIZE ? "disabled" : ""}>+</button></div>`;
+    const n = d.rows * d.cols;
+    const note = problem ? `<p class="size-note is-bad">${problem}</p>` : `<p class="size-note">${n} squares: ${n / 4} of each piece (cube + prism and prism, in white and black).</p>`;
+    const quick = [[4, 4], [8, 4], [4, 8], [6, 6], [8, 8]].map(([r, c]) => `<button type="button" class="chip${r === state.rows && c === state.cols ? " is-on" : ""}" data-action="quick-size" data-rows="${r}" data-cols="${c}">${r}×${c}</button>`).join("");
+    return `<div class="size-row">${stepper("rows", "Rows")}${stepper("cols", "Columns")}
+<button type="button" class="btn" data-action="apply-size" ${!problem && changed ? "" : "disabled"}>Use ${d.rows}×${d.cols}</button></div>
+${note}<div class="chips" role="group" aria-label="Common sizes">${quick}</div>`;
+  }
+  function trayCard() {
+    const presets = PRESETS.map((p) => `<button type="button" class="chip" data-action="preset" data-id="${p.id}">${p.name}</button>`).join("");
+    const code = encodeBoard(state.build);
+    return `<section class="card" aria-labelledby="tray-h">
+<h2 id="tray-h">Tray</h2>
+${sizeMarkup()}
+<div class="chips" role="group" aria-label="Fill the tray">${presets}
+<button type="button" class="chip" data-action="random-fill">${ICONS.dice}Random fill</button>
+<button type="button" class="chip" data-action="clear-board">${ICONS.trash}Empty tray</button></div>
+<details class="share"><summary>Board code (save or share a layout)</summary>
+<div class="code-row"><label class="sr-only" for="codeOut">Code of the Build tray</label><input id="codeOut" readonly value="${code}"><button type="button" class="btn" data-action="copy-code">${ICONS.copy}Copy</button></div>
+<div class="code-row"><label class="sr-only" for="codeIn">Paste a board code</label><input id="codeIn" placeholder="Paste a code like 4x4:…" autocomplete="off" spellcheck="false"><button type="button" class="btn" data-action="load-code">Load</button></div>
+</details>
+</section>`;
+  }
+  function piecesCards(title) {
+    const board = activeBoard();
+    const allIn = KINDS.every((k) => board.remaining(k) === 0);
+    return `<section class="card" aria-labelledby="bin-h">
+<h2 id="bin-h">${title}</h2>
+<div class="bin">${binMarkup()}</div>
+${allIn ? '<p class="hint">Every piece is in the tray. Use <b>Pick up</b> to take pieces out and rearrange them, or empty the tray below.</p>' : ""}
+</section>
+<section class="card" aria-labelledby="turn-h">
+<h2 id="turn-h">Turn the piece</h2>
+${orientMarkup()}
+<p class="hint">Tap a square to place it: the cube goes where you tap. Keys: <kbd>R</kbd> turn, <kbd>F</kbd> flip, <kbd>T</kbd> tip, <kbd>P</kbd> pick up.</p>
+</section>`;
+  }
+  function checkResultMarkup() {
+    const ck = state.check;
+    const quick = quickCheck(state.rows, state.cols, state.pattern, activeInventoryFor());
+    if (ck.status === "running") {
+      return `<div class="result is-running" role="status"><span class="spinner" aria-hidden="true"></span><p>Searching every way to place the pieces…</p><button type="button" class="btn" data-action="cancel-check">Cancel</button></div>`;
+    }
+    if (ck.status === "possible") {
+      return `<div class="result is-possible"><span class="pill ok">Possible</span><p>The pieces can make this picture.</p><button type="button" class="btn primary" data-action="show-solution">${ICONS.play}Build it on the tray</button></div>`;
+    }
+    if (ck.status === "impossible") {
+      return `<div class="result is-impossible"><span class="pill bad">Impossible</span><p>${ck.reason}</p></div>`;
+    }
+    if (ck.status === "unknown") {
+      return `<div class="result is-unknown"><span class="pill warn">Couldn't decide</span><p>${ck.reason}</p></div>`;
+    }
+    if (!quick.ok) {
+      return `<div class="result is-impossible"><span class="pill bad">Impossible</span><p>${quick.reason}</p></div>`;
+    }
+    return '<div class="result"><p class="muted">Paint a picture, then check whether the pieces can make it.</p></div>';
+  }
+  function activeInventoryFor() {
+    return state.build.inventory;
+  }
+  function checkPanel() {
+    const swatches = PALETTE2.map(({ look, label }) => {
+      const on = state.paint === look;
+      return `<button type="button" class="swatch-btn${on ? " is-on" : ""}" data-action="paint" data-look="${look}" aria-pressed="${on}" title="${label}">${flatPicture(1, 1, [look], { cell: 28, gap: 0 })}<span>${label}</span></button>`;
+    }).join("");
+    const samples = SAMPLES.map((s) => ({ s, looks: s.make(state.rows, state.cols) })).filter((x) => x.looks).map(({ s }) => `<button type="button" class="chip" data-action="sample" data-id="${s.id}">${s.name}</button>`).join("");
+    return `<section class="card" aria-labelledby="paint-h">
+<h2 id="paint-h">Paint a picture</h2>
+<div class="palette" role="group" aria-label="Paint">${swatches}</div>
+<p class="hint">Tap or drag across squares. “Any” leaves a square open for the pieces to decide.</p>
+<div class="chips" role="group" aria-label="Start from">${samples}
+<button type="button" class="chip" data-action="from-build">${ICONS.copy}Copy the Build tray</button>
+<button type="button" class="chip" data-action="random-picture">${ICONS.dice}Random possible</button>
+<button type="button" class="chip" data-action="clear-picture">${ICONS.trash}Clear</button></div>
+</section>
+<section class="card" aria-labelledby="result-h">
+<h2 id="result-h">Can it be built?</h2>
+<button type="button" class="btn primary wide" data-action="check" ${state.check.status === "running" ? "disabled" : ""}>${ICONS.check}Check this picture</button>
+${checkResultMarkup()}
+</section>
+${trayCard()}`;
+  }
+  function challengePanel() {
+    const ch = state.challenge;
+    const levels = Object.keys(DIFFICULTY).map((k) => `<button type="button" class="chip${ch.difficulty === k ? " is-on" : ""}" data-action="difficulty" data-level="${k}" aria-pressed="${ch.difficulty === k}">${k[0].toUpperCase()}${k.slice(1)}</button>`).join("");
+    let body;
+    if (!ch.target) {
+      body = '<p class="muted">Start a challenge: you get a picture made from a real arrangement of the pieces, and you rebuild it in the tray.</p>';
+    } else {
+      const prog = challengeProgress();
+      const verdict = ch.solved ? `<p class="win">${ch.revealed ? "Answer shown." : `Solved in ${ch.moves} moves.`}</p>` : `<p><b>${prog.match}</b> of ${prog.total} squares match · ${ch.moves} moves</p>`;
+      body = `<div class="target">${flatPicture(state.rows, state.cols, ch.target, { cell: 34, gap: 2.5, mismatches: prog.mismatch })}</div>${verdict}
+<p class="hint">A red outline marks a square that is full but looks different from the picture.</p>`;
+    }
+    return `<section class="card" aria-labelledby="ch-h">
+<h2 id="ch-h">Make this picture</h2>
+${body}
+<div class="chips" role="group" aria-label="Difficulty">${levels}</div>
+<div class="row-buttons">
+<button type="button" class="btn primary" data-action="new-challenge">${ICONS.dice}New challenge</button>
+${ch.target ? `<button type="button" class="btn" data-action="restart-challenge">Start over</button><button type="button" class="btn" data-action="reveal">Show answer</button>` : ""}
+</div>
+</section>
+${piecesCards("Pieces")}
+${trayCard()}`;
+  }
+  function buildPanel() {
+    return `${piecesCards("Pieces")}${trayCard()}`;
+  }
+  function renderPanel() {
+    const panel = $("#panel");
+    const focusedId = document.activeElement && panel.contains(document.activeElement) ? focusKey(document.activeElement) : null;
+    const html = state.mode === "check" ? checkPanel() : state.mode === "challenge" ? challengePanel() : buildPanel();
+    const openDetails = panel.querySelector("details[open]") !== null;
+    panel.innerHTML = html;
+    if (openDetails) panel.querySelector("details")?.setAttribute("open", "");
+    if (focusedId) {
+      const el = panel.querySelector(focusedId);
+      if (el) el.focus({ preventScroll: true });
+    }
+  }
+  function focusKey(el) {
+    if (el.id) return `#${el.id}`;
+    const action = el.dataset.action;
+    if (!action) return null;
+    const extra = ["kind", "o", "look", "key", "id", "level", "rows"].map((k) => el.dataset[k] !== void 0 ? `[data-${k}="${el.dataset[k]}"]` : "").join("");
+    return `[data-action="${action}"]${extra}`;
+  }
+  function defaultStatus() {
+    if (state.mode === "check") return "Paint squares, then press “Check this picture”.";
+    if (state.view === "3d") return `${progressText()} Switch to the top view to place pieces.`;
+    if (state.tool === "pickup") return `Pick up: tap a piece to take it out. ${progressText()}`;
+    if (!state.selected) return `Choose a piece. ${progressText()}`;
+    const info = KIND_INFO[state.selected];
+    return `${info.label}: ${describeOrientation(info.type, state.orient[info.type]).toLowerCase()}. ${progressText()}`;
+  }
+  function resetStatus() {
+    clearTimeout(statusTimer);
+    statusTimer = 0;
+  }
+  function setStatus(text, transient = true, tone = "") {
+    const el = $("#status");
+    el.textContent = text;
+    el.dataset.tone = tone;
+    clearTimeout(statusTimer);
+    statusTimer = 0;
+    if (transient) {
+      statusTimer = setTimeout(() => {
+        statusTimer = 0;
+        setStatus(defaultStatus(), false);
+      }, 4200);
+    }
+  }
+  function currentPiece(r, c) {
+    const info = KIND_INFO[state.selected];
+    return { type: info.type, color: info.color, r, c, o: state.orient[info.type] };
+  }
+  function placeAt(h) {
+    const board = activeBoard();
+    const piece = currentPiece(h.r, h.c);
+    const res = board.check(piece);
+    if (!res.ok) {
+      setStatus(failureText(res, piece), true, "bad");
+      pulseBoard();
+      return;
+    }
+    activeHistory().record(board);
+    const placed = board.place(piece);
+    state.fresh = /* @__PURE__ */ new Set([placed.id]);
+    if (state.mode === "challenge") {
+      state.challenge.moves += 1;
+      afterChallengeMove();
+    }
+    if (board.remaining(state.selected) === 0) {
+      const next = KINDS.find((k) => KIND_INFO[k].type === KIND_INFO[state.selected].type && board.remaining(k) > 0) ?? KINDS.find((k) => board.remaining(k) > 0);
+      if (next) {
+        setStatus(`That was the last ${pieceName(piece)}. Switched to ${KIND_INFO[next].label.toLowerCase()}.`);
+        state.selected = next;
+      }
+    }
+    render();
+  }
+  function pickUpAt(h) {
+    const board = activeBoard();
+    const id = board.pieceAt(h.r, h.c, h.fx, h.fy);
+    if (!id) {
+      setStatus("Nothing to pick up there.", true);
+      return;
+    }
+    const piece = board.pieces.get(id);
+    activeHistory().record(board);
+    const removed = board.remove(id);
+    if (state.mode === "challenge") {
+      state.challenge.moves += 1;
+      afterChallengeMove();
+    }
+    setStatus(removed.length > 1 ? `Took out the ${pieceName(piece)} and the prism resting on it.` : `Took out the ${pieceName(piece)}.`);
+    render();
+  }
+  function pulseBoard() {
+    const wrap = $("#boardWrap");
+    wrap.classList.remove("is-shake");
+    void wrap.offsetWidth;
+    wrap.classList.add("is-shake");
+  }
+  function undo() {
+    const board = activeHistory().undo(activeBoard());
+    if (!board) return;
+    setActiveBoard(board);
+    if (state.mode === "challenge") afterChallengeMove();
+    render();
+  }
+  function redo() {
+    const board = activeHistory().redo(activeBoard());
+    if (!board) return;
+    setActiveBoard(board);
+    if (state.mode === "challenge") afterChallengeMove();
+    render();
+  }
+  function changeOrientation(fn) {
+    if (!state.selected) return;
+    const type = KIND_INFO[state.selected].type;
+    state.orient[type] = fn(type, state.orient[type]);
+    resetStatus();
+    render();
+  }
+  var turn = () => changeOrientation((type, o) => type === "mix" ? rotateMix(o) : rotateTri(o));
+  var flip = () => changeOrientation((type, o) => type === "mix" ? flipMix(o) : flipTri(o));
+  var tip = () => changeOrientation((type, o) => type === "mix" ? tipMix(o) : tipTri(o));
+  function setMode(mode) {
+    if (state.mode === mode) return;
+    state.mode = mode;
+    state.hover = null;
+    state.hoverCell = -1;
+    if (mode === "challenge" && !state.challenge.target) newChallenge();
+    resetStatus();
+    render();
+    setStatus(defaultStatus(), false);
+  }
+  async function setSize(rows, cols) {
+    const problem = sizeProblem(rows, cols);
+    if (problem) {
+      setStatus(problem, true, "bad");
+      return;
+    }
+    const busy = state.build.pieces.size || state.challenge.board.pieces.size;
+    if (busy && !await confirmDialog(`Start a new ${rows}×${cols} tray? The pieces in the trays and the current picture will be cleared.`, "New tray")) return;
+    state.rows = rows;
+    state.cols = cols;
+    state.sizeDraft = { rows, cols };
+    state.build = new Board(rows, cols);
+    state.buildHistory = new History();
+    state.challenge = freshChallenge(rows, cols, state.challenge.difficulty);
+    state.pattern = new Array(rows * cols).fill(LOOK.ANY);
+    state.check = { status: "idle" };
+    if (state.mode === "challenge") newChallenge();
+    render();
+    setStatus(`New ${rows}×${cols} tray with ${rows * cols / 4} of each piece.`);
+  }
+  function loadPieces(pieces, rows, cols) {
+    const board = new Board(rows, cols);
+    for (const p of pieces) {
+      const res = board.place(p);
+      if (!res.ok) throw new Error(`Could not place ${pieceName(p)}: ${res.code}`);
+    }
+    return board;
+  }
+  async function usePreset(id) {
+    const preset = PRESETS.find((p) => p.id === id);
+    if (!preset) return;
+    if (preset.rows !== state.rows || preset.cols !== state.cols) {
+      const busy = state.build.pieces.size || state.challenge.board.pieces.size;
+      if (busy && !await confirmDialog(`${preset.name} uses a ${preset.rows}×${preset.cols} tray. Switch size? The other trays will be cleared.`, "Switch")) return;
+      state.rows = preset.rows;
+      state.cols = preset.cols;
+      state.sizeDraft = { rows: preset.rows, cols: preset.cols };
+      state.buildHistory = new History();
+      state.challenge = freshChallenge(preset.rows, preset.cols, state.challenge.difficulty);
+      state.pattern = new Array(preset.rows * preset.cols).fill(LOOK.ANY);
+      state.check = { status: "idle" };
+    } else {
+      state.buildHistory.record(state.build);
+    }
+    state.build = Board.fromJSON(preset);
+    state.mode = "build";
+    render();
+    setStatus(`Loaded ${preset.name}: every square looks full because each cube + prism lies as a ramp with a prism on top.`);
+  }
+  function randomFill() {
+    const board = activeBoard();
+    activeHistory().record(board);
+    const pieces = randomArrangement(state.rows, state.cols, board.inventory, makeRng(Date.now() >>> 0), 0.5);
+    setActiveBoard(loadPieces(pieces, state.rows, state.cols));
+    if (state.mode === "challenge") {
+      state.challenge.moves += 1;
+      afterChallengeMove();
+    }
+    render();
+    setStatus("Filled the tray with a random arrangement.");
+  }
+  async function clearBoard() {
+    const board = state.mode === "check" ? state.build : activeBoard();
+    if (!board.pieces.size) return;
+    if (!await confirmDialog("Take every piece out of the tray?", "Empty tray")) return;
+    if (state.mode === "challenge") {
+      state.challenge.history.record(board);
+      state.challenge.board = new Board(state.rows, state.cols);
+      afterChallengeMove();
+    } else {
+      state.buildHistory.record(state.build);
+      state.build = new Board(state.rows, state.cols);
+    }
+    render();
+    setStatus("The tray is empty. Undo brings the pieces back.");
+  }
+  async function copyCode() {
+    const code = encodeBoard(state.build);
+    const input = $("#codeOut");
+    try {
+      await navigator.clipboard.writeText(code);
+      setStatus("Board code copied.");
+    } catch {
+      input?.select();
+      setStatus("Select the code and copy it.", true);
+    }
+  }
+  function loadCode() {
+    const text = $("#codeIn")?.value ?? "";
+    try {
+      const board = decodeBoard(text);
+      if (board.rows !== state.rows || board.cols !== state.cols) {
+        state.rows = board.rows;
+        state.cols = board.cols;
+        state.sizeDraft = { rows: board.rows, cols: board.cols };
+        state.challenge = freshChallenge(board.rows, board.cols, state.challenge.difficulty);
+        state.pattern = new Array(board.rows * board.cols).fill(LOOK.ANY);
+        state.check = { status: "idle" };
+        state.buildHistory = new History();
+      } else {
+        state.buildHistory.record(state.build);
+      }
+      state.build = board;
+      state.mode = "build";
+      render();
+      setStatus("Loaded the board code.");
+    } catch (err) {
+      setStatus(err.message, true, "bad");
+    }
+  }
+  var worker = null;
+  var workerBroken = false;
+  var pendingCheck = null;
+  var checkSeq = 0;
+  function getWorker() {
+    if (worker || workerBroken) return worker;
+    try {
+      const source = true ? '(() => {\n  // src/geometry.js\n  var N = 0;\n  var E = 1;\n  var S = 2;\n  var W = 3;\n  var SIDE_NAMES = ["N", "E", "S", "W"];\n  var opposite = (side) => (side + 2) % 4;\n  var HALVES = [\n    "U_NW",\n    "U_NE",\n    "U_SE",\n    "U_SW",\n    "R_N",\n    "R_E",\n    "R_S",\n    "R_W",\n    "O_N",\n    "O_E",\n    "O_S",\n    "O_W"\n  ];\n  var HALF = Object.freeze(Object.fromEntries(HALVES.map((name, i) => [name, i])));\n  var COMPLEMENT = Object.freeze([2, 3, 0, 1, 10, 11, 8, 9, 6, 7, 4, 5]);\n  var PAIRS = Object.freeze([\n    [0, 2],\n    // upright, split along "/" (NW + SE)\n    [1, 3],\n    // upright, split along "\\" (NE + SW)\n    [4, 10],\n    // lying, ramp high at N + overhang thick at S\n    [5, 11],\n    [6, 8],\n    [7, 9]\n  ]);\n  var isUpright = (h) => h < 4;\n  var isRamp = (h) => h >= 4 && h < 8;\n  var isCap = (h) => h >= 8;\n  var SOURCE_SIDES = Object.freeze([\n    [N, W],\n    [N, E],\n    [S, E],\n    [S, W],\n    [N],\n    [E],\n    [S],\n    [W],\n    [N],\n    [E],\n    [S],\n    [W]\n  ]);\n  var HALVES_FROM_SIDE = Object.freeze(\n    [0, 1, 2, 3].map((side) => HALVES.map((_, h) => h).filter((h) => SOURCE_SIDES[h].includes(side)))\n  );\n  function cornerOf(a, b) {\n    const has = (s) => a === s || b === s;\n    if (has(N) && has(W)) return 0;\n    if (has(N) && has(E)) return 1;\n    if (has(S) && has(E)) return 2;\n    return 3;\n  }\n  function mixWedgeHalf(dir, pose) {\n    const shared = opposite(dir);\n    if (pose === 2) return 4 + shared;\n    if (pose === 3) return 8 + shared;\n    const side = pose === 0 ? (dir + 3) % 4 : (dir + 1) % 4;\n    return cornerOf(shared, side);\n  }\n  var MIX_ORIENTS = Object.freeze(\n    Array.from({ length: 16 }, (_, o) => {\n      const dir = o >> 2;\n      const pose = o & 3;\n      return Object.freeze({ o, dir, pose, half: mixWedgeHalf(dir, pose) });\n    })\n  );\n  function mixOrientFor(dir, half) {\n    const found = MIX_ORIENTS.find((m) => m.dir === dir && m.half === half);\n    if (!found) throw new Error(`No cube+prism orientation puts half ${HALVES[half]} towards ${SIDE_NAMES[dir]}`);\n    return found.o;\n  }\n  var LOOK = Object.freeze({\n    ANY: 0,\n    WHITE: 1,\n    BLACK: 2,\n    SLASH_WB: 3,\n    // split along "/" : white top-left, black bottom-right\n    SLASH_BW: 4,\n    // split along "/" : black top-left, white bottom-right\n    BACK_WB: 5,\n    // split along "\\" : white top-right, black bottom-left\n    BACK_BW: 6\n    // split along "\\" : black top-right, white bottom-left\n  });\n  var isDiagonalLook = (look) => look >= 3;\n  var solidLook = (color) => color === 0 ? LOOK.WHITE : LOOK.BLACK;\n  function splitLook(h1, c1, h2, c2) {\n    if (COMPLEMENT[h1] !== h2) throw new Error(`${HALVES[h1]} and ${HALVES[h2]} do not fill a square`);\n    if (isUpright(h1)) {\n      if (h1 === 0 || h1 === 2) {\n        const nw = h1 === 0 ? c1 : c2;\n        const se = h1 === 0 ? c2 : c1;\n        if (nw === se) return solidLook(nw);\n        return nw === 0 ? LOOK.SLASH_WB : LOOK.SLASH_BW;\n      }\n      const ne = h1 === 1 ? c1 : c2;\n      const sw = h1 === 1 ? c2 : c1;\n      if (ne === sw) return solidLook(ne);\n      return ne === 0 ? LOOK.BACK_WB : LOOK.BACK_BW;\n    }\n    return solidLook(isCap(h1) ? c1 : c2);\n  }\n  function diagonalHalfColor(look, h) {\n    switch (look) {\n      case LOOK.SLASH_WB:\n        return h === 0 ? 0 : h === 2 ? 1 : -1;\n      case LOOK.SLASH_BW:\n        return h === 0 ? 1 : h === 2 ? 0 : -1;\n      case LOOK.BACK_WB:\n        return h === 1 ? 0 : h === 3 ? 1 : -1;\n      case LOOK.BACK_BW:\n        return h === 1 ? 1 : h === 3 ? 0 : -1;\n      default:\n        return -1;\n    }\n  }\n  function halfFitsLook(look, h, color) {\n    if (look === LOOK.ANY) return true;\n    if (isUpright(h)) {\n      if (look === LOOK.WHITE || look === LOOK.BLACK) return solidLook(color) === look;\n      return diagonalHalfColor(look, h) === color;\n    }\n    if (isRamp(h)) return look === LOOK.WHITE || look === LOOK.BLACK;\n    return solidLook(color) === look;\n  }\n  var cubeFitsLook = (look, color) => look === LOOK.ANY || look === solidLook(color);\n  var FULL = [[0, 0], [1, 0], [1, 1], [0, 1]];\n  var HALF_OUTLINE = Object.freeze([\n    [[0, 0], [1, 0], [0, 1]],\n    // U_NW\n    [[0, 0], [1, 0], [1, 1]],\n    // U_NE\n    [[1, 0], [1, 1], [0, 1]],\n    // U_SE\n    [[0, 0], [1, 1], [0, 1]],\n    // U_SW\n    FULL,\n    FULL,\n    FULL,\n    FULL,\n    FULL,\n    FULL,\n    FULL,\n    FULL\n  ]);\n\n  // src/board.js\n  var KINDS = Object.freeze(["mixW", "mixB", "triW", "triB"]);\n  var colorOf = (bit) => bit === 0 ? "W" : "B";\n  var MIN_SIZE = 1;\n  var MAX_SIZE = 12;\n  function sizeProblem(rows, cols) {\n    if (!Number.isInteger(rows) || !Number.isInteger(cols)) return "Rows and columns must be whole numbers.";\n    if (rows < MIN_SIZE || cols < MIN_SIZE || rows > MAX_SIZE || cols > MAX_SIZE) {\n      return `Rows and columns must be between ${MIN_SIZE} and ${MAX_SIZE}.`;\n    }\n    if (rows * cols % 4 !== 0) {\n      return "The number of squares must be a multiple of 4: every 2 squares take one cube + prism and one loose prism, and white and black get the same number of each.";\n    }\n    return null;\n  }\n\n  // src/solver.js\n  var WEDGE = 1;\n  var WANT = 2;\n  var message = (type, h, color) => type << 5 | h << 1 | color;\n  var msgType = (m) => m >> 5;\n  var msgHalf = (m) => m >> 1 & 15;\n  var msgColor = (m) => m & 1;\n  var BudgetExceeded = class extends Error {\n  };\n  function patternStats(looks) {\n    const stats = { white: 0, black: 0, diagonal: 0, any: 0 };\n    for (const t of looks) {\n      if (t === LOOK.WHITE) stats.white += 1;\n      else if (t === LOOK.BLACK) stats.black += 1;\n      else if (isDiagonalLook(t)) stats.diagonal += 1;\n      else stats.any += 1;\n    }\n    return stats;\n  }\n  function quickCheck(rows, cols, looks, inventory) {\n    const problem = sizeProblem(rows, cols);\n    if (problem) return { ok: false, code: "size", reason: problem };\n    if (looks.length !== rows * cols) return { ok: false, code: "size", reason: "The pattern does not match the board size." };\n    const { mixW, mixB, triW, triB } = inventory;\n    const cubes = mixW + mixB;\n    const st = patternStats(looks);\n    const maxDiagonal = rows * cols - cubes;\n    if (st.diagonal > maxDiagonal) {\n      return {\n        ok: false,\n        code: "too-many-diagonals",\n        reason: `This pattern has ${st.diagonal} split squares, but at most ${maxDiagonal} are possible. Each of the ${cubes} cube + prism pieces always shows its cube as a full square, so ${cubes} squares can never be split.`\n      };\n    }\n    if (mixW > st.white + st.any) {\n      return {\n        ok: false,\n        code: "white-cubes",\n        reason: `The ${mixW} white cubes always show as full white squares, but the pattern only has ${st.white + st.any} squares that can be fully white.`\n      };\n    }\n    if (mixB > st.black + st.any) {\n      return {\n        ok: false,\n        code: "black-cubes",\n        reason: `The ${mixB} black cubes always show as full black squares, but the pattern only has ${st.black + st.any} squares that can be fully black.`\n      };\n    }\n    const needWhite = Math.max(0, st.white - mixW) + st.diagonal;\n    if (needWhite > mixW + triW) {\n      return {\n        ok: false,\n        code: "white-halves",\n        reason: `Not enough white: the pattern needs at least ${needWhite} white prism halves on top, but there are only ${mixW + triW} white prisms (loose or attached to a cube).`\n      };\n    }\n    const needBlack = Math.max(0, st.black - mixB) + st.diagonal;\n    if (needBlack > mixB + triB) {\n      return {\n        ok: false,\n        code: "black-halves",\n        reason: `Not enough black: the pattern needs at least ${needBlack} black prism halves on top, but there are only ${mixB + triB} black prisms (loose or attached to a cube).`\n      };\n    }\n    return { ok: true };\n  }\n  function weightedShuffle(list, rng, weight) {\n    const keyed = list.map((item) => ({ item, key: Math.pow(rng(), 1 / Math.max(1e-6, weight(item))) }));\n    keyed.sort((a, b) => b.key - a.key);\n    return keyed.map((x) => x.item);\n  }\n  function solvePattern(rows, cols, looks, inventory, options = {}) {\n    const quick = quickCheck(rows, cols, looks, inventory);\n    if (!quick.ok) return { status: "impossible", code: quick.code, reason: quick.reason, nodes: 0 };\n    const budget = options.maxNodes ?? 15e5;\n    const frames = [\n      { tr: false, fv: false },\n      { tr: false, fv: true },\n      { tr: true, fv: false },\n      { tr: true, fv: true }\n    ].map((f) => ({ ...f, width: f.tr ? rows : cols }));\n    frames.sort((a, b) => a.width - b.width);\n    const plan = [\n      ...frames.map((frame) => ({ frame, nodes: 6e4, seed: 0 })),\n      ...Array.from({ length: 16 }, (_, k) => ({ frame: frames[k % 4], nodes: 3e4, seed: 101 + k * 37 }))\n    ];\n    let used = 0;\n    for (const step of plan) {\n      if (used >= budget) break;\n      const run = solveInFrame(rows, cols, looks, inventory, step.frame, Math.min(step.nodes, budget - used), step.seed);\n      used += run.nodes;\n      if (run.status !== "unknown") return { ...run, nodes: used };\n    }\n    if (used < budget) {\n      const run = solveInFrame(rows, cols, looks, inventory, frames[0], budget - used, 0);\n      used += run.nodes;\n      if (run.status !== "unknown") return { ...run, nodes: used };\n    }\n    return {\n      status: "unknown",\n      reason: "This picture is too complex to decide in the time allowed. Try a smaller board, or fix more squares.",\n      nodes: used\n    };\n  }\n  var T_DIR = [W, S, E, N];\n  var T_HALF = [0, 3, 2, 1, 7, 6, 5, 4, 11, 10, 9, 8];\n  var T_LOOK = [LOOK.ANY, LOOK.WHITE, LOOK.BLACK, LOOK.SLASH_WB, LOOK.SLASH_BW, LOOK.BACK_BW, LOOK.BACK_WB];\n  var V_DIR = [S, E, N, W];\n  var V_HALF = [3, 2, 1, 0, 6, 5, 4, 7, 10, 9, 8, 11];\n  var V_LOOK = [LOOK.ANY, LOOK.WHITE, LOOK.BLACK, LOOK.BACK_BW, LOOK.BACK_WB, LOOK.SLASH_BW, LOOK.SLASH_WB];\n  function mapPiece(p, dirMap, halfMap, r, c) {\n    if (p.type === "tri") return { ...p, r, c, o: halfMap[p.o] };\n    const m = MIX_ORIENTS[p.o];\n    return { ...p, r, c, o: mixOrientFor(dirMap[m.dir], halfMap[m.half]) };\n  }\n  function solveInFrame(rows, cols, looks, inventory, frame, maxNodes, seed) {\n    let R = rows;\n    let C = cols;\n    let L = looks;\n    if (frame.tr) {\n      const next = [];\n      for (let c = 0; c < C; c += 1) for (let r = 0; r < R; r += 1) next.push(T_LOOK[L[r * C + c]]);\n      L = next;\n      [R, C] = [C, R];\n    }\n    if (frame.fv) {\n      const next = [];\n      for (let r = R - 1; r >= 0; r -= 1) for (let c = 0; c < C; c += 1) next.push(V_LOOK[L[r * C + c]]);\n      L = next;\n    }\n    const run = searchOnce(R, C, L, inventory, maxNodes, seed ? makeRng(seed) : null);\n    if (run.pieces) {\n      let pieces = run.pieces;\n      if (frame.fv) pieces = pieces.map((p) => mapPiece(p, V_DIR, V_HALF, R - 1 - p.r, p.c));\n      if (frame.tr) pieces = pieces.map((p) => mapPiece(p, T_DIR, T_HALF, p.c, p.r));\n      run.pieces = pieces;\n    }\n    return run;\n  }\n  function searchOnce(rows, cols, looks, inventory, maxNodes, rng) {\n    const total = rows * cols;\n    const res = [inventory.mixW, inventory.mixB, inventory.triW, inventory.triB, 0];\n    const down = new Uint8Array(cols);\n    let right = 0;\n    const chosen = new Array(total);\n    const deadEnds = /* @__PURE__ */ new Set();\n    let nodes = 0;\n    const sufWhite = new Int32Array(total + 1);\n    const sufBlack = new Int32Array(total + 1);\n    const sufAny = new Int32Array(total + 1);\n    const sufDiag = new Int32Array(total + 1);\n    for (let i = total - 1; i >= 0; i -= 1) {\n      const t = looks[i];\n      sufWhite[i] = sufWhite[i + 1] + (t === LOOK.WHITE ? 1 : 0);\n      sufBlack[i] = sufBlack[i + 1] + (t === LOOK.BLACK ? 1 : 0);\n      sufAny[i] = sufAny[i + 1] + (t === LOOK.ANY ? 1 : 0);\n      sufDiag[i] = sufDiag[i + 1] + (isDiagonalLook(t) ? 1 : 0);\n    }\n    const fits = (uses) => res[0] >= uses[0] && res[1] >= uses[1] && res[2] >= uses[2] && res[3] >= uses[3] && res[4] + uses[4] <= res[2] - uses[2] + res[3] - uses[3];\n    function fillersFor(h, r, c) {\n      const out = [];\n      if (isRamp(h)) out.push({ src: "tri", color: -1 });\n      else {\n        out.push({ src: "tri", color: 0 });\n        out.push({ src: "tri", color: 1 });\n      }\n      const sides = SOURCE_SIDES[h];\n      if (c + 1 < cols && sides.includes(E)) {\n        const t = looks[r * cols + c + 1];\n        for (const color of [0, 1]) if (res[color] > 0 && cubeFitsLook(t, color)) out.push({ src: "E", color });\n      }\n      if (r + 1 < rows && sides.includes(S)) {\n        const t = looks[(r + 1) * cols + c];\n        for (const color of [0, 1]) if (res[color] > 0 && cubeFitsLook(t, color)) out.push({ src: "S", color });\n      }\n      return out;\n    }\n    function splitOption(t, a, b) {\n      if (a.src === b.src && (a.src === "E" || a.src === "S")) return null;\n      const look = splitLook(a.h, Math.max(0, a.color), b.h, Math.max(0, b.color));\n      if (t !== LOOK.ANY && look !== t) return null;\n      const uses = [0, 0, 0, 0, 0];\n      let outRight = 0;\n      let outDown = 0;\n      for (const p of [a, b]) {\n        if (p.src === "tri") {\n          if (p.color < 0) uses[4] += 1;\n          else uses[2 + p.color] += 1;\n        } else if (p.src === "E") outRight = message(WANT, p.h, p.color);\n        else if (p.src === "S") outDown = message(WANT, p.h, p.color);\n      }\n      if (!fits(uses)) return null;\n      const fromCubes = (a.src === "tri" ? 0 : 1) + (b.src === "tri" ? 0 : 1);\n      const score = fromCubes === 1 ? a.src === "in" || b.src === "in" ? 0 : 1 : fromCubes === 2 && a.src === "in" && b.src === "in" ? 0 : 3;\n      return { kind: "split", parts: [a, b], uses, outRight, outDown, score };\n    }\n    function optionsAt(r, c) {\n      const i = r * cols + c;\n      const t = looks[i];\n      const up = r > 0 ? down[c] : 0;\n      const left = c > 0 ? right : 0;\n      const upType = msgType(up);\n      const leftType = msgType(left);\n      const out = [];\n      if (upType !== WANT && leftType !== WANT) {\n        const incoming = [];\n        if (upType === WEDGE) incoming.push({ h: msgHalf(up), src: "in", color: msgColor(up) });\n        if (leftType === WEDGE) incoming.push({ h: msgHalf(left), src: "in", color: msgColor(left) });\n        if (incoming.length === 2) {\n          if (COMPLEMENT[incoming[0].h] === incoming[1].h) {\n            const op = splitOption(t, incoming[0], incoming[1]);\n            if (op) out.push(op);\n          }\n        } else if (incoming.length === 1) {\n          const h1 = COMPLEMENT[incoming[0].h];\n          for (const f of fillersFor(h1, r, c)) {\n            const op = splitOption(t, incoming[0], { h: h1, ...f });\n            if (op) out.push(op);\n          }\n        } else {\n          for (const [ha, hb] of PAIRS) {\n            const fb = fillersFor(hb, r, c);\n            for (const fa of fillersFor(ha, r, c)) {\n              for (const f2 of fb) {\n                const op = splitOption(t, { h: ha, ...fa }, { h: hb, ...f2 });\n                if (op) out.push(op);\n              }\n            }\n          }\n        }\n      }\n      if (upType !== WEDGE && leftType !== WEDGE && !(upType === WANT && leftType === WANT)) {\n        if (upType === WANT || leftType === WANT) {\n          const m = upType === WANT ? up : left;\n          const color = msgColor(m);\n          if (res[color] > 0 && cubeFitsLook(t, color)) {\n            const uses = [0, 0, 0, 0, 0];\n            uses[color] = 1;\n            out.push({ kind: "cube", color, dir: upType === WANT ? N : W, h: msgHalf(m), uses, outRight: 0, outDown: 0, score: 0 });\n          }\n        } else {\n          for (const color of [0, 1]) {\n            if (res[color] === 0 || !cubeFitsLook(t, color)) continue;\n            const uses = [0, 0, 0, 0, 0];\n            uses[color] = 1;\n            if (c + 1 < cols) {\n              const tr = looks[i + 1];\n              for (const h of HALVES_FROM_SIDE[W]) {\n                if (halfFitsLook(tr, h, color)) out.push({ kind: "cube", color, dir: E, h, uses, outRight: message(WEDGE, h, color), outDown: 0, score: 1 });\n              }\n            }\n            if (r + 1 < rows) {\n              const td = looks[i + cols];\n              for (const h of HALVES_FROM_SIDE[N]) {\n                if (halfFitsLook(td, h, color)) out.push({ kind: "cube", color, dir: S, h, uses, outRight: 0, outDown: message(WEDGE, h, color), score: 1 });\n              }\n            }\n          }\n        }\n      }\n      return out;\n    }\n    function hopeful(i, c) {\n      const left = total - i;\n      const cw = res[0];\n      const cb = res[1];\n      if (cw + cb > left) return false;\n      if (cw > sufWhite[i] + sufAny[i] || cb > sufBlack[i] + sufAny[i]) return false;\n      if (sufDiag[i] > left - cw - cb) return false;\n      let inW = 0;\n      let inB = 0;\n      let wantW = 0;\n      let wantB = 0;\n      const tally = (m) => {\n        const type = msgType(m);\n        if (type === WEDGE) {\n          if (msgColor(m)) inB += 1;\n          else inW += 1;\n        } else if (type === WANT) {\n          if (msgColor(m)) wantB += 1;\n          else wantW += 1;\n        }\n      };\n      for (let k = 0; k < cols; k += 1) tally(down[k]);\n      if (c > 0) tally(right);\n      if (wantW > cw || wantB > cb) return false;\n      const needW = Math.max(0, sufWhite[i] - cw) + sufDiag[i];\n      if (needW > res[2] + cw - wantW + inW) return false;\n      const needB = Math.max(0, sufBlack[i] - cb) + sufDiag[i];\n      if (needB > res[3] + cb - wantB + inB) return false;\n      return true;\n    }\n    function dfs(i) {\n      if (i === total) return true;\n      nodes += 1;\n      if (nodes > maxNodes) throw new BudgetExceeded();\n      const r = Math.floor(i / cols);\n      const c = i - r * cols;\n      if (!hopeful(i, c)) return false;\n      const key = `${i}|${c > 0 ? right : 0}|${down.join(",")}|${res.join(",")}`;\n      if (deadEnds.has(key)) return false;\n      let opts = optionsAt(r, c);\n      const t = looks[i];\n      let lean = 0;\n      if (t === LOOK.WHITE) lean = res[0] / Math.max(1, sufWhite[i] + sufAny[i]) - 0.5;\n      else if (t === LOOK.BLACK) lean = res[1] / Math.max(1, sufBlack[i] + sufAny[i]) - 0.5;\n      else if (t === LOOK.ANY) lean = (res[0] + res[1]) / Math.max(1, total - i) - 0.5;\n      for (const op of opts) op.rank = op.score + (op.kind === "cube" ? -4 : 4) * lean;\n      if (rng) opts = weightedShuffle(opts, rng, (op) => 1 / (1 + Math.max(0, 3 * op.rank + 6)));\n      else opts.sort((a, b) => a.rank - b.rank);\n      const savedDown = down[c];\n      const savedRight = right;\n      for (const op of opts) {\n        for (let k = 0; k < 5; k += 1) res[k] -= k < 4 ? op.uses[k] : -op.uses[k];\n        down[c] = op.outDown;\n        right = op.outRight;\n        chosen[i] = op;\n        if (dfs(i + 1)) return true;\n        for (let k = 0; k < 5; k += 1) res[k] += k < 4 ? op.uses[k] : -op.uses[k];\n      }\n      down[c] = savedDown;\n      right = savedRight;\n      deadEnds.add(key);\n      return false;\n    }\n    try {\n      if (!dfs(0)) {\n        return {\n          status: "impossible",\n          code: "search",\n          reason: "No arrangement of the pieces gives this picture (every possibility was checked).",\n          nodes\n        };\n      }\n    } catch (err) {\n      if (err instanceof BudgetExceeded) return { status: "unknown", nodes };\n      throw err;\n    }\n    let whiteLeft = res[2];\n    const pieces = [];\n    chosen.forEach((op, i) => {\n      const r = Math.floor(i / cols);\n      const c = i % cols;\n      if (op.kind === "cube") {\n        pieces.push({ type: "mix", color: colorOf(op.color), r, c, o: mixOrientFor(op.dir, op.h) });\n        return;\n      }\n      for (const p of op.parts) {\n        if (p.src !== "tri") continue;\n        let color = p.color;\n        if (color < 0) {\n          color = whiteLeft > 0 ? 0 : 1;\n          if (color === 0) whiteLeft -= 1;\n        }\n        pieces.push({ type: "tri", color: colorOf(color), r, c, o: p.h });\n      }\n    });\n    const rank = (p) => p.type === "mix" ? 0 : isCap(p.o) ? 2 : 1;\n    pieces.sort((a, b) => rank(a) - rank(b));\n    return { status: "possible", pieces, nodes };\n  }\n  function makeRng(seed = Date.now()) {\n    let a = seed >>> 0;\n    return () => {\n      a = a + 1831565813 >>> 0;\n      let t = a;\n      t = Math.imul(t ^ t >>> 15, t | 1);\n      t ^= t + Math.imul(t ^ t >>> 7, t | 61);\n      return ((t ^ t >>> 14) >>> 0) / 4294967296;\n    };\n  }\n\n  // src/worker.js\n  self.onmessage = (event) => {\n    const { id, rows, cols, looks, inventory, maxNodes } = event.data;\n    let result;\n    try {\n      result = solvePattern(rows, cols, looks, inventory, { maxNodes });\n    } catch (err) {\n      result = { status: "unknown", reason: `The check stopped with an error: ${err.message}` };\n    }\n    self.postMessage({ id, result });\n  };\n})();\n' : null;
+      if (!source) throw new Error("no worker source");
+      const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+      worker = new Worker(url);
+      worker.onmessage = (event) => {
+        if (pendingCheck && event.data.id === pendingCheck.id) {
+          const { resolve } = pendingCheck;
+          pendingCheck = null;
+          resolve(event.data.result);
+        }
+      };
+      worker.onerror = () => {
+        workerBroken = true;
+        worker = null;
+        if (pendingCheck) {
+          const { resolve, args } = pendingCheck;
+          pendingCheck = null;
+          resolve(solvePattern(...args));
+        }
+      };
+    } catch {
+      workerBroken = true;
+      worker = null;
+    }
+    return worker;
+  }
+  function runSolver(rows, cols, looks, inventory) {
+    const args = [rows, cols, looks, inventory, { maxNodes: CHECK_BUDGET }];
+    const w = getWorker();
+    if (!w) return new Promise((resolve) => setTimeout(() => resolve(solvePattern(...args)), 30));
+    checkSeq += 1;
+    const id = checkSeq;
+    return new Promise((resolve) => {
+      pendingCheck = { id, resolve, args };
+      w.postMessage({ id, rows, cols, looks, inventory, maxNodes: CHECK_BUDGET });
+    });
+  }
+  async function checkPicture() {
+    const looks = state.pattern.slice();
+    const key = looks.join(",");
+    state.check = { status: "running", key };
+    render();
+    const res = await runSolver(state.rows, state.cols, looks, state.build.inventory);
+    if (state.check.status !== "running" || state.check.key !== key) return;
+    state.check = { ...res, key };
+    render();
+    const words = { possible: "Possible.", impossible: "Impossible.", unknown: "Could not decide." };
+    setStatus(`${words[res.status]} ${res.status === "possible" ? "Press “Build it on the tray” to see how." : res.reason ?? ""}`, true, res.status === "possible" ? "ok" : "bad");
+  }
+  function cancelCheck() {
+    if (worker) worker.terminate();
+    worker = null;
+    pendingCheck = null;
+    state.check = { status: "idle" };
+    render();
+    setStatus("Check cancelled.");
+  }
+  function patternChanged() {
+    if (state.check.status !== "idle" && state.check.status !== "running") state.check = { status: "idle" };
+  }
+  function paintCell(index) {
+    if (index < 0 || state.pattern[index] === state.paint) return;
+    state.pattern = state.pattern.slice();
+    state.pattern[index] = state.paint;
+    patternChanged();
+    render();
+  }
+  function showSolution() {
+    if (state.check.status !== "possible") return;
+    state.buildHistory.record(state.build);
+    state.build = loadPieces(state.check.pieces, state.rows, state.cols);
+    state.mode = "build";
+    state.view = "top";
+    render();
+    setStatus("Here is one way to build the picture. Turn on X-ray to see the pieces hidden under roofs.");
+  }
+  function samplePicture(id) {
+    const sample = SAMPLES.find((s) => s.id === id);
+    const looks = sample?.make(state.rows, state.cols);
+    if (!looks) return;
+    state.pattern = looks.slice();
+    patternChanged();
+    render();
+  }
+  function pictureFromBuild() {
+    state.pattern = state.build.looks().map((l) => l < 0 ? LOOK.ANY : l);
+    patternChanged();
+    render();
+    setStatus("Copied the Build tray. Squares that are not full became “Any”.");
+  }
+  function randomPicture() {
+    const pieces = randomArrangement(state.rows, state.cols, state.build.inventory, makeRng(Date.now() >>> 0), 0.55);
+    state.pattern = loadPieces(pieces, state.rows, state.cols).looks();
+    patternChanged();
+    render();
+    setStatus("A random picture that the pieces can make.");
+  }
+  function clearPicture() {
+    state.pattern = new Array(state.rows * state.cols).fill(LOOK.ANY);
+    patternChanged();
+    render();
+  }
+  function newChallenge() {
+    const ch = state.challenge;
+    const rng = makeRng((Date.now() ^ Math.random() * 1e9) >>> 0);
+    let best = null;
+    const wantSplit = { easy: 0.08, medium: 0.25, hard: 0.42 }[ch.difficulty] * state.rows * state.cols;
+    for (let k = 0; k < 8; k += 1) {
+      const pieces = randomArrangement(state.rows, state.cols, ch.board.inventory, rng, DIFFICULTY[ch.difficulty]);
+      const looks = loadPieces(pieces, state.rows, state.cols).looks();
+      const split = looks.filter((l) => l >= 3).length;
+      const score = Math.abs(split - wantSplit);
+      if (!best || score < best.score) best = { pieces, looks, score };
+    }
+    state.challenge = { ...freshChallenge(state.rows, state.cols, ch.difficulty), target: best.looks, answer: best.pieces };
+    render();
+    setStatus("New challenge: fill the tray so it shows the picture.");
+  }
+  function challengeProgress() {
+    const { board, target } = state.challenge;
+    const looks = board.looks();
+    let match = 0;
+    const mismatch = looks.map((l, i) => {
+      const ok = l >= 0 && (target[i] === LOOK.ANY || l === target[i]);
+      if (ok) match += 1;
+      return l >= 0 && !ok;
+    });
+    return { match, total: looks.length, mismatch };
+  }
+  function afterChallengeMove() {
+    const ch = state.challenge;
+    if (!ch.target || ch.solved) return;
+    const prog = challengeProgress();
+    if (prog.match === prog.total && ch.board.isComplete()) {
+      ch.solved = true;
+      setTimeout(() => setStatus(`Solved in ${ch.moves} moves!`, true, "ok"), 0);
+      celebrate();
+    }
+  }
+  function celebrate() {
+    const wrap = $("#boardWrap");
+    wrap.classList.remove("is-win");
+    void wrap.offsetWidth;
+    wrap.classList.add("is-win");
+  }
+  async function revealAnswer() {
+    const ch = state.challenge;
+    if (!ch.answer) return;
+    if (!ch.solved && !await confirmDialog("Show the answer? Your pieces in the tray will be replaced.", "Show answer")) return;
+    ch.history.record(ch.board);
+    ch.board = loadPieces(ch.answer, state.rows, state.cols);
+    ch.revealed = true;
+    ch.solved = true;
+    render();
+    setStatus("This is the arrangement the picture was made from. Other arrangements can make it too.");
+  }
+  function restartChallenge() {
+    const ch = state.challenge;
+    ch.history.record(ch.board);
+    ch.board = new Board(state.rows, state.cols);
+    ch.moves = 0;
+    ch.solved = false;
+    ch.revealed = false;
+    render();
+  }
+  function confirmDialog(message2, okLabel) {
+    const modal = $("#modal");
+    modal.querySelector(".modal-text").textContent = message2;
+    const ok = modal.querySelector('[data-answer="yes"]');
+    ok.textContent = okLabel;
+    modal.hidden = false;
+    const previous = document.activeElement;
+    ok.focus();
+    return new Promise((resolve) => {
+      const finish = (answer) => {
+        modal.hidden = true;
+        modal.removeEventListener("click", onClick2);
+        document.removeEventListener("keydown", onKey, true);
+        previous?.focus?.({ preventScroll: true });
+        resolve(answer);
+      };
+      const onClick2 = (e) => {
+        const btn = e.target.closest("[data-answer]");
+        if (btn) finish(btn.dataset.answer === "yes");
+        else if (e.target === modal) finish(false);
+      };
+      const onKey = (e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          finish(false);
+        }
+      };
+      modal.addEventListener("click", onClick2);
+      document.addEventListener("keydown", onKey, true);
+    });
+  }
+  function svgPoint(evt) {
+    const svg2 = $("#board");
+    const m = svg2.getScreenCTM();
+    if (!m) return null;
+    const pt = new DOMPoint(evt.clientX, evt.clientY).matrixTransform(m.inverse());
+    return pt;
+  }
+  function hoverFromEvent(evt) {
+    const p = svgPoint(evt);
+    if (!p) return null;
+    return cellFromPoint(state.rows, state.cols, p.x, p.y);
+  }
+  function sameHover(a, b) {
+    if (!a || !b) return a === b;
+    if (a.r !== b.r || a.c !== b.c) return false;
+    if (state.tool !== "pickup") return true;
+    return activeBoard().pieceAt(a.r, a.c, a.fx, a.fy) === activeBoard().pieceAt(b.r, b.c, b.fx, b.fy);
+  }
+  function onPointerMove(evt) {
+    if (!pointer.down) pointer.type = evt.pointerType;
+    if (state.mode !== "check" && state.view === "3d") return;
+    const h = hoverFromEvent(evt);
+    if (state.mode === "check") {
+      const index = h ? h.r * state.cols + h.c : -1;
+      if (pointer.down && index >= 0) {
+        paintCell(index);
+      }
+      if (index !== state.hoverCell) {
+        state.hoverCell = index;
+        renderBoard();
+      }
+      return;
+    }
+    if (!pointer.down && evt.pointerType !== "mouse") return;
+    if (!sameHover(h, state.hover)) {
+      state.hover = h;
+      renderBoard();
+    } else if (h) {
+      state.hover = h;
+    }
+  }
+  function onPointerDown(evt) {
+    if (evt.button !== 0) return;
+    if (state.mode !== "check" && state.view === "3d") {
+      setStatus("Switch to the top view to place or pick up pieces.", true);
+      return;
+    }
+    const svg2 = $("#board");
+    svg2.setPointerCapture?.(evt.pointerId);
+    pointer.down = true;
+    pointer.id = evt.pointerId;
+    pointer.type = evt.pointerType;
+    const h = hoverFromEvent(evt);
+    if (state.mode === "check") {
+      if (h) paintCell(h.r * state.cols + h.c);
+      return;
+    }
+    state.hover = h;
+    renderBoard();
+    evt.preventDefault();
+  }
+  function onPointerUp(evt) {
+    if (!pointer.down || evt.pointerId !== pointer.id) return;
+    pointer.down = false;
+    if (state.mode === "check") return;
+    const h = hoverFromEvent(evt) ?? null;
+    if (h) {
+      state.hover = h;
+      if (state.tool === "pickup") pickUpAt(h);
+      else if (state.selected) placeAt(h);
+      else pickUpAt(h);
+    }
+    if (evt.pointerType !== "mouse") {
+      state.hover = null;
+      renderBoard();
+    }
+  }
+  function onPointerLeave() {
+    if (pointer.down) return;
+    if (state.hover || state.hoverCell >= 0) {
+      state.hover = null;
+      state.hoverCell = -1;
+      renderBoard();
+    }
+  }
+  function onContextMenu(evt) {
+    if (state.mode === "check" || state.view === "3d") return;
+    evt.preventDefault();
+    if (pointer.type !== "mouse") return;
+    const h = hoverFromEvent(evt);
+    if (h) pickUpAt(h);
+  }
+  function moveCursor(dr, dc) {
+    const h = state.hover ?? { r: 0, c: 0, fx: 0.5, fy: 0.5 };
+    const r = Math.max(0, Math.min(state.rows - 1, h.r + dr));
+    const c = Math.max(0, Math.min(state.cols - 1, h.c + dc));
+    if (state.mode === "check") {
+      state.hoverCell = r * state.cols + c;
+      state.hover = { r, c, fx: 0.5, fy: 0.5 };
+    } else {
+      state.hover = { r, c, fx: 0.5, fy: 0.5 };
+    }
+    renderBoard();
+  }
+  function onBoardKey(evt) {
+    const keys = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+    if (keys[evt.key]) {
+      evt.preventDefault();
+      moveCursor(...keys[evt.key]);
+      return;
+    }
+    if (evt.key === "Enter" || evt.key === " ") {
+      evt.preventDefault();
+      if (!state.hover) {
+        moveCursor(0, 0);
+        return;
+      }
+      if (state.mode === "check") paintCell(state.hover.r * state.cols + state.hover.c);
+      else if (state.view !== "3d") {
+        if (state.tool === "pickup" || !state.selected) pickUpAt(state.hover);
+        else placeAt(state.hover);
+      }
+    } else if ((evt.key === "Delete" || evt.key === "Backspace") && state.hover && state.mode !== "check") {
+      evt.preventDefault();
+      pickUpAt(state.hover);
+    }
+  }
+  function onGlobalKey(evt) {
+    if (!$("#modal").hidden) return;
+    if (evt.target.closest?.("input, textarea, select")) return;
+    const key = evt.key.toLowerCase();
+    if ((evt.ctrlKey || evt.metaKey) && key === "z") {
+      evt.preventDefault();
+      if (evt.shiftKey) redo();
+      else undo();
+      return;
+    }
+    if ((evt.ctrlKey || evt.metaKey) && key === "y") {
+      evt.preventDefault();
+      redo();
+      return;
+    }
+    if (evt.ctrlKey || evt.metaKey || evt.altKey) return;
+    if (state.mode === "check") return;
+    if (key === "r") turn();
+    else if (key === "f") flip();
+    else if (key === "t") tip();
+    else if (["1", "2", "3", "4"].includes(key)) {
+      state.selected = KINDS[Number(key) - 1];
+      state.tool = "place";
+      render();
+    } else if (key === "p") toggleTool();
+    else if (key === "x") {
+      state.xray = !state.xray;
+      render();
+    } else if (key === "v") toggleView();
+    else if (key === "escape") {
+      state.hover = null;
+      renderBoard();
+    }
+  }
+  function toggleTool() {
+    state.tool = state.tool === "pickup" ? "place" : "pickup";
+    resetStatus();
+    render();
+  }
+  function toggleView() {
+    state.view = state.view === "3d" ? "top" : "3d";
+    state.hover = null;
+    resetStatus();
+    render();
+  }
+  var ACTIONS = {
+    select: (el) => {
+      state.selected = el.dataset.kind;
+      state.tool = "place";
+      resetStatus();
+      render();
+    },
+    orient: (el) => {
+      const type = KIND_INFO[state.selected].type;
+      state.orient[type] = Number(el.dataset.o);
+      state.tool = "place";
+      resetStatus();
+      render();
+    },
+    turn,
+    flip,
+    tip,
+    undo,
+    redo,
+    pickup: toggleTool,
+    xray: () => {
+      state.xray = !state.xray;
+      render();
+    },
+    view: toggleView,
+    "turn-view-left": () => {
+      state.azimuth = (state.azimuth + 90) % 360;
+      render();
+    },
+    "turn-view-right": () => {
+      state.azimuth = (state.azimuth + 270) % 360;
+      render();
+    },
+    "size-inc": (el) => {
+      state.sizeDraft = { ...state.sizeDraft, [el.dataset.key]: Math.min(MAX_SIZE, state.sizeDraft[el.dataset.key] + 1) };
+      renderPanel();
+    },
+    "size-dec": (el) => {
+      state.sizeDraft = { ...state.sizeDraft, [el.dataset.key]: Math.max(1, state.sizeDraft[el.dataset.key] - 1) };
+      renderPanel();
+    },
+    "apply-size": () => setSize(state.sizeDraft.rows, state.sizeDraft.cols),
+    "quick-size": (el) => {
+      const rows = Number(el.dataset.rows);
+      const cols = Number(el.dataset.cols);
+      if (rows === state.rows && cols === state.cols) return;
+      setSize(rows, cols);
+    },
+    preset: (el) => usePreset(el.dataset.id),
+    "random-fill": randomFill,
+    "clear-board": clearBoard,
+    "copy-code": copyCode,
+    "load-code": loadCode,
+    paint: (el) => {
+      state.paint = Number(el.dataset.look);
+      renderPanel();
+    },
+    sample: (el) => samplePicture(el.dataset.id),
+    "from-build": pictureFromBuild,
+    "random-picture": randomPicture,
+    "clear-picture": clearPicture,
+    check: checkPicture,
+    "cancel-check": cancelCheck,
+    "show-solution": showSolution,
+    difficulty: (el) => {
+      state.challenge.difficulty = el.dataset.level;
+      newChallenge();
+    },
+    "new-challenge": newChallenge,
+    "restart-challenge": restartChallenge,
+    reveal: revealAnswer
+  };
+  function onClick(evt) {
+    const tab = evt.target.closest("[data-tab]");
+    if (tab) {
+      setMode(tab.dataset.tab);
+      return;
+    }
+    const el = evt.target.closest("[data-action]");
+    if (!el || el.disabled) return;
+    const action = ACTIONS[el.dataset.action];
+    if (action) action(el);
+  }
+  function onTabKey(evt) {
+    const tabs = [...document.querySelectorAll("[data-tab]")];
+    const i = tabs.indexOf(evt.target);
+    if (i < 0) return;
+    let next = -1;
+    if (evt.key === "ArrowRight") next = (i + 1) % tabs.length;
+    if (evt.key === "ArrowLeft") next = (i - 1 + tabs.length) % tabs.length;
+    if (next >= 0) {
+      evt.preventDefault();
+      setMode(tabs[next].dataset.tab);
+      tabs[next].focus();
+    }
+  }
+  function start(hotData) {
+    let saved = null;
+    if (hotData && hotData.v === 1) saved = hotData;
+    else {
+      try {
+        saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
+      } catch {
+        saved = null;
+      }
+    }
+    state = restore(saved);
+    window.claude?.hot?.snapshot?.(() => snapshot());
+    const svg2 = $("#board");
+    svg2.addEventListener("pointermove", onPointerMove);
+    svg2.addEventListener("pointerdown", onPointerDown);
+    svg2.addEventListener("pointerup", onPointerUp);
+    svg2.addEventListener("pointercancel", () => {
+      pointer.down = false;
+      state.hover = null;
+      renderBoard();
+    });
+    svg2.addEventListener("pointerleave", onPointerLeave);
+    svg2.addEventListener("contextmenu", onContextMenu);
+    svg2.addEventListener("keydown", onBoardKey);
+    svg2.addEventListener("blur", () => {
+      if (state.hover && pointer.type !== "mouse") {
+        state.hover = null;
+        renderBoard();
+      }
+    });
+    document.addEventListener("click", onClick);
+    document.addEventListener("keydown", onGlobalKey);
+    document.querySelector(".tabs").addEventListener("keydown", onTabKey);
+    $("#panel").addEventListener("keydown", (evt) => {
+      if (evt.key === "Enter" && evt.target.id === "codeIn") loadCode();
+    });
+    render();
+  }
+
+  // src/main.js
+  function boot() {
+    const hot = window.claude?.hot;
+    if (hot?.ready) hot.ready(start);
+    else start(hot?.data ?? {});
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();
+</script>
+</body>
+</html>
