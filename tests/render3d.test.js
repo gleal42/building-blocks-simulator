@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Board, defaultInventory } from '../src/board.js';
-import { board3d, hitTest3d, makeCamera } from '../src/render3d.js';
+import { board3d, hitTest3d, makeCamera, nearTray3d } from '../src/render3d.js';
 import { makeRng, randomArrangement } from '../src/solver.js';
 
 const AZIMUTHS = [0, 45, 90, 135, 180, 225, 270, 315];
@@ -77,5 +77,19 @@ test('3D tap: anywhere on a full tray except the walls, including the seams betw
       }
     }
     assert.ok(taps > 2000);
+  }
+});
+
+test('3D view: the tray outline tells a touch on or near the tray from one in the empty space around it', () => {
+  const board = Board.fromJSON({ rows: 4, cols: 4, pieces: randomArrangement(4, 4, defaultInventory(4, 4), makeRng(3), 0.5) });
+  for (const azimuth of AZIMUTHS) {
+    const { hits, outline } = board3d(board, { azimuth });
+    for (const shape of hits) assert.ok(nearTray3d(outline, ...centroid(shape.pts)), `a drawn shape is off the outline at ${azimuth}°`);
+    const xs = outline.map((p) => p[0]);
+    const right = Math.max(...xs);
+    const y = outline[xs.indexOf(right)][1];
+    assert.equal(nearTray3d(outline, right + 0.2, y), false);
+    assert.equal(nearTray3d(outline, right + 0.2, y, 0.25), true);
+    assert.equal(nearTray3d(outline, 1e3, 1e3, 0.25), false);
   }
 });

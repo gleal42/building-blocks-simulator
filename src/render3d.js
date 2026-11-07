@@ -305,7 +305,16 @@ export function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hove
       .map(({ face }) => polygonSvg(face.pts.map(camera.project), shade(ghost.piece.color, face.normal), line, 0.03))
       .join('')}</g>`;
   }
-  return { viewBox: vb, markup: body, hits, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+  // The tray with its pieces as one outline. On a phone, a swipe that starts away from it
+  // scrolls the page, since most of the picture around the tray is empty.
+  const outline = hull2d(shapes.flatMap((sh) => sh.screen));
+  return { viewBox: vb, markup: body, hits, outline, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+}
+
+/** Whether point (x, y) is on the tray outline from board3d, or within `margin` of it. */
+export function nearTray3d(outline, x, y, margin = 0) {
+  if (outline.length < 3) return false;
+  return polygonContains(outline, x, y) || outline.some((p, k) => nearSegment(x, y, p, outline[(k + 1) % outline.length], margin));
 }
 
 /**

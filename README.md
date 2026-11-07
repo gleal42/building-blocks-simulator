@@ -35,6 +35,8 @@ a diagonal split**. A picture made only of triangles can never be built.
   (or Ctrl + click) removes a piece. On touch screens, turn on **Remove** and tap pieces.
 - **3D view** works the same way, on phones too: tap or click a square to place, and remove
   a piece with right-click or with **Remove** on. The buttons above the tray turn the view.
+  On a phone, a swipe that starts beside or above the 3D tray scrolls the page; one that
+  starts on the tray stays with the tray.
   *Rotate the view* turns the tray in 45° steps.
 - *X-ray* shows ramps hidden under roofs. Undo/redo, the two photo layouts, random fill,
   tray sizes from 1 to 12 rows and columns (a multiple of 4 squares), and board codes.

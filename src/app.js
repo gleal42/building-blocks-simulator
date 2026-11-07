@@ -7,7 +7,7 @@ import { LOOK, MIX_ORIENTS, flipMix, flipTri, isRamp, rotateMix, rotateTri, thic
 import { ICONS } from './icons.js';
 import { PRESETS } from './presets.js';
 import { boardMarkup, cellFromPoint, flatPicture, pictureMarkup } from './render2d.js';
-import { board3d, hitTest3d, pieceIcon } from './render3d.js';
+import { board3d, hitTest3d, nearTray3d, pieceIcon } from './render3d.js';
 import { makeRng, quickCheck, randomArrangement, solvePattern } from './solver.js';
 
 const STORAGE_KEY = 'building-blocks-simulator:v2';
@@ -70,8 +70,9 @@ class History {
 
 let state;
 let bookUI;
-const pointer = { down: false, id: null, type: 'mouse', erase: false };
+const pointer = { down: false, id: null, type: 'mouse', erase: false, x: 0, y: 0 };
 let hits3d = [];
+let outline3d = [];
 let statusTimer = 0;
 let saveTimer = 0;
 
@@ -304,6 +305,7 @@ function renderBoard() {
     if (state.view === '3d') {
       view = board3d(board, { azimuth: state.azimuth, ghost, hoverId });
       hits3d = view.hits;
+      outline3d = view.outline;
     } else {
       view = boardMarkup(board, { xray: state.xray, ghost, hoverId, freshIds: state.fresh });
     }
@@ -1057,6 +1059,27 @@ function pointerTarget(evt) {
   return cellFromPoint(state.rows, state.cols, p.x, p.y);
 }
 
+/**
+ * In the 3D view the tray does not fill the picture. On a phone, a swipe that starts away
+ * from the tray scrolls the page; one that starts on the tray, or this close to it, works
+ * the tray.
+ */
+const TRAY_MARGIN_PX = 8;
+
+function offTray3d(point) {
+  if (state.mode !== 'build' || state.view !== '3d') return false;
+  const m = $('#board').getScreenCTM();
+  if (!m) return false;
+  const p = new DOMPoint(point.clientX, point.clientY).matrixTransform(m.inverse());
+  return !nearTray3d(outline3d, p.x, p.y, TRAY_MARGIN_PX / (Math.hypot(m.a, m.b) || 1));
+}
+
+/** The 3D board lets the page scroll (touch-action: pan-y); keep touches on the tray for the tray. */
+function onTouchStart(evt) {
+  if (state.mode !== 'build' || state.view !== '3d' || !evt.cancelable) return;
+  if (!offTray3d(evt.changedTouches[0])) evt.preventDefault();
+}
+
 /** A secondary click: the right button, or Ctrl + click (how a Mac with one button right-clicks). */
 const isRemoveClick = (evt) => evt.button === 2 || (evt.button === 0 && evt.pointerType === 'mouse' && evt.ctrlKey);
 
@@ -1093,6 +1116,8 @@ function onPointerMove(evt) {
 function onPointerDown(evt) {
   const right = isRemoveClick(evt);
   if (evt.button !== 0 && !right) return;
+  // A finger that lands away from the 3D tray is scrolling the page: leave it to the browser.
+  if (evt.pointerType !== 'mouse' && offTray3d(evt)) return;
   pointer.type = evt.pointerType;
   const h = pointerTarget(evt);
   if (state.mode === 'check') {
@@ -1116,11 +1141,18 @@ function onPointerDown(evt) {
   $('#board').setPointerCapture?.(evt.pointerId);
   pointer.down = true;
   pointer.id = evt.pointerId;
-  if (!sameTarget(h, state.hover)) {
-    state.hover = h;
+  pointer.x = evt.clientX;
+  pointer.y = evt.clientY;
+  const changed = !sameTarget(h, state.hover);
+  state.hover = h;
+  if (changed && evt.pointerType === 'mouse') {
     renderBoard();
-  } else {
-    state.hover = h;
+  } else if (changed) {
+    // A finger: redraw on the next frame. The browser still has to send this touch's start
+    // to the shape under the finger (see onTouchStart), and redrawing now would remove it.
+    requestAnimationFrame(() => {
+      if (pointer.down) renderBoard();
+    });
   }
   evt.preventDefault();
 }
@@ -1130,10 +1162,16 @@ function onPointerUp(evt) {
   pointer.down = false;
   if (state.mode === 'check') return;
   const h = pointerTarget(evt);
+  // A finger that slid across the tray was not a tap (perhaps an attempt to scroll): it does
+  // not remove what it ends on. Sliding to aim a piece before placing it still works.
+  const slid = evt.pointerType !== 'mouse' && Math.hypot(evt.clientX - pointer.x, evt.clientY - pointer.y) > 12;
   if (h) {
     state.hover = h;
-    if (state.tool === 'remove' || !state.selected) removeAt(h);
-    else placeAt(h);
+    if (state.tool === 'remove' || !state.selected) {
+      if (!slid) removeAt(h);
+    } else {
+      placeAt(h);
+    }
   }
   if (evt.pointerType !== 'mouse') {
     state.hover = null;
@@ -1360,7 +1398,9 @@ export function start(hotData) {
   svg.addEventListener('pointermove', onPointerMove);
   svg.addEventListener('pointerdown', onPointerDown);
   svg.addEventListener('pointerup', onPointerUp);
+  svg.addEventListener('touchstart', onTouchStart, { passive: false });
   svg.addEventListener('pointercancel', () => {
+    if (!pointer.down && !state.hover) return;
     pointer.down = false;
     state.hover = null;
     renderBoard();

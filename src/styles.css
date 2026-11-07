@@ -210,8 +210,11 @@ button {
   cursor: grab;
 }
 
+/* In 3D the tray does not fill the picture: a swipe that starts away from the tray scrolls
+   the page (app.js keeps the touches that start on the tray). */
 .board-wrap > svg.is-3d {
   cursor: default;
+  touch-action: pan-y;
 }
 
 body[data-mode="check"] .board-wrap > svg {

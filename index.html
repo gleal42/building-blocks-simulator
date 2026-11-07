@@ -221,8 +221,11 @@ button {
   cursor: grab;
 }
 
+/* In 3D the tray does not fill the picture: a swipe that starts away from the tray scrolls
+   the page (app.js keeps the touches that start on the tray). */
 .board-wrap > svg.is-3d {
   cursor: default;
+  touch-action: pan-y;
 }
 
 body[data-mode="check"] .board-wrap > svg {
@@ -2932,7 +2935,12 @@ ${xrefAt}
       const line = ghost.ok ? "var(--accent, #2b55d4)" : "var(--bad, #bf3a2b)";
       body += `<g class="ghost3d${ghost.ok ? "" : " is-bad"}">${faces.map(({ face }) => polygonSvg(face.pts.map(camera.project), shade(ghost.piece.color, face.normal), line, 0.03)).join("")}</g>`;
     }
-    return { viewBox: vb, markup: body, hits, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+    const outline = hull2d(shapes.flatMap((sh) => sh.screen));
+    return { viewBox: vb, markup: body, hits, outline, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+  }
+  function nearTray3d(outline, x, y, margin = 0) {
+    if (outline.length < 3) return false;
+    return polygonContains(outline, x, y) || outline.some((p, k) => nearSegment(x, y, p, outline[(k + 1) % outline.length], margin));
   }
   function hitTest3d(hits, x, y) {
     for (let i = hits.length - 1; i >= 0; i -= 1) {
@@ -4636,8 +4644,9 @@ ${coverRow("back", "Back cover")}
   };
   var state;
   var bookUI;
-  var pointer = { down: false, id: null, type: "mouse", erase: false };
+  var pointer = { down: false, id: null, type: "mouse", erase: false, x: 0, y: 0 };
   var hits3d = [];
+  var outline3d = [];
   var statusTimer = 0;
   var saveTimer = 0;
   var finePointer = () => typeof matchMedia === "function" && matchMedia("(pointer: fine)").matches;
@@ -4847,6 +4856,7 @@ ${ch.solved ? "" : '<p class="challenge-goal">Make this picture: put all the pie
       if (state.view === "3d") {
         view = board3d(board, { azimuth: state.azimuth, ghost, hoverId });
         hits3d = view.hits;
+        outline3d = view.outline;
       } else {
         view = boardMarkup(board, { xray: state.xray, ghost, hoverId, freshIds: state.fresh });
       }
@@ -5502,6 +5512,18 @@ ${sizeMarkup()}
     if (state.mode === "build" && state.view === "3d") return hitTest3d(hits3d, p.x, p.y);
     return cellFromPoint(state.rows, state.cols, p.x, p.y);
   }
+  var TRAY_MARGIN_PX = 8;
+  function offTray3d(point) {
+    if (state.mode !== "build" || state.view !== "3d") return false;
+    const m = $("#board").getScreenCTM();
+    if (!m) return false;
+    const p = new DOMPoint(point.clientX, point.clientY).matrixTransform(m.inverse());
+    return !nearTray3d(outline3d, p.x, p.y, TRAY_MARGIN_PX / (Math.hypot(m.a, m.b) || 1));
+  }
+  function onTouchStart(evt) {
+    if (state.mode !== "build" || state.view !== "3d" || !evt.cancelable) return;
+    if (!offTray3d(evt.changedTouches[0])) evt.preventDefault();
+  }
   var isRemoveClick = (evt) => evt.button === 2 || evt.button === 0 && evt.pointerType === "mouse" && evt.ctrlKey;
   function sameTarget(a, b) {
     if (!a || !b) return a === b;
@@ -5534,6 +5556,7 @@ ${sizeMarkup()}
   function onPointerDown(evt) {
     const right = isRemoveClick(evt);
     if (evt.button !== 0 && !right) return;
+    if (evt.pointerType !== "mouse" && offTray3d(evt)) return;
     pointer.type = evt.pointerType;
     const h = pointerTarget(evt);
     if (state.mode === "check") {
@@ -5553,11 +5576,16 @@ ${sizeMarkup()}
     $("#board").setPointerCapture?.(evt.pointerId);
     pointer.down = true;
     pointer.id = evt.pointerId;
-    if (!sameTarget(h, state.hover)) {
-      state.hover = h;
+    pointer.x = evt.clientX;
+    pointer.y = evt.clientY;
+    const changed = !sameTarget(h, state.hover);
+    state.hover = h;
+    if (changed && evt.pointerType === "mouse") {
       renderBoard();
-    } else {
-      state.hover = h;
+    } else if (changed) {
+      requestAnimationFrame(() => {
+        if (pointer.down) renderBoard();
+      });
     }
     evt.preventDefault();
   }
@@ -5566,10 +5594,14 @@ ${sizeMarkup()}
     pointer.down = false;
     if (state.mode === "check") return;
     const h = pointerTarget(evt);
+    const slid = evt.pointerType !== "mouse" && Math.hypot(evt.clientX - pointer.x, evt.clientY - pointer.y) > 12;
     if (h) {
       state.hover = h;
-      if (state.tool === "remove" || !state.selected) removeAt(h);
-      else placeAt(h);
+      if (state.tool === "remove" || !state.selected) {
+        if (!slid) removeAt(h);
+      } else {
+        placeAt(h);
+      }
     }
     if (evt.pointerType !== "mouse") {
       state.hover = null;
@@ -5783,7 +5815,9 @@ ${sizeMarkup()}
     svg2.addEventListener("pointermove", onPointerMove);
     svg2.addEventListener("pointerdown", onPointerDown);
     svg2.addEventListener("pointerup", onPointerUp);
+    svg2.addEventListener("touchstart", onTouchStart, { passive: false });
     svg2.addEventListener("pointercancel", () => {
+      if (!pointer.down && !state.hover) return;
       pointer.down = false;
       state.hover = null;
       renderBoard();
