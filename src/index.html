@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Place cube + prism pieces and loose prisms in a tray, turn them every way they can go, and check which black-and-white pictures can be made.">
+<title>Building Blocks Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;family=Unbounded:wght@500;700&amp;display=swap">
+<style>/*__CSS__*/</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 40 40" width="38" height="38" aria-hidden="true">
+        <rect x="1" y="1" width="38" height="38" rx="8" fill="#e6cf9b" stroke="#b49a63"/>
+        <rect x="6" y="6" width="13" height="13" rx="2" fill="#f7f7f4"/>
+        <path d="M21 6h13v13Z" fill="#1d1f22"/><path d="M21 6v13h13Z" fill="#f7f7f4"/>
+        <path d="M6 21h13v13Z" fill="#f7f7f4"/><path d="M6 21v13h13Z" fill="#1d1f22"/>
+        <rect x="21" y="21" width="13" height="13" rx="2" fill="#1d1f22"/>
+      </svg>
+      <h1>Building Blocks <span>Simulator</span></h1>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Mode">
+      <button type="button" role="tab" data-tab="build" aria-selected="true">Build</button>
+      <button type="button" role="tab" data-tab="check" aria-selected="false" tabindex="-1">Check a picture</button>
+      <button type="button" role="tab" data-tab="challenge" aria-selected="false" tabindex="-1">Challenge</button>
+    </nav>
+  </header>
+  <main class="layout">
+    <section class="stage" aria-label="Tray">
+      <div class="board-wrap" id="boardWrap">
+        <svg id="board" role="application" tabindex="0" aria-label="Tray" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <p class="status" id="status" aria-live="polite"></p>
+      <div class="stage-bar" id="stageBar"></div>
+    </section>
+    <aside class="panel" id="panel" aria-label="Controls"></aside>
+  </main>
+  <footer class="foot">
+    <p>Every 2 squares of a tray come with one cube + prism and one loose prism; half the pieces are white, half black. A cube always shows as a full square, so at most half the squares can show a split.</p>
+  </footer>
+</div>
+<div class="modal" id="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalText">
+    <p class="modal-text" id="modalText"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn" data-answer="no">Cancel</button>
+      <button type="button" class="btn primary" data-answer="yes">OK</button>
+    </div>
+  </div>
+</div>
+<script>/*__JS__*/</script>
+</body>
+</html>
