@@ -2704,6 +2704,8 @@ ${xrefAt}
     tray: { dark: [150, 120, 70], light: [244, 226, 182] },
     floor: { dark: [160, 128, 78], light: [214, 190, 140] }
   };
+  var SEAM_GAP = 0.017;
+  var SEAM = "#86693f";
   function shade(paletteKey, normal) {
     const { dark, light } = PALETTE[paletteKey];
     const lambert = Math.max(0, dot(normal, LIGHT));
@@ -2727,31 +2729,52 @@ ${xrefAt}
     return `<polygon points="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}" stroke-linejoin="round"/>`;
   }
   var fmt3 = (n) => (Math.round(n * 1e3) / 1e3).toString();
-  function pieceParts(piece, rows, shrink = 0) {
-    const parts = [];
-    const cellWorld = (r, c) => [c, rows - 1 - r];
+  function pieceParts(piece, rows, gap = 0) {
     const cells = [];
     if (piece.type === "tri") {
-      cells.push({ r: piece.r, c: piece.c, solid: halfSolid(piece.o), layer: layerOf(piece.o) });
+      cells.push({ r: piece.r, c: piece.c, solid: halfSolid(piece.o), layer: layerOf(piece.o), join: null });
     } else {
       const m = MIX_ORIENTS[piece.o];
-      cells.push({ r: piece.r, c: piece.c, solid: cubeSolid(), layer: 1 });
-      cells.push({ r: piece.r + DR[m.dir], c: piece.c + DC[m.dir], solid: halfSolid(m.half), layer: layerOf(m.half) });
+      const towardsPrism = [DC[m.dir], -DR[m.dir], 0];
+      cells.push({ r: piece.r, c: piece.c, solid: cubeSolid(), layer: 1, join: towardsPrism });
+      cells.push({
+        r: piece.r + DR[m.dir],
+        c: piece.c + DC[m.dir],
+        solid: halfSolid(m.half),
+        layer: layerOf(m.half),
+        join: towardsPrism.map((x) => -x)
+      });
     }
-    const centre = cells.reduce(
-      (a, x) => {
-        const [wx, wy] = cellWorld(x.r, x.c);
-        return [a[0] + (wx + 0.5) / cells.length, a[1] + (wy + 0.5) / cells.length];
-      },
-      [0, 0]
-    );
-    const k = 1 - shrink;
-    for (const x of cells) {
-      const [wx, wy] = cellWorld(x.r, x.c);
-      const toWorld = ([u, v, w]) => [centre[0] + (wx + u - centre[0]) * k, centre[1] + (wy + v - centre[1]) * k, w];
-      parts.push({ solid: x.solid, toWorld, cell: [x.r, x.c], layer: x.layer });
-    }
-    return parts;
+    return cells.map((x) => {
+      const wx = x.c;
+      const wy = rows - 1 - x.r;
+      return {
+        solid: gap > 0 ? insetSolid(x.solid, gap, x.join) : x.solid,
+        toWorld: ([u, v, w]) => [wx + u, wy + v, w],
+        cell: [x.r, x.c],
+        layer: x.layer
+      };
+    });
+  }
+  function insetSolid(solid, gap, join) {
+    const centre = solid.verts.reduce((a, v) => a.map((x, i) => x + v[i] / solid.verts.length), [0, 0, 0]);
+    const planes = solid.faces.map((f) => {
+      const [p0, p1, p2] = f.map((i) => solid.verts[i]);
+      let n = norm(cross(sub(p1, p0), sub(p2, p0)));
+      if (dot(n, sub(p0, centre)) < 0) n = n.map((x) => -x);
+      const stays = Math.abs(n[2]) > 0.999 || join && dot(n, join) > 0.999;
+      return { n, c: dot(n, p0) - (stays ? 0 : gap) };
+    });
+    const meeting = solid.verts.map(() => []);
+    solid.faces.forEach((f, k) => f.forEach((i) => meeting[i].push(planes[k])));
+    return { faces: solid.faces, verts: solid.verts.map((v, i) => meeting[i].length === 3 ? meetingPoint(meeting[i]) : v) };
+  }
+  function meetingPoint([a, b, c]) {
+    const bc = cross(b.n, c.n);
+    const ca = cross(c.n, a.n);
+    const ab = cross(a.n, b.n);
+    const det = dot(a.n, bc);
+    return [0, 1, 2].map((i) => (a.c * bc[i] + b.c * ca[i] + c.c * ab[i]) / det);
   }
   function mixSolid(o) {
     const m = MIX_ORIENTS[o];
@@ -2877,27 +2900,28 @@ ${xrefAt}
     }
     for (const piece of board.pieces.values()) {
       const hot = piece.id === hoverId;
-      for (const part of pieceParts(piece, R, 0.035)) {
+      const whole = pieceParts(piece, R);
+      pieceParts(piece, R, SEAM_GAP).forEach((part, i) => {
         const [r, c] = part.cell;
         const cellDepth = camera.depth([c + 0.5, R - 1 - r + 0.5, 0]);
-        const faces = facesOf(part.solid, part.toWorld);
-        const partDepth = camera.depth(faces.reduce((a, f) => [a[0] + f.centre[0], a[1] + f.centre[1], a[2] + f.centre[2]], [0, 0, 0]).map((x) => x / faces.length));
-        for (const face of faces) {
+        const back = facesOf(whole[i].solid, whole[i].toWorld);
+        const partDepth = camera.depth(back.reduce((a, f) => [a[0] + f.centre[0], a[1] + f.centre[1], a[2] + f.centre[2]], [0, 0, 0]).map((x) => x / back.length));
+        const common = {
+          tier: 3,
+          order: cellDepth * 1e3 + part.layer * 10 + partDepth * 0.01,
+          attrs: ` data-cell="${r},${c}" data-id="${piece.id}"`,
+          cell: [r, c],
+          id: piece.id
+        };
+        for (const face of back) {
+          if (dot(face.normal, camera.d) > 1e-6) shapes.push({ ...common, pts: face.pts, fill: SEAM });
+        }
+        for (const face of facesOf(part.solid, part.toWorld)) {
           if (dot(face.normal, camera.d) <= 1e-6) continue;
           const fill = shade(piece.color, face.normal);
-          shapes.push({
-            pts: face.pts,
-            fill,
-            stroke: hot ? "var(--accent, #2b55d4)" : fill,
-            width: hot ? 0.05 : 0.012,
-            tier: 3,
-            order: cellDepth * 1e3 + part.layer * 10 + partDepth * 0.01,
-            attrs: ` data-cell="${r},${c}" data-id="${piece.id}"`,
-            cell: [r, c],
-            id: piece.id
-          });
+          shapes.push({ ...common, pts: face.pts, fill, stroke: hot ? "var(--accent, #2b55d4)" : fill, width: hot ? 0.05 : 0.012 });
         }
-      }
+      });
     }
     shapes.sort((a, b) => a.tier - b.tier || a.order - b.order);
     for (const sh of shapes) sh.screen = sh.pts.map(camera.project);
@@ -2925,7 +2949,7 @@ ${xrefAt}
     let body = shapes.map(polygon).join("");
     if (ghost) {
       const faces = [];
-      for (const part of pieceParts(ghost.piece, R, 0.035)) {
+      for (const part of pieceParts(ghost.piece, R, SEAM_GAP)) {
         for (const face of facesOf(part.solid, part.toWorld)) {
           if (dot(face.normal, camera.d) <= 1e-6) continue;
           faces.push({ face, depth: camera.depth(face.centre) + part.layer * 1e-3 });
