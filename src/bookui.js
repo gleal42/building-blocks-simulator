@@ -18,6 +18,7 @@ import {
   spreads,
 } from './book.js';
 import { bookPdf, pageSvg } from './bookpages.js';
+import { CARD, cardSheet, cardSvg, cardsPdf } from './cards.js';
 import { ICONS } from './icons.js';
 import { flatPicture } from './render2d.js';
 
@@ -141,6 +142,19 @@ export function createBookUI(ctx) {
 </section>`).join('')}</div>`;
   }
 
+  function cardsMarkup(book) {
+    const layout = cardSheet(book);
+    const n = book.challenges.length;
+    const sheets = Math.max(1, Math.ceil(n / layout.perSheet));
+    const face = (svg, label) => `<figure class="deck-card"><div class="card-face">${svg}</div>${label ? `<figcaption>${label}</figcaption>` : ''}</figure>`;
+    return `<div class="deck is-${book.shape}">
+<p class="muted">${n} card${n === 1 ? '' : 's'} of ${layout.w} × ${layout.h} mm: ${layout.perSheet} fit on a sheet of ${PAPER[book.paper].name}, so ${sheets} sheet${sheets === 1 ? '' : 's'}, printed on both sides.</p>
+${n ? `<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book, i), '')).join('')}</div>` : '<p class="muted">No challenges yet: each challenge you add becomes a card.</p>'}
+<h3 class="deck-h">The back of every card</h3>
+<div class="deck-grid">${face(cardSvg(book, null), '')}</div>
+</div>`;
+  }
+
   function renderStage(container) {
     const st = state();
     const book = currentBook();
@@ -149,12 +163,15 @@ export function createBookUI(ctx) {
       const pages = bookPages(book);
       const view = st.bookView;
       st.bookLeaf = Math.min(st.bookLeaf ?? 0, pages.length / 2);
-      const views = [['3d', 'Book (3D)'], ['spreads', 'Spreads'], ['sheets', 'Print sheets']]
+      const views = [['3d', 'Book (3D)'], ['spreads', 'Spreads'], ['sheets', 'Print sheets'], ['cards', 'Cards']]
         .map(([id, label]) => `<button type="button" class="chip${view === id ? ' is-on' : ''}" data-action="book-view" data-id="${id}" aria-pressed="${view === id}">${label}</button>`)
         .join('');
-      const body = view === 'spreads' ? spreadsMarkup(book, pages) : view === 'sheets' ? sheetsMarkup(book, pages) : flipbookMarkup(book, pages);
+      const body = view === 'spreads' ? spreadsMarkup(book, pages) : view === 'sheets' ? sheetsMarkup(book, pages) : view === 'cards' ? cardsMarkup(book) : flipbookMarkup(book, pages);
+      const about = view === 'cards'
+        ? `${book.challenges.length} card${book.challenges.length === 1 ? '' : 's'}`
+        : `${pages.length} pages · ${pages.length / 4} sheet${pages.length > 4 ? 's' : ''} of ${PAPER[book.paper].name}`;
       container.innerHTML = `<div class="book-head"><div class="chips" role="group" aria-label="Preview">${views}</div>
-<p class="muted">${pages.length} pages · ${pages.length / 4} sheet${pages.length > 4 ? 's' : ''} of ${PAPER[book.paper].name}</p></div>
+<p class="muted">${about}</p></div>
 <div class="book-preview view-${view}">${body}</div>`;
       builtFor = sig;
       if (view === '3d') attachFlipbook(container);
@@ -308,6 +325,15 @@ ${coverRow('back', 'Back cover')}
 <button type="button" class="btn" data-action="book-copy">${ICONS.copy}Copy as text</button>
 </div>
 <p class="hint">The .json file keeps the challenges, their stars and answers, the title and the covers, so you can carry on later or on another device.</p>
+</section>
+<section class="card" aria-labelledby="cards-h">
+<h2 id="cards-h">Cards</h2>
+<p class="muted">A deck with one card per challenge, in the shape of the ${rows}×${cols} tray: ${CARD[book.shape].w} × ${CARD[book.shape].h} mm. Players draw a card and build its picture.</p>
+<div class="row-buttons">
+<button type="button" class="btn primary" data-action="book-cards-pdf">${ICONS.download}PDF of the cards</button>
+<button type="button" class="btn" data-action="book-view" data-id="cards"${st.bookView === 'cards' ? ' disabled' : ''}>Show the cards</button>
+</div>
+<p class="hint">Print it on ${PAPER[book.paper].name}, both sides, <b>flip on the long edge</b>, so each card gets the back. Then cut along the marks.</p>
 </section>`;
   }
 
@@ -341,6 +367,19 @@ ${coverRow('back', 'Back cover')}
     if (!book.challenges.length && !(await ctx.confirmDialog('The book has no challenges yet. Make the PDF anyway?', 'Make PDF'))) return;
     const bytes = bookPdf(book, layout);
     const name = `${slug(book.title)}-${layout === 'pages' ? 'pages' : 'booklet'}.pdf`;
+    const res = await ctx.saveFile(name, new Blob([bytes], { type: 'application/pdf' }), 'application/pdf');
+    if (res === 'saved') ctx.setStatus(`Saved ${name}.`);
+    else if (res === 'failed') ctx.setStatus('The PDF could not be saved here.', true, 'bad');
+  }
+
+  async function exportCards() {
+    const book = currentBook();
+    if (!book.challenges.length) {
+      ctx.setStatus('Add some challenges first: each one becomes a card.', true, 'bad');
+      return;
+    }
+    const bytes = cardsPdf(book);
+    const name = `${slug(book.title)}-cards.pdf`;
     const res = await ctx.saveFile(name, new Blob([bytes], { type: 'application/pdf' }), 'application/pdf');
     if (res === 'saved') ctx.setStatus(`Saved ${name}.`);
     else if (res === 'failed') ctx.setStatus('The PDF could not be saved here.', true, 'bad');
@@ -399,6 +438,8 @@ ${coverRow('back', 'Back cover')}
     'book-view': (el) => {
       state().bookView = el.dataset.id;
       changed();
+      // From the panel (below the preview on a phone): bring the preview into view.
+      if (el.closest('#panel')) document.getElementById('bookStage')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     },
     'book-prev': () => turnPage(-1),
     'book-next': () => turnPage(1),
@@ -464,6 +505,7 @@ ${coverRow('back', 'Back cover')}
       changed();
     },
     'book-pdf': (el) => exportPdf(el.dataset.id),
+    'book-cards-pdf': exportCards,
     'book-export': exportJson,
     'book-import': () => pickFile('application/json,.json', importFile),
     'book-copy': () => ctx.copyText(exportBook(currentBook()), 'Book'),

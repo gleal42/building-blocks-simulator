@@ -227,7 +227,12 @@ export function pieceIcon(type, color, o, { size = 56, azimuth = 0, elevation = 
  * mapped to what it touches with document.elementFromPoint().
  * opts: { azimuth, elevation, ghost: { piece, ok }, hoverId }
  */
-export function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hoverId = 0 } = {}) {
+/**
+ * The tray in 3D. opts: { azimuth, elevation, ghost: { piece, ok }, hoverId, selectedId, liftedId }.
+ * selectedId is outlined; liftedId (a piece being moved or turned) is drawn faded where it was.
+ * Returns { viewBox, markup, hits, outline, ghostPolys } (see hitTest3d and nearTray3d).
+ */
+export function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hoverId = 0, selectedId = 0, liftedId = 0 } = {}) {
   const camera = makeCamera(azimuth, elevation);
   const R = board.rows;
   const C = board.cols;
@@ -278,7 +283,8 @@ export function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hove
   // Each part is drawn twice: full size in the seam colour, then pulled in a little on top,
   // so the joins between pieces show as thin dark seams and never as holes into the tray.
   for (const piece of board.pieces.values()) {
-    const hot = piece.id === hoverId;
+    const line = piece.id === selectedId ? ['var(--accent, #2b55d4)', 0.07] : piece.id === hoverId ? ['var(--accent, #2b55d4)', 0.035] : null;
+    const lifted = piece.id === liftedId;
     const whole = pieceParts(piece, R);
     pieceParts(piece, R, SEAM_GAP).forEach((part, i) => {
       const [r, c] = part.cell;
@@ -293,12 +299,12 @@ export function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hove
         id: piece.id,
       };
       for (const face of back) {
-        if (dot(face.normal, camera.d) > 1e-6) shapes.push({ ...common, pts: face.pts, fill: SEAM });
+        if (!lifted && dot(face.normal, camera.d) > 1e-6) shapes.push({ ...common, pts: face.pts, fill: SEAM });
       }
       for (const face of facesOf(part.solid, part.toWorld)) {
         if (dot(face.normal, camera.d) <= 1e-6) continue;
         const fill = shade(piece.color, face.normal);
-        shapes.push({ ...common, pts: face.pts, fill, stroke: hot ? 'var(--accent, #2b55d4)' : fill, width: hot ? 0.05 : 0.012 });
+        shapes.push({ ...common, pts: face.pts, fill, stroke: line ? line[0] : fill, width: line ? line[1] : 0.012, opacity: lifted ? 0.3 : 0 });
       }
     });
   }
@@ -325,11 +331,14 @@ export function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hove
   const vb = `${fmt(minX - pad)} ${fmt(minY - pad)} ${fmt(maxX - minX + 2 * pad)} ${fmt(maxY - minY + 2 * pad)}`;
   const polygon = (sh) => {
     const d = sh.screen.map(([x, y]) => `${fmt3(x)},${fmt3(y)}`).join(' ');
-    return `<polygon points="${d}" fill="${sh.fill}" stroke="${sh.stroke ?? sh.fill}" stroke-width="${sh.width ?? 0.012}" stroke-linejoin="round"${sh.attrs ?? ''}/>`;
+    return `<polygon points="${d}" fill="${sh.fill}" stroke="${sh.stroke ?? sh.fill}" stroke-width="${sh.width ?? 0.012}" stroke-linejoin="round"${sh.opacity ? ` opacity="${sh.opacity}"` : ''}${sh.attrs ?? ''}/>`;
   };
   let body = shapes.map(polygon).join('');
+  const ghostPolys = [];
   if (ghost) {
-    // The piece about to be placed, drawn see-through on top (it does not catch the pointer).
+    // The piece about to be placed, drawn see-through on top. It is not in `hits`: what is
+    // under the pointer is worked out from the tray, and ghostPolys tells when the pointer is
+    // on the ghost itself (to drag it).
     const faces = [];
     for (const part of pieceParts(ghost.piece, R, SEAM_GAP)) {
       for (const face of facesOf(part.solid, part.toWorld)) {
@@ -338,6 +347,7 @@ export function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hove
       }
     }
     faces.sort((a, b) => a.depth - b.depth);
+    for (const { face } of faces) ghostPolys.push(face.pts.map(camera.project));
     const line = ghost.ok ? 'var(--accent, #2b55d4)' : 'var(--bad, #bf3a2b)';
     body += `<g class="ghost3d${ghost.ok ? '' : ' is-bad'}">${faces
       .map(({ face }) => polygonSvg(face.pts.map(camera.project), shade(ghost.piece.color, face.normal), line, 0.03))
@@ -346,7 +356,12 @@ export function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hove
   // The tray with its pieces as one outline. On a phone, a swipe that starts away from it
   // scrolls the page, since most of the picture around the tray is empty.
   const outline = hull2d(shapes.flatMap((sh) => sh.screen));
-  return { viewBox: vb, markup: body, hits, outline, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+  return { viewBox: vb, markup: body, hits, outline, ghostPolys, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+}
+
+/** Is point (x, y) inside one of these polygons (in the SVG's own units)? */
+export function insideAny(polys, x, y) {
+  return polys.some((pts) => polygonContains(pts, x, y));
 }
 
 /** Whether point (x, y) is on the tray outline from board3d, or within `margin` of it. */

@@ -21,7 +21,7 @@ import {
   tipMix,
   tipTri,
 } from '../src/geometry.js';
-import { Board, decodeBoard, defaultInventory, encodeBoard, sizeProblem } from '../src/board.js';
+import { Board, decodeBoard, defaultInventory, encodeBoard, pieceCovers, sizeProblem } from '../src/board.js';
 import { PRESETS } from '../src/presets.js';
 
 // ---- helpers -------------------------------------------------------------------------
@@ -223,4 +223,46 @@ test('board codes round-trip', () => {
   assert.equal(encodeBoard(back), code);
   assert.throws(() => decodeBoard('hello'), /board code/);
   assert.throws(() => decodeBoard('3x3:'), /multiple of 4/);
+});
+
+test('piecesAt lists the pieces under a point from the top down; stackWith finds a roof and its ramp', () => {
+  // A black cube + prism lying as a ramp towards the east, with a black roof on its ramp, and
+  // two standing prisms sharing a square.
+  const b = Board.fromJSON({ rows: 4, cols: 4, pieces: [
+    { type: 'mix', color: 'B', r: 0, c: 0, o: 6 },
+    { type: 'tri', color: 'B', r: 0, c: 1, o: 9 },
+    { type: 'tri', color: 'W', r: 2, c: 2, o: 0 },
+    { type: 'tri', color: 'B', r: 2, c: 2, o: 2 },
+  ] });
+  assert.deepEqual(b.piecesAt(0, 1, 0.3, 0.6), [2, 1]); // the roof, then the ramp under it
+  assert.deepEqual(b.piecesAt(0, 0), [1]); // the cube
+  assert.deepEqual(b.stackWith(0, 1, 1), [2, 1]);
+  assert.deepEqual(b.stackWith(0, 0, 1), [1]);
+  assert.deepEqual(b.piecesAt(2, 2, 0.2, 0.2), [3]); // standing prisms: only the one under the point
+  assert.deepEqual(b.piecesAt(2, 2, 0.8, 0.8), [4]);
+  assert.deepEqual(b.stackWith(2, 2, 3), [3]);
+  assert.deepEqual(b.piecesAt(3, 3), []);
+  assert.equal(pieceCovers({ type: 'mix', color: 'B', r: 0, c: 0, o: 6 }, 0, 1), true);
+  assert.equal(pieceCovers({ type: 'tri', color: 'W', r: 2, c: 2, o: 0 }, 2, 2, 0.9, 0.9), false);
+});
+
+test('a piece can be moved or turned in place; a roof resting on it comes out', () => {
+  const b = Board.fromJSON({ rows: 4, cols: 4, pieces: [
+    { type: 'mix', color: 'B', r: 0, c: 0, o: 6 },
+    { type: 'tri', color: 'B', r: 0, c: 1, o: 9 },
+  ] });
+  const copy = b.clone();
+  assert.deepEqual([...copy.pieces.keys()].sort(), [...b.pieces.keys()].sort(), 'clone keeps the ids');
+  // Turning the cube + prism where it is: the roof on its ramp would fall.
+  const turned = { type: 'mix', color: 'B', r: 0, c: 0, o: 10 };
+  assert.deepEqual(b.checkMove(1, turned), { ok: true, fallen: [2] });
+  const res = b.move(1, { type: 'mix', color: 'B', r: 2, c: 0, o: 6 });
+  assert.deepEqual(res, { ok: true, id: 1, fallen: [2] });
+  assert.equal(b.pieces.size, 1);
+  assert.deepEqual({ ...b.pieces.get(1) }, { id: 1, type: 'mix', color: 'B', r: 2, c: 0, o: 6 });
+  // A move onto a full square is refused and changes nothing.
+  b.place({ type: 'tri', color: 'W', r: 3, c: 3, o: 4 });
+  const before = encodeBoard(b);
+  assert.equal(b.move(1, { type: 'mix', color: 'B', r: 3, c: 2, o: 6 }).ok, false);
+  assert.equal(encodeBoard(b), before);
 });

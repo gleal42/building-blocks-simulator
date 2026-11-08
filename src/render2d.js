@@ -196,10 +196,11 @@ function hollowMarkup({ r, c }) {
 
 /**
  * Board SVG content.
- * opts: { xray, ghost: { piece, ok }, hoverId, freshIds: Set, selectable }
+ * opts: { xray, ghost: { piece, ok }, hoverId, selectedId, liftedId, freshIds: Set }
+ * selectedId is outlined; liftedId (a piece being moved or turned) is drawn faded where it was.
  */
 export function boardMarkup(board, opts = {}) {
-  const { xray = false, ghost = null, hoverId = 0, freshIds = new Set() } = opts;
+  const { xray = false, ghost = null, hoverId = 0, selectedId = 0, liftedId = 0, freshIds = new Set() } = opts;
   const under = [];
   const over = [];
   const glass = [];
@@ -207,7 +208,12 @@ export function boardMarkup(board, opts = {}) {
   for (const piece of board.pieces.values()) {
     const shape = pieceShape(board, piece, { xray });
     if (!shape) continue;
-    const cls = [piece.id === hoverId ? 'is-hover' : '', freshIds.has(piece.id) ? 'is-fresh' : ''].join(' ');
+    const cls = [
+      piece.id === hoverId ? 'is-hover' : '',
+      piece.id === selectedId ? 'is-selected' : '',
+      piece.id === liftedId ? 'is-lifted' : '',
+      freshIds.has(piece.id) ? 'is-fresh' : '',
+    ].filter(Boolean).join(' ');
     if (xray && shape.capped) {
       // Roofs become see-through so the ramp (or the hollow) underneath shows.
       if (shape.xrayParts) {
@@ -227,6 +233,13 @@ export function boardMarkup(board, opts = {}) {
       under.unshift(`<rect x="${x + 4}" y="${y + 4}" width="${CELL - 8}" height="${CELL - 8}" fill="url(#hatch)" opacity=".9"/>`);
     }
   }
+  // The selected piece gets an outline on top of everything, so it shows even under a roof.
+  let selMarkup = '';
+  const selected = selectedId ? board.pieces.get(selectedId) : null;
+  if (selected) {
+    const shape = pieceShape(null, selected, {});
+    if (shape) selMarkup = `<path class="sel-line" d="${outlinePath(shape.outline)}"/>`;
+  }
   let ghostMarkup = '';
   if (ghost) {
     const shape = pieceShape(null, ghost.piece, {});
@@ -237,7 +250,7 @@ export function boardMarkup(board, opts = {}) {
   const { width, height } = trayFrame(board.rows, board.cols);
   return {
     viewBox: `-14 -10 ${width + 28} ${height + 36}`,
-    markup: `${boardDefs()}${trayMarkup(board.rows, board.cols)}<g filter="url(#pieceShadow)">${under.join('')}${over.join('')}</g>${glass.join('')}${marks.join('')}${ghostMarkup}`,
+    markup: `${boardDefs()}${trayMarkup(board.rows, board.cols)}<g filter="url(#pieceShadow)">${under.join('')}${over.join('')}</g>${glass.join('')}${marks.join('')}${selMarkup}${ghostMarkup}`,
   };
 }
 
