@@ -38,12 +38,17 @@ const PALETTE = {
   floor: { dark: [160, 128, 78], light: [214, 190, 140] },
 };
 
+// Seams between pieces: each piece is pulled in by this much on its outside (as in the top
+// view, where a seam is 3.4% of a square), and the seam shows in a dark, shadowed tan.
+const SEAM_GAP = 0.017;
+const SEAM = '#86693f';
+
 function shade(paletteKey, normal) {
   const { dark, light } = PALETTE[paletteKey];
   const lambert = Math.max(0, dot(normal, LIGHT));
   const t = Math.min(1, 0.22 + 0.82 * lambert);
   const c = dark.map((x, i) => Math.round(x + (light[i] - x) * t));
-  return `rgb(${c[0]},${c[1]},${c[2]})`;
+  return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
 /** Faces of a convex solid with outward normals: [{ pts: [[x,y,z]], normal }]. */
@@ -67,34 +72,64 @@ const fmt3 = (n) => (Math.round(n * 1000) / 1000).toString();
 
 /**
  * The convex parts of a piece in world space: [{ solid, toWorld, cell: [r, c], layer }].
- * shrink: fraction of a square left as a gap between neighbouring pieces.
+ * gap: how far the piece's outside faces are pulled in, as a fraction of a square. It leaves
+ * an even seam, twice as wide, between neighbouring pieces (0 = full size).
  */
-export function pieceParts(piece, rows, shrink = 0) {
-  const parts = [];
-  const cellWorld = (r, c) => [c, rows - 1 - r];
+export function pieceParts(piece, rows, gap = 0) {
   const cells = [];
   if (piece.type === 'tri') {
-    cells.push({ r: piece.r, c: piece.c, solid: halfSolid(piece.o), layer: layerOf(piece.o) });
+    cells.push({ r: piece.r, c: piece.c, solid: halfSolid(piece.o), layer: layerOf(piece.o), join: null });
   } else {
     const m = MIX_ORIENTS[piece.o];
-    cells.push({ r: piece.r, c: piece.c, solid: cubeSolid(), layer: 1 });
-    cells.push({ r: piece.r + DR[m.dir], c: piece.c + DC[m.dir], solid: halfSolid(m.half), layer: layerOf(m.half) });
+    const towardsPrism = [DC[m.dir], -DR[m.dir], 0];
+    cells.push({ r: piece.r, c: piece.c, solid: cubeSolid(), layer: 1, join: towardsPrism });
+    cells.push({
+      r: piece.r + DR[m.dir],
+      c: piece.c + DC[m.dir],
+      solid: halfSolid(m.half),
+      layer: layerOf(m.half),
+      join: towardsPrism.map((x) => -x),
+    });
   }
-  // Centre of the whole piece footprint, used to shrink it as one body.
-  const centre = cells.reduce(
-    (a, x) => {
-      const [wx, wy] = cellWorld(x.r, x.c);
-      return [a[0] + (wx + 0.5) / cells.length, a[1] + (wy + 0.5) / cells.length];
-    },
-    [0, 0],
-  );
-  const k = 1 - shrink;
-  for (const x of cells) {
-    const [wx, wy] = cellWorld(x.r, x.c);
-    const toWorld = ([u, v, w]) => [centre[0] + (wx + u - centre[0]) * k, centre[1] + (wy + v - centre[1]) * k, w];
-    parts.push({ solid: x.solid, toWorld, cell: [x.r, x.c], layer: x.layer });
-  }
-  return parts;
+  return cells.map((x) => {
+    const wx = x.c;
+    const wy = rows - 1 - x.r;
+    return {
+      solid: gap > 0 ? insetSolid(x.solid, gap, x.join) : x.solid,
+      toWorld: ([u, v, w]) => [wx + u, wy + v, w],
+      cell: [x.r, x.c],
+      layer: x.layer,
+    };
+  });
+}
+
+/**
+ * A convex part with its outside faces pulled in by `gap`. The faces on the floor and on top
+ * stay put, and so does the face where the cube and the prism of one piece meet (outward
+ * normal `join`), so the piece still reads as one body.
+ */
+function insetSolid(solid, gap, join) {
+  const centre = solid.verts.reduce((a, v) => a.map((x, i) => x + v[i] / solid.verts.length), [0, 0, 0]);
+  const planes = solid.faces.map((f) => {
+    const [p0, p1, p2] = f.map((i) => solid.verts[i]);
+    let n = norm(cross(sub(p1, p0), sub(p2, p0)));
+    if (dot(n, sub(p0, centre)) < 0) n = n.map((x) => -x);
+    const stays = Math.abs(n[2]) > 0.999 || (join && dot(n, join) > 0.999);
+    return { n, c: dot(n, p0) - (stays ? 0 : gap) };
+  });
+  // Every corner of a box or a triangular prism is where exactly three faces meet.
+  const meeting = solid.verts.map(() => []);
+  solid.faces.forEach((f, k) => f.forEach((i) => meeting[i].push(planes[k])));
+  return { faces: solid.faces, verts: solid.verts.map((v, i) => (meeting[i].length === 3 ? meetingPoint(meeting[i]) : v)) };
+}
+
+/** The point where three planes { n, c } (n · p = c) meet. */
+function meetingPoint([a, b, c]) {
+  const bc = cross(b.n, c.n);
+  const ca = cross(c.n, a.n);
+  const ab = cross(a.n, b.n);
+  const det = dot(a.n, bc);
+  return [0, 1, 2].map((i) => (a.c * bc[i] + b.c * ca[i] + c.c * ab[i]) / det);
 }
 
 /** A cube + prism as one convex solid, in the cube's square-local coordinates. */
@@ -141,8 +176,12 @@ function layerOf(h) {
   return 1;
 }
 
-/** SVG markup for a rotation icon of one piece. */
-export function pieceIcon(type, color, o, { size = 56, azimuth = 30, elevation = 36 } = {}) {
+/**
+ * Polygons of a piece seen from the front and above (the same view for every icon, so
+ * a piece pointing right is drawn pointing right). Returns { floor, faces, box } in
+ * drawing units; box = { x, y, w, h } is a frame shared by all pieces of the same type.
+ */
+export function pieceIconShapes(type, color, o, { azimuth = 0, elevation = 57 } = {}) {
   const camera = makeCamera(azimuth, elevation);
   // Footprint (squares the piece stands on), with the cube's square at the origin.
   const cells = [[0, 0]];
@@ -154,7 +193,7 @@ export function pieceIcon(type, color, o, { size = 56, azimuth = 30, elevation =
   } else {
     solid = halfSolid(o);
   }
-  const footprint = cells.map(([x, y]) => [[x, y, 0], [x + 1, y, 0], [x + 1, y + 1, 0], [x, y + 1, 0]]);
+  const floor = cells.map(([x, y]) => [[x, y, 0], [x + 1, y, 0], [x + 1, y + 1, 0], [x, y + 1, 0]].map(camera.project));
   // Frame of a fixed size centred on the footprint, so all icons of a kind share one scale.
   const cx = cells.reduce((acc, q) => acc + q[0] + 0.5, 0) / cells.length;
   const cy = cells.reduce((acc, q) => acc + q[1] + 0.5, 0) / cells.length;
@@ -166,22 +205,29 @@ export function pieceIcon(type, color, o, { size = 56, azimuth = 30, elevation =
   const minY = Math.min(...frame.map((p) => p[1]));
   const maxY = Math.max(...frame.map((p) => p[1]));
   const pad = 0.06;
-  const w = maxX - minX + 2 * pad;
-  const h = maxY - minY + 2 * pad;
-  const vb = `${fmt3(minX - pad)} ${fmt3(minY - pad)} ${fmt3(w)} ${fmt3(h)}`;
-  const edge = color === 'W' ? 'rgba(70,68,60,0.75)' : 'rgba(205,212,222,0.45)';
-  const shadow = footprint
-    .map((quad) => `<polygon points="${quad.map((p) => camera.project(p).map(fmt3).join(',')).join(' ')}" class="icon-floor"/>`)
-    .join('');
-  const body = facesOf(solid, (p) => p)
+  const edge = color === 'W' ? '#6b685f' : '#8d949d';
+  const faces = facesOf(solid, (p) => p)
     .filter((f) => dot(f.normal, camera.d) > 1e-6)
-    .map((f) => polygonSvg(f.pts.map(camera.project), shade(color, f.normal), edge, 0.022))
-    .join('');
-  return `<svg viewBox="${vb}" width="${size}" height="${Math.round((size * h) / w)}" aria-hidden="true" focusable="false">${shadow}${body}</svg>`;
+    .map((f) => ({ pts: f.pts.map(camera.project), fill: shade(color, f.normal), stroke: edge }));
+  return { floor, faces, box: { x: minX - pad, y: minY - pad, w: maxX - minX + 2 * pad, h: maxY - minY + 2 * pad } };
 }
 
-/** SVG markup of the whole board in 3D. */
-export function board3d(board, { azimuth = 22, elevation = 48 } = {}) {
+/** SVG markup for a rotation icon of one piece. */
+export function pieceIcon(type, color, o, { size = 56, azimuth = 0, elevation = 57 } = {}) {
+  const { floor, faces, box } = pieceIconShapes(type, color, o, { azimuth, elevation });
+  const vb = `${fmt3(box.x)} ${fmt3(box.y)} ${fmt3(box.w)} ${fmt3(box.h)}`;
+  const shadow = floor.map((quad) => `<polygon points="${quad.map((p) => p.map(fmt3).join(',')).join(' ')}" class="icon-floor"/>`).join('');
+  const body = faces.map((f) => polygonSvg(f.pts, f.fill, f.stroke, 0.022)).join('');
+  return `<svg viewBox="${vb}" width="${size}" height="${Math.round((size * box.h) / box.w)}" aria-hidden="true" focusable="false">${shadow}${body}</svg>`;
+}
+
+/**
+ * SVG markup of the whole board in 3D. Every face of a piece carries data-cell="r,c" and
+ * data-id, and the floor is drawn square by square with data-cell, so a pointer can be
+ * mapped to what it touches with document.elementFromPoint().
+ * opts: { azimuth, elevation, ghost: { piece, ok }, hoverId }
+ */
+export function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hoverId = 0 } = {}) {
   const camera = makeCamera(azimuth, elevation);
   const R = board.rows;
   const C = board.cols;
@@ -207,37 +253,166 @@ export function board3d(board, { azimuth = 22, elevation = 48 } = {}) {
     }
   };
   pushSolid(base, 'tray', 0);
-  const floor = [[0, 0, 0.001], [C, 0, 0.001], [C, R, 0.001], [0, R, 0.001]];
-  shapes.push({ pts: floor, fill: shade('floor', [0, 0, 1]), tier: 1, order: 0 });
+  const floorFill = shade('floor', [0, 0, 1]);
+  for (let r = 0; r < R; r += 1) {
+    for (let c = 0; c < C; c += 1) {
+      const y0 = R - 1 - r;
+      shapes.push({
+        pts: [[c, y0, 0.001], [c + 1, y0, 0.001], [c + 1, y0 + 1, 0.001], [c, y0 + 1, 0.001]],
+        fill: floorFill,
+        stroke: 'rgba(110,84,40,0.35)',
+        width: 0.02,
+        tier: 1,
+        order: 0,
+        attrs: ` data-cell="${r},${c}"`,
+        cell: [r, c],
+      });
+    }
+  }
   const centreDepth = camera.depth([C / 2, R / 2, 0]);
   for (const wall of walls) {
     const mid = wall.toWorld([0.5, 0.5, 0.5]);
     pushSolid(wall, 'tray', camera.depth(mid) < centreDepth ? 2 : 4, camera.depth(mid));
   }
   // Pieces, square by square from the back to the front; lower halves before upper ones.
-  const parts = [];
+  // Each part is drawn twice: full size in the seam colour, then pulled in a little on top,
+  // so the joins between pieces show as thin dark seams and never as holes into the tray.
   for (const piece of board.pieces.values()) {
-    for (const part of pieceParts(piece, R, 0.035)) parts.push({ part, color: piece.color });
-  }
-  for (const { part, color } of parts) {
-    const [r, c] = part.cell;
-    const cellDepth = camera.depth([c + 0.5, R - 1 - r + 0.5, 0]);
-    const faces = facesOf(part.solid, part.toWorld);
-    const partDepth = camera.depth(faces.reduce((a, f) => [a[0] + f.centre[0], a[1] + f.centre[1], a[2] + f.centre[2]], [0, 0, 0]).map((x) => x / faces.length));
-    for (const face of faces) {
-      if (dot(face.normal, camera.d) <= 1e-6) continue;
-      shapes.push({ pts: face.pts, fill: shade(color, face.normal), tier: 3, order: cellDepth * 1000 + part.layer * 10 + partDepth * 0.01 });
-    }
+    const hot = piece.id === hoverId;
+    const whole = pieceParts(piece, R);
+    pieceParts(piece, R, SEAM_GAP).forEach((part, i) => {
+      const [r, c] = part.cell;
+      const cellDepth = camera.depth([c + 0.5, R - 1 - r + 0.5, 0]);
+      const back = facesOf(whole[i].solid, whole[i].toWorld);
+      const partDepth = camera.depth(back.reduce((a, f) => [a[0] + f.centre[0], a[1] + f.centre[1], a[2] + f.centre[2]], [0, 0, 0]).map((x) => x / back.length));
+      const common = {
+        tier: 3,
+        order: cellDepth * 1000 + part.layer * 10 + partDepth * 0.01,
+        attrs: ` data-cell="${r},${c}" data-id="${piece.id}"`,
+        cell: [r, c],
+        id: piece.id,
+      };
+      for (const face of back) {
+        if (dot(face.normal, camera.d) > 1e-6) shapes.push({ ...common, pts: face.pts, fill: SEAM });
+      }
+      for (const face of facesOf(part.solid, part.toWorld)) {
+        if (dot(face.normal, camera.d) <= 1e-6) continue;
+        const fill = shade(piece.color, face.normal);
+        shapes.push({ ...common, pts: face.pts, fill, stroke: hot ? 'var(--accent, #2b55d4)' : fill, width: hot ? 0.05 : 0.012 });
+      }
+    });
   }
   shapes.sort((a, b) => a.tier - b.tier || a.order - b.order);
-  const all = shapes.flatMap((s) => s.pts.map(camera.project));
-  const minX = Math.min(...all.map((p) => p[0]));
-  const maxX = Math.max(...all.map((p) => p[0]));
-  const minY = Math.min(...all.map((p) => p[1]));
-  const maxY = Math.max(...all.map((p) => p[1]));
+  for (const sh of shapes) sh.screen = sh.pts.map(camera.project);
+  // What the pointer can hit, in drawing order (last = on top). The tray's base and walls are
+  // in the list too, so a click on a wall that hides part of a square does nothing.
+  const hits = shapes.map((sh) => ({
+    pts: sh.screen,
+    edge: (sh.width ?? 0.012) / 2, // the outline is part of the shape too
+    r: sh.cell ? sh.cell[0] : -1,
+    c: sh.cell ? sh.cell[1] : -1,
+    id: sh.id ?? 0,
+    tray: !sh.cell,
+  }));
+  // The frame depends only on the tray, so it stays still while the pointer moves.
+  const corners = [];
+  for (const x of [-rim, C + rim]) for (const y of [-rim, R + rim]) for (const z of [-0.18, 1]) corners.push(camera.project([x, y, z]));
+  const minX = Math.min(...corners.map((p) => p[0]));
+  const maxX = Math.max(...corners.map((p) => p[0]));
+  const minY = Math.min(...corners.map((p) => p[1]));
+  const maxY = Math.max(...corners.map((p) => p[1]));
   const pad = 0.3;
   const vb = `${fmt(minX - pad)} ${fmt(minY - pad)} ${fmt(maxX - minX + 2 * pad)} ${fmt(maxY - minY + 2 * pad)}`;
-  const body = shapes.map((s) => polygonSvg(s.pts.map(camera.project), s.fill)).join('');
-  return { viewBox: vb, markup: body, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+  const polygon = (sh) => {
+    const d = sh.screen.map(([x, y]) => `${fmt3(x)},${fmt3(y)}`).join(' ');
+    return `<polygon points="${d}" fill="${sh.fill}" stroke="${sh.stroke ?? sh.fill}" stroke-width="${sh.width ?? 0.012}" stroke-linejoin="round"${sh.attrs ?? ''}/>`;
+  };
+  let body = shapes.map(polygon).join('');
+  if (ghost) {
+    // The piece about to be placed, drawn see-through on top (it does not catch the pointer).
+    const faces = [];
+    for (const part of pieceParts(ghost.piece, R, SEAM_GAP)) {
+      for (const face of facesOf(part.solid, part.toWorld)) {
+        if (dot(face.normal, camera.d) <= 1e-6) continue;
+        faces.push({ face, depth: camera.depth(face.centre) + part.layer * 0.001 });
+      }
+    }
+    faces.sort((a, b) => a.depth - b.depth);
+    const line = ghost.ok ? 'var(--accent, #2b55d4)' : 'var(--bad, #bf3a2b)';
+    body += `<g class="ghost3d${ghost.ok ? '' : ' is-bad'}">${faces
+      .map(({ face }) => polygonSvg(face.pts.map(camera.project), shade(ghost.piece.color, face.normal), line, 0.03))
+      .join('')}</g>`;
+  }
+  // The tray with its pieces as one outline. On a phone, a swipe that starts away from it
+  // scrolls the page, since most of the picture around the tray is empty.
+  const outline = hull2d(shapes.flatMap((sh) => sh.screen));
+  return { viewBox: vb, markup: body, hits, outline, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+}
+
+/** Whether point (x, y) is on the tray outline from board3d, or within `margin` of it. */
+export function nearTray3d(outline, x, y, margin = 0) {
+  if (outline.length < 3) return false;
+  return polygonContains(outline, x, y) || outline.some((p, k) => nearSegment(x, y, p, outline[(k + 1) % outline.length], margin));
+}
+
+/**
+ * What is drawn on top at point (x, y) of a 3D tray, in the SVG's own units, worked out from
+ * the drawing itself rather than from the browser:
+ * - { r, c, id } for a face of a piece;
+ * - { r, c, fx, fy } for a bit of bare floor (such as a seam between two pieces), with where
+ *   on the square it is, so it counts like a tap at that spot in the top view;
+ * - null for the tray's walls and for anywhere off the tray.
+ */
+export function hitTest3d(hits, x, y) {
+  for (let i = hits.length - 1; i >= 0; i -= 1) {
+    const { pts, edge = 0 } = hits[i];
+    if (!polygonContains(pts, x, y) && !pts.some((p, k) => nearSegment(x, y, p, pts[(k + 1) % pts.length], edge))) continue;
+    const { r, c, id, tray } = hits[i];
+    if (tray) return null;
+    if (id) return { r, c, id };
+    const [fx, fy] = floorSpot(pts, x, y);
+    return { r, c, fx, fy };
+  }
+  return null;
+}
+
+/**
+ * Where on a floor square a point of the drawing is: (fx, fy) from the square's north-west
+ * corner, as in the top view. The square's corners are drawn south-west, south-east,
+ * north-east, north-west, and the view is a parallel projection, so this is a 2×2 solve.
+ */
+function floorSpot([sw, se, , nw], x, y) {
+  const ax = se[0] - sw[0];
+  const ay = se[1] - sw[1];
+  const bx = nw[0] - sw[0];
+  const by = nw[1] - sw[1];
+  const det = ax * by - bx * ay;
+  const dx = x - sw[0];
+  const dy = y - sw[1];
+  const east = (dx * by - bx * dy) / det;
+  const north = (ax * dy - dx * ay) / det;
+  const clamp = (t) => Math.min(1, Math.max(0, t));
+  return [clamp(east), clamp(1 - north)];
+}
+
+function polygonContains(pts, x, y) {
+  let inside = false;
+  for (let a = 0, b = pts.length - 1; a < pts.length; b = a, a += 1) {
+    const [xa, ya] = pts[a];
+    const [xb, yb] = pts[b];
+    if ((ya > y) !== (yb > y) && x < ((xb - xa) * (y - ya)) / (yb - ya) + xa) inside = !inside;
+  }
+  return inside;
+}
+
+function nearSegment(x, y, [xa, ya], [xb, yb], tolerance) {
+  if (tolerance <= 0) return false;
+  const dx = xb - xa;
+  const dy = yb - ya;
+  const length2 = dx * dx + dy * dy;
+  const t = length2 > 0 ? Math.max(0, Math.min(1, ((x - xa) * dx + (y - ya) * dy) / length2)) : 0;
+  const ex = xa + t * dx - x;
+  const ey = ya + t * dy - y;
+  return ex * ex + ey * ey <= tolerance * tolerance;
 }
 

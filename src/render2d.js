@@ -299,7 +299,8 @@ export function flatPicture(rows, cols, looks, { cell = 20, gap = 1.5, mismatche
       if (mismatches && mismatches[r * cols + c]) parts.push(`<rect x="${x + 1}" y="${y + 1}" width="${s - 2}" height="${s - 2}" class="fp-miss"/>`);
     }
   }
-  return `<svg viewBox="0 0 ${cols * cell} ${rows * cell}" class="flat-picture" role="img" aria-label="Target picture, ${rows} by ${cols}">${parts.join('')}</svg>`;
+  // Explicit width and height give the picture a real size wherever it is placed.
+  return `<svg viewBox="0 0 ${cols * cell} ${rows * cell}" width="${cols * cell}" height="${rows * cell}" class="flat-picture" role="img" aria-label="Target picture, ${rows} by ${cols}">${parts.join('')}</svg>`;
 }
 
 /** Convert a pointer position in board SVG units to a square and a point inside it. */
