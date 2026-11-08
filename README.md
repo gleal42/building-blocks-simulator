@@ -29,15 +29,19 @@ a diagonal split**. A picture made only of triangles can never be built.
 
 ### Build
 
-- Choose a piece under the tray, then **Rotate**, **Flip** or **Tip over** it right there.
-  All 16 or 12 orientations are also shown as pictures in the panel.
-- **Left-click** (or tap) places the piece; its cube goes where you click. **Right-click**
-  (or Ctrl + click) removes a piece. On touch screens, turn on **Remove** and tap pieces.
-- **3D view** works the same way, on phones too: tap or click a square to place, and remove
-  a piece with right-click or with **Remove** on. The buttons above the tray turn the view.
-  On a phone, a swipe that starts beside or above the 3D tray scrolls the page; one that
-  starts on the tray stays with the tray.
-  *Rotate the view* turns the tray in 45° steps.
+- **Drag** a piece from under the tray onto it. It shows where it would go (outlined in red
+  if it does not fit, with the reason under the tray). **Rotate**, **Flip** or **Tip over**
+  it there, drag it again or tap another square, then press **Place**. Tapping a piece under
+  the tray and then a square works too. All 16 or 12 orientations are also shown as
+  pictures in the panel.
+- **Tap or click a piece in the tray to select it.** Where a roof lies on a ramp, the first
+  tap selects the roof, the next one the ramp under it, then the roof again. With a piece
+  selected: **Remove** takes it out; turning or dragging it shows it at its new place (it
+  stays faded where it was) until you press **Place**; **Cancel** leaves everything as it
+  was. Right-click (or Ctrl + click) removes a piece straight away.
+- **3D view** works the same way, on phones too. The buttons above the tray turn the view in
+  45° steps. On a phone, a swipe that starts beside or above the 3D tray scrolls the page;
+  one that starts on the tray stays with the tray.
 - *X-ray* shows ramps hidden under roofs. Undo/redo, the two photo layouts, random fill,
   tray sizes from 1 to 12 rows and columns (a multiple of 4 squares), and board codes.
 - **Challenges** (easy ★, medium ★★, hard ★★★): rebuild a picture made from a random real
@@ -61,23 +65,33 @@ or *Impossible* with the reason. Possible pictures can be added to the challenge
   stars (green easy, yellow medium, red hard), reorder, delete, or play a challenge in Build.
 - Default front and back covers (the back lists every challenge), or upload your own
   pictures.
-- Preview as a **3D book** with pages to turn, as flat **spreads**, or as the **print sheets**.
+- Preview as a **3D book** with pages to turn, as flat **spreads**, as the **print sheets**,
+  or as **cards**.
 - **PDF to print as a booklet**: square pages (14 cm on A4, 13 cm on US Letter), two per
   sheet side, in saddle-stitch order. Sheet 1 has the back and front covers on the outside
   and the first and last pages on the inside. Print on both sides (flip on the short edge),
   stack, fold, staple on the fold, and trim to the corner marks. There is also a PDF with one
   page per page, for a print shop or a screen.
+- **Cards**: a deck with one card per challenge, in the shape of the tray (6.3 × 6.3 cm for
+  square trays, 8.8 × 4.4 cm for 2:1 trays) with its number, stars and picture, for players
+  to draw a card and build it. The PDF puts 12 cards on a portrait sheet (10 for 2:1 cards on
+  US Letter) with cut marks, and the shared card back on the next page: print on both sides,
+  flip on the long edge, and cut.
 - **Save book (.json)** keeps the challenges, stars, answers, title and covers;
   **Open a saved book** carries on where you left off.
 
 ![A 4×8 challenge across two facing pages](docs/screenshots/book.jpg)
 
+![Challenge cards for a 4×4 tray, and the back they share](docs/screenshots/cards.jpg)
+
 <img src="docs/screenshots/phone.jpg" alt="The app on a phone" width="280">
 
-Keys: <kbd>R</kbd> rotate, <kbd>F</kbd> flip, <kbd>T</kbd> tip over, <kbd>1</kbd>–<kbd>4</kbd>
-choose a piece, <kbd>P</kbd> remove mode, <kbd>X</kbd> x-ray, <kbd>V</kbd> 3D,
-<kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> undo/redo, arrow keys + <kbd>Enter</kbd>
-on the tray, arrow keys to turn the pages of the book.
+Keys: <kbd>1</kbd>–<kbd>4</kbd> take a piece, <kbd>R</kbd> rotate, <kbd>F</kbd> flip,
+<kbd>T</kbd> tip over, <kbd>Enter</kbd> place, <kbd>Delete</kbd> remove the selected piece,
+<kbd>Esc</kbd> cancel, <kbd>X</kbd> x-ray, <kbd>V</kbd> 3D, <kbd>Ctrl</kbd>+<kbd>Z</kbd> /
+<kbd>Ctrl</kbd>+<kbd>Y</kbd> undo/redo. On the tray, the arrow keys move the selected piece
+(or a cursor, and <kbd>Enter</kbd> selects the piece under it). Arrow keys turn the pages of
+the book.
 
 ## Development
 

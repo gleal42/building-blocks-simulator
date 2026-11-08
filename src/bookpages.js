@@ -111,7 +111,7 @@ export function trayItems(looks, rows, cols, x, y, cell, { empty = false } = {})
 }
 
 /** Fit a rows x cols tray (with its rim) into a box; returns { x, y, cell } of the squares. */
-function fitTray(rows, cols, box, centreX = null) {
+export function fitTray(rows, cols, box, centreX = null) {
   const cell = Math.min(box.w / (cols + 0.44), box.h / (rows + 0.44));
   const x = (centreX ?? box.x + box.w / 2) - (cols * cell) / 2;
   const y = box.y + (box.h - rows * cell) / 2;
@@ -131,7 +131,7 @@ function paragraph(value, x, y, width, size, opts = {}) {
 
 // ---- Default art ----------------------------------------------------------------------------
 
-function defaultArt(rows, cols) {
+export function defaultArt(rows, cols) {
   // A pinwheel of splits: decoration only.
   const looks = [];
   for (let r = 0; r < rows; r += 1) {
@@ -350,7 +350,7 @@ export function pageSvg(book, number, pages = bookPages(book)) {
 
 // ---- PDF ---------------------------------------------------------------------------------
 
-function drawItemsPdf(canvas, items, images) {
+export function drawItemsPdf(canvas, items, images) {
   for (const it of items) {
     const paint = { fill: it.fill ?? null, stroke: it.stroke ?? null, sw: it.sw, dash: it.dash };
     switch (it.t) {

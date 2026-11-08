@@ -58,6 +58,14 @@ export function occupancy(piece) {
   ];
 }
 
+/** Halves from the top down: roofs, then standing prisms, then ramps. */
+const halfRank = (h) => (isCap(h) ? 0 : isUpright(h) ? 1 : 2);
+
+/** Does the piece cover point (fx, fy) of square (r, c), seen from above? */
+export function pieceCovers(piece, r, c, fx = 0.5, fy = 0.5) {
+  return occupancy(piece).some((part) => part.r === r && part.c === c && (part.cube || !isUpright(part.h) || uprightContains(part.h, fx, fy)));
+}
+
 export class Board {
   constructor(rows, cols, inventory = defaultInventory(rows, cols)) {
     this.rows = rows;
@@ -185,6 +193,31 @@ export class Board {
     return isCap(a.h) ? a.id : b.id;
   }
 
+  /**
+   * The pieces under point (fx, fy) of square (r, c), seen from above, top first: a roof
+   * before the ramp it rests on. A standing prism only counts where the point is inside it.
+   */
+  piecesAt(r, c, fx = 0.5, fy = 0.5) {
+    if (!this.inBounds(r, c)) return [];
+    const cell = this.cell(r, c);
+    if (cell.cube) return [cell.cube];
+    return cell.halves
+      .filter((x) => !isUpright(x.h) || uprightContains(x.h, fx, fy))
+      .sort((a, b) => halfRank(a.h) - halfRank(b.h))
+      .map((x) => x.id);
+  }
+
+  /**
+   * The pieces stacked with piece `id` in square (r, c), top first: a roof and the ramp under
+   * it. A piece with nothing above or below it is a stack of one.
+   */
+  stackWith(r, c, id) {
+    if (!this.inBounds(r, c)) return [id];
+    const lying = this.cell(r, c).halves.filter((x) => !isUpright(x.h));
+    if (lying.length < 2 || !lying.some((x) => x.id === id)) return [id];
+    return lying.sort((a, b) => halfRank(a.h) - halfRank(b.h)).map((x) => x.id);
+  }
+
   isCellFull(r, c) {
     const cell = this.cell(r, c);
     return cell.cube !== 0 || cell.halves.length === 2;
@@ -265,8 +298,31 @@ export class Board {
     return board;
   }
 
+  /** A copy with the same piece ids. */
   clone() {
-    return Board.fromJSON(this.toJSON());
+    const copy = new Board(this.rows, this.cols, this.inventory);
+    for (const p of this.orderedPieces()) copy.place({ ...p });
+    copy.nextId = this.nextId;
+    return copy;
+  }
+
+  /**
+   * Could piece `id` be lifted out and put back as `piece` (moved, turned or both)? Returns
+   * the check, plus `fallen`: loose prisms resting on it that would come out with it.
+   */
+  checkMove(id, piece) {
+    const trial = this.clone();
+    const fallen = trial.remove(id).slice(1);
+    return { ...trial.check(piece), fallen };
+  }
+
+  /** Move or turn piece `id` (it keeps its id). Returns { ok, id, fallen } or the failed check. */
+  move(id, piece) {
+    const res = this.checkMove(id, piece);
+    if (!res.ok) return res;
+    const fallen = this.remove(id).slice(1);
+    this.place({ ...piece, id });
+    return { ok: true, id, fallen };
   }
 }
 

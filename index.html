@@ -217,8 +217,9 @@ button {
   border-radius: 18px;
 }
 
-.board-wrap > svg.is-pickup {
-  cursor: grab;
+/* Holding a new piece that is not on the tray yet: a click puts it down. */
+.board-wrap > svg.is-holding {
+  cursor: copy;
 }
 
 /* In 3D the tray does not fill the picture: a swipe that starts away from the tray scrolls
@@ -705,7 +706,24 @@ kbd {
 }
 
 .piece.is-hover {
-  filter: drop-shadow(0 0 5px var(--accent)) drop-shadow(0 0 2px var(--accent));
+  filter: drop-shadow(0 0 4px var(--accent));
+}
+
+/* The selected piece: an outline on top of everything (it shows even under a roof). */
+.sel-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 5;
+  stroke-linejoin: round;
+}
+
+.piece.is-selected {
+  filter: drop-shadow(0 0 3px var(--accent));
+}
+
+/* A piece being moved or turned stays faded where it was until Place. */
+.piece.is-lifted {
+  opacity: 0.3;
 }
 
 .piece.is-glass {
@@ -768,6 +786,9 @@ kbd {
 .kind {
   position: relative;
   display: grid;
+  /* A press here can become a drag onto the tray, so it must not scroll the page. */
+  touch-action: none;
+  cursor: grab;
   place-items: center;
   width: 64px;
   height: 60px;
@@ -818,6 +839,88 @@ kbd {
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+}
+
+/* The piece that follows the pointer while it is dragged from under the tray. */
+.drag-image {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 60;
+  pointer-events: none;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.35));
+}
+
+.drag-image[hidden] {
+  display: none;
+}
+
+.drag-image svg {
+  display: block;
+}
+
+/* What is selected, and what can be done with it. */
+.sel-bar {
+  display: flex;
+  flex-wrap: wrap;
+  flex-basis: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 7px 8px 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.sel-bar.has-sel {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.sel-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sel-name.is-none {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.sel-name small {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sel-icon svg {
+  display: block;
+  width: auto;
+  max-height: 32px;
+}
+
+.sel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tool.place:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
 }
 
 .tool.turn:not(:disabled) {
@@ -1149,6 +1252,52 @@ kbd {
 .pg.is-blank {
   background: transparent;
   box-shadow: none;
+}
+
+/* Cards: the deck as it will be cut out. */
+.deck {
+  margin-top: 12px;
+  max-height: min(75vh, 900px);
+  overflow-y: auto;
+  padding: 2px 4px 6px 2px;
+}
+
+.deck > p {
+  margin: 0 0 10px;
+}
+
+.deck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 12px;
+}
+
+.deck.is-rect .deck-grid {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+
+.deck-card {
+  margin: 0;
+}
+
+.card-face {
+  overflow: hidden;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.card-face svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.deck-h {
+  margin: 18px 0 8px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .sheet {
@@ -1831,6 +1980,10 @@ kbd {
       { r: piece.r + DR[m.dir], c: piece.c + DC[m.dir], cube: false, h: m.half }
     ];
   }
+  var halfRank = (h) => isCap(h) ? 0 : isUpright(h) ? 1 : 2;
+  function pieceCovers(piece, r, c, fx = 0.5, fy = 0.5) {
+    return occupancy(piece).some((part) => part.r === r && part.c === c && (part.cube || !isUpright(part.h) || uprightContains(part.h, fx, fy)));
+  }
   var Board = class _Board {
     constructor(rows, cols, inventory = defaultInventory(rows, cols)) {
       this.rows = rows;
@@ -1943,6 +2096,26 @@ kbd {
       if (isUpright(a.h)) return uprightContains(a.h, fx, fy) ? a.id : b.id;
       return isCap(a.h) ? a.id : b.id;
     }
+    /**
+     * The pieces under point (fx, fy) of square (r, c), seen from above, top first: a roof
+     * before the ramp it rests on. A standing prism only counts where the point is inside it.
+     */
+    piecesAt(r, c, fx = 0.5, fy = 0.5) {
+      if (!this.inBounds(r, c)) return [];
+      const cell = this.cell(r, c);
+      if (cell.cube) return [cell.cube];
+      return cell.halves.filter((x) => !isUpright(x.h) || uprightContains(x.h, fx, fy)).sort((a, b) => halfRank(a.h) - halfRank(b.h)).map((x) => x.id);
+    }
+    /**
+     * The pieces stacked with piece `id` in square (r, c), top first: a roof and the ramp under
+     * it. A piece with nothing above or below it is a stack of one.
+     */
+    stackWith(r, c, id) {
+      if (!this.inBounds(r, c)) return [id];
+      const lying = this.cell(r, c).halves.filter((x) => !isUpright(x.h));
+      if (lying.length < 2 || !lying.some((x) => x.id === id)) return [id];
+      return lying.sort((a, b) => halfRank(a.h) - halfRank(b.h)).map((x) => x.id);
+    }
     isCellFull(r, c) {
       const cell = this.cell(r, c);
       return cell.cube !== 0 || cell.halves.length === 2;
@@ -2013,8 +2186,29 @@ kbd {
       }
       return board;
     }
+    /** A copy with the same piece ids. */
     clone() {
-      return _Board.fromJSON(this.toJSON());
+      const copy = new _Board(this.rows, this.cols, this.inventory);
+      for (const p of this.orderedPieces()) copy.place({ ...p });
+      copy.nextId = this.nextId;
+      return copy;
+    }
+    /**
+     * Could piece `id` be lifted out and put back as `piece` (moved, turned or both)? Returns
+     * the check, plus `fallen`: loose prisms resting on it that would come out with it.
+     */
+    checkMove(id, piece) {
+      const trial = this.clone();
+      const fallen = trial.remove(id).slice(1);
+      return { ...trial.check(piece), fallen };
+    }
+    /** Move or turn piece `id` (it keeps its id). Returns { ok, id, fallen } or the failed check. */
+    move(id, piece) {
+      const res = this.checkMove(id, piece);
+      if (!res.ok) return res;
+      const fallen = this.remove(id).slice(1);
+      this.place({ ...piece, id });
+      return { ok: true, id, fallen };
     }
   };
   function pieceName(piece) {
@@ -2030,8 +2224,8 @@ kbd {
     }
     return s;
   }
-  function decodeBoard(text2) {
-    const m = /^\s*(\d+)x(\d+):([0-9a-zA-Z]*)\s*$/.exec(text2 ?? "");
+  function decodeBoard(text3) {
+    const m = /^\s*(\d+)x(\d+):([0-9a-zA-Z]*)\s*$/.exec(text3 ?? "");
     if (!m) throw new Error('That does not look like a board code (it should start like "4x4:").');
     const rows = Number(m[1]);
     const cols = Number(m[2]);
@@ -2162,10 +2356,10 @@ kbd {
   function isPieceList(list) {
     return Array.isArray(list) && list.every((p) => p && (p.type === "mix" || p.type === "tri") && (p.color === "W" || p.color === "B") && Number.isInteger(p.r) && Number.isInteger(p.c) && Number.isInteger(p.o));
   }
-  function importBook(text2) {
+  function importBook(text3) {
     let data;
     try {
-      data = JSON.parse(text2);
+      data = JSON.parse(text3);
     } catch {
       throw new Error("That file is not valid JSON.");
     }
@@ -2426,13 +2620,13 @@ kbd {
     if (code >= 32 && code <= 126) return table[code - 32];
     return 556;
   }
-  function textWidth(text2, size = 1, bold = false) {
+  function textWidth(text3, size = 1, bold = false) {
     let w = 0;
-    for (const ch of text2) w += charWidth(ch, bold);
+    for (const ch of text3) w += charWidth(ch, bold);
     return w / 1e3 * size;
   }
-  function wrapText(text2, size, maxWidth, bold = false) {
-    const words = text2.split(/\s+/).filter(Boolean);
+  function wrapText(text3, size, maxWidth, bold = false) {
+    const words = text3.split(/\s+/).filter(Boolean);
     const lines = [];
     let line = "";
     for (const word of words) {
@@ -2459,9 +2653,9 @@ kbd {
     if (!m) return "0 0 0";
     return [m[1], m[2], m[3]].map((h) => num(parseInt(h, 16) / 255)).join(" ");
   }
-  function pdfString(text2) {
+  function pdfString(text3) {
     let out = "(";
-    for (const ch of text2) {
+    for (const ch of text3) {
       const code = winAnsiCode(ch);
       if (code === 40 || code === 41 || code === 92) out += `\\${String.fromCharCode(code)}`;
       else if (code < 32 || code > 126) out += `\\${code.toString(8).padStart(3, "0")}`;
@@ -2555,10 +2749,10 @@ kbd {
       this.op(`${num(this.X(x1))} ${num(this.Y(y1))} m ${num(this.X(x2))} ${num(this.Y(y2))} l S`);
     }
     /** Text with its baseline at y. anchor: start | middle | end. */
-    text(x, y, text2, { size = 12, bold = false, fill = "#000000", anchor = "start" } = {}) {
-      const width = textWidth(text2, size, bold);
+    text(x, y, text3, { size = 12, bold = false, fill = "#000000", anchor = "start" } = {}) {
+      const width = textWidth(text3, size, bold);
       const left = anchor === "middle" ? x - width / 2 : anchor === "end" ? x - width : x;
-      this.op(`BT /${bold ? "F2" : "F1"} ${num(size * this.frame.k)} Tf ${rgb(fill)} rg ${num(this.X(left))} ${num(this.Y(y))} Td ${pdfString(text2)} Tj ET`);
+      this.op(`BT /${bold ? "F2" : "F1"} ${num(size * this.frame.k)} Tf ${rgb(fill)} rg ${num(this.X(left))} ${num(this.Y(y))} Td ${pdfString(text3)} Tj ET`);
     }
     /** A JPEG scaled to cover the box (cropped, centred). */
     image(x, y, w, h, { bytes, width, height }) {
@@ -2848,7 +3042,7 @@ ${xrefAt}
     const body = faces.map((f) => polygonSvg(f.pts, f.fill, f.stroke, 0.022)).join("");
     return `<svg viewBox="${vb}" width="${size}" height="${Math.round(size * box.h / box.w)}" aria-hidden="true" focusable="false">${shadow}${body}</svg>`;
   }
-  function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hoverId = 0 } = {}) {
+  function board3d(board, { azimuth = 0, elevation = 50, ghost = null, hoverId = 0, selectedId = 0, liftedId = 0 } = {}) {
     const camera = makeCamera(azimuth, elevation);
     const R = board.rows;
     const C = board.cols;
@@ -2899,7 +3093,8 @@ ${xrefAt}
       pushSolid(wall, "tray", camera.depth(mid) < centreDepth ? 2 : 4, camera.depth(mid));
     }
     for (const piece of board.pieces.values()) {
-      const hot = piece.id === hoverId;
+      const line = piece.id === selectedId ? ["var(--accent, #2b55d4)", 0.07] : piece.id === hoverId ? ["var(--accent, #2b55d4)", 0.035] : null;
+      const lifted = piece.id === liftedId;
       const whole = pieceParts(piece, R);
       pieceParts(piece, R, SEAM_GAP).forEach((part, i) => {
         const [r, c] = part.cell;
@@ -2914,12 +3109,12 @@ ${xrefAt}
           id: piece.id
         };
         for (const face of back) {
-          if (dot(face.normal, camera.d) > 1e-6) shapes.push({ ...common, pts: face.pts, fill: SEAM });
+          if (!lifted && dot(face.normal, camera.d) > 1e-6) shapes.push({ ...common, pts: face.pts, fill: SEAM });
         }
         for (const face of facesOf(part.solid, part.toWorld)) {
           if (dot(face.normal, camera.d) <= 1e-6) continue;
           const fill = shade(piece.color, face.normal);
-          shapes.push({ ...common, pts: face.pts, fill, stroke: hot ? "var(--accent, #2b55d4)" : fill, width: hot ? 0.05 : 0.012 });
+          shapes.push({ ...common, pts: face.pts, fill, stroke: line ? line[0] : fill, width: line ? line[1] : 0.012, opacity: lifted ? 0.3 : 0 });
         }
       });
     }
@@ -2944,9 +3139,10 @@ ${xrefAt}
     const vb = `${fmt(minX - pad)} ${fmt(minY - pad)} ${fmt(maxX - minX + 2 * pad)} ${fmt(maxY - minY + 2 * pad)}`;
     const polygon = (sh) => {
       const d = sh.screen.map(([x, y]) => `${fmt3(x)},${fmt3(y)}`).join(" ");
-      return `<polygon points="${d}" fill="${sh.fill}" stroke="${sh.stroke ?? sh.fill}" stroke-width="${sh.width ?? 0.012}" stroke-linejoin="round"${sh.attrs ?? ""}/>`;
+      return `<polygon points="${d}" fill="${sh.fill}" stroke="${sh.stroke ?? sh.fill}" stroke-width="${sh.width ?? 0.012}" stroke-linejoin="round"${sh.opacity ? ` opacity="${sh.opacity}"` : ""}${sh.attrs ?? ""}/>`;
     };
     let body = shapes.map(polygon).join("");
+    const ghostPolys = [];
     if (ghost) {
       const faces = [];
       for (const part of pieceParts(ghost.piece, R, SEAM_GAP)) {
@@ -2956,11 +3152,15 @@ ${xrefAt}
         }
       }
       faces.sort((a, b) => a.depth - b.depth);
+      for (const { face } of faces) ghostPolys.push(face.pts.map(camera.project));
       const line = ghost.ok ? "var(--accent, #2b55d4)" : "var(--bad, #bf3a2b)";
       body += `<g class="ghost3d${ghost.ok ? "" : " is-bad"}">${faces.map(({ face }) => polygonSvg(face.pts.map(camera.project), shade(ghost.piece.color, face.normal), line, 0.03)).join("")}</g>`;
     }
     const outline = hull2d(shapes.flatMap((sh) => sh.screen));
-    return { viewBox: vb, markup: body, hits, outline, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+    return { viewBox: vb, markup: body, hits, outline, ghostPolys, width: maxX - minX + 2 * pad, height: maxY - minY + 2 * pad };
+  }
+  function insideAny(polys, x, y) {
+    return polys.some((pts) => polygonContains(pts, x, y));
   }
   function nearTray3d(outline, x, y, margin = 0) {
     if (outline.length < 3) return false;
@@ -3397,6 +3597,124 @@ ${xrefAt}
     return doc.toBytes();
   }
 
+  // src/cards.js
+  var CARD = {
+    square: { w: 63, h: 63 },
+    rect: { w: 88, h: 44 }
+  };
+  var SHEET_MARGIN = 10;
+  var INK2 = "#1d1c19";
+  var MUTED2 = "#6f6a5c";
+  var FRAME = "#d8d0bf";
+  var BACK = "#ecd9ab";
+  var BACK_EDGE = "#b89d66";
+  var MARK = "#8a8473";
+  var cardWidth = (book) => book.shape === "rect" ? 2e3 : 1e3;
+  function cardSheet(book) {
+    const paper = PAPER[book.paper] ?? PAPER.a4;
+    const sheetW = Math.min(paper.width, paper.height);
+    const sheetH = Math.max(paper.width, paper.height);
+    const { w, h } = CARD[book.shape] ?? CARD.square;
+    const cols = Math.max(1, Math.floor((sheetW - 2 * SHEET_MARGIN) / w));
+    const rows = Math.max(1, Math.floor((sheetH - 2 * SHEET_MARGIN) / h));
+    return { sheetW, sheetH, w, h, cols, rows, perSheet: cols * rows, left: (sheetW - cols * w) / 2, top: (sheetH - rows * h) * 0.42 };
+  }
+  function cardSlot(layout, k, back = false) {
+    const row = Math.floor(k / layout.cols);
+    const col = k % layout.cols;
+    const c = back ? layout.cols - 1 - col : col;
+    return { x: layout.left + c * layout.w, y: layout.top + row * layout.h };
+  }
+  var text2 = (x, y, value, size, opts = {}) => ({ t: "text", x, y, text: value, size, fill: opts.fill ?? INK2, bold: !!opts.bold, anchor: opts.anchor ?? "start" });
+  function cardFront(book, index) {
+    const ch = book.challenges[index];
+    const { rows, cols } = bookTray(book);
+    const W2 = cardWidth(book);
+    const items = [{ t: "rect", x: 34, y: 34, w: W2 - 68, h: 932, r: 60, fill: "#ffffff", stroke: FRAME, sw: 6 }];
+    items.push(text2(96, 168, String(index + 1), 112, { bold: true }));
+    items.push(...starItems(ch.difficulty, W2 - 96, 126, 40, "end"));
+    const fit = fitTray(rows, cols, { x: 96, y: 214, w: W2 - 192, h: 716 });
+    items.push(...trayItems(ch.looks, rows, cols, fit.x, fit.y, fit.cell));
+    return items;
+  }
+  function cardBack(book) {
+    const { rows, cols } = bookTray(book);
+    const W2 = cardWidth(book);
+    const items = [
+      { t: "rect", x: 0, y: 0, w: W2, h: 1e3, fill: BACK },
+      { t: "rect", x: 50, y: 50, w: W2 - 100, h: 900, r: 56, stroke: BACK_EDGE, sw: 10 }
+    ];
+    const art = defaultArt(rows, cols);
+    const title = wrapText(book.title || "Block Challenges", 76, W2 - 220, true).slice(0, 2);
+    const titleTop = 1e3 - 170 - (title.length - 1) * 84;
+    const fit = fitTray(rows, cols, { x: 140, y: 110, w: W2 - 280, h: titleTop - 190 });
+    items.push(...trayItems(art, rows, cols, fit.x, fit.y, fit.cell));
+    title.forEach((line, i) => items.push(text2(W2 / 2, titleTop + i * 84, line, 76, { bold: true, anchor: "middle" })));
+    items.push(text2(W2 / 2, titleTop + (title.length - 1) * 84 + 72, `${rows}×${cols} tray`, 46, { fill: MUTED2, anchor: "middle" }));
+    return items;
+  }
+  function cardSvg(book, index) {
+    const W2 = cardWidth(book);
+    const back = index === null;
+    const items = back ? cardBack(book) : cardFront(book, index);
+    const label = back ? "Back of the cards" : `Card ${index + 1}`;
+    return `<svg viewBox="0 0 ${W2} 1000" xmlns="http://www.w3.org/2000/svg" class="card-svg" role="img" aria-label="${label}"><rect width="${W2}" height="1000" fill="#ffffff"/>${itemsSvg(items)}</svg>`;
+  }
+  function drawCard(canvas, items, xMm, yMm, layout, width, images) {
+    canvas.setFrame(xMm * MM, yMm * MM, layout.h * MM, 1e3);
+    canvas.save();
+    canvas.clipRect(0, 0, width, 1e3);
+    drawItemsPdf(canvas, items, images);
+    canvas.restore();
+  }
+  function cutMarks(canvas, layout, count) {
+    canvas.setFrame(0, 0, 1e3, 1e3);
+    const style = { stroke: MARK, sw: 0.5 };
+    const gap = 2 * MM;
+    const len = 5 * MM;
+    const usedRows = Math.ceil(count / layout.cols);
+    const x0 = layout.left * MM;
+    const y0 = layout.top * MM;
+    const x1 = x0 + layout.cols * layout.w * MM;
+    const y1 = y0 + usedRows * layout.h * MM;
+    for (let i = 0; i <= layout.cols; i += 1) {
+      const x = x0 + i * layout.w * MM;
+      canvas.line(x, y0 - gap, x, y0 - gap - len, style);
+      canvas.line(x, y1 + gap, x, y1 + gap + len, style);
+    }
+    for (let j = 0; j <= usedRows; j += 1) {
+      const y = y0 + j * layout.h * MM;
+      canvas.line(x0 - gap, y, x0 - gap - len, y, style);
+      canvas.line(x1 + gap, y, x1 + gap + len, y, style);
+    }
+    return y1;
+  }
+  function cardsPdf(book) {
+    const layout = cardSheet(book);
+    const doc = new PdfDocument();
+    const images = /* @__PURE__ */ new Map();
+    const W2 = cardWidth(book);
+    const total = book.challenges.length;
+    const sheets = Math.max(1, Math.ceil(total / layout.perSheet));
+    const back = cardBack(book);
+    for (let s = 0; s < sheets; s += 1) {
+      const first = s * layout.perSheet;
+      const count = Math.max(0, Math.min(layout.perSheet, total - first));
+      for (const side of ["front", "back"]) {
+        const canvas = doc.page(layout.sheetW * MM, layout.sheetH * MM);
+        for (let k = 0; k < count; k += 1) {
+          const { x, y } = cardSlot(layout, k, side === "back");
+          drawCard(canvas, side === "back" ? back : cardFront(book, first + k), x, y, layout, W2, images);
+        }
+        const bottom = cutMarks(canvas, layout, Math.max(1, count));
+        const cards = count > 1 ? `cards ${first + 1} to ${first + count}` : count === 1 ? `card ${first + 1}` : "no cards yet";
+        const label = side === "front" ? `Sheet ${s + 1} of ${sheets}, fronts: ${cards}. Print the next page on the back.` : `Sheet ${s + 1} of ${sheets}, backs (other side of the same sheet, flip on the long edge).`;
+        canvas.text(layout.sheetW * MM / 2, bottom + 12 * MM, label, { size: 8, fill: MARK, anchor: "middle" });
+      }
+    }
+    return doc.toBytes();
+  }
+
   // src/icons.js
   var svg = (body) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
   var ICONS = {
@@ -3601,7 +3919,7 @@ ${slopes}
     return `<rect class="hollow-mark" x="${x + 14}" y="${y + 14}" width="${CELL - 28}" height="${CELL - 28}" rx="6"/>`;
   }
   function boardMarkup(board, opts = {}) {
-    const { xray = false, ghost = null, hoverId = 0, freshIds = /* @__PURE__ */ new Set() } = opts;
+    const { xray = false, ghost = null, hoverId = 0, selectedId = 0, liftedId = 0, freshIds = /* @__PURE__ */ new Set() } = opts;
     const under = [];
     const over = [];
     const glass = [];
@@ -3609,7 +3927,12 @@ ${slopes}
     for (const piece of board.pieces.values()) {
       const shape = pieceShape(board, piece, { xray });
       if (!shape) continue;
-      const cls = [piece.id === hoverId ? "is-hover" : "", freshIds.has(piece.id) ? "is-fresh" : ""].join(" ");
+      const cls = [
+        piece.id === hoverId ? "is-hover" : "",
+        piece.id === selectedId ? "is-selected" : "",
+        piece.id === liftedId ? "is-lifted" : "",
+        freshIds.has(piece.id) ? "is-fresh" : ""
+      ].filter(Boolean).join(" ");
       if (xray && shape.capped) {
         if (shape.xrayParts) {
           over.push(pieceMarkup({ outline: shape.xrayParts.solid }, piece.color, { id: piece.id, cls }));
@@ -3628,6 +3951,12 @@ ${slopes}
         under.unshift(`<rect x="${x + 4}" y="${y + 4}" width="${CELL - 8}" height="${CELL - 8}" fill="url(#hatch)" opacity=".9"/>`);
       }
     }
+    let selMarkup = "";
+    const selected = selectedId ? board.pieces.get(selectedId) : null;
+    if (selected) {
+      const shape = pieceShape(null, selected, {});
+      if (shape) selMarkup = `<path class="sel-line" d="${outlinePath(shape.outline)}"/>`;
+    }
     let ghostMarkup = "";
     if (ghost) {
       const shape = pieceShape(null, ghost.piece, {});
@@ -3638,7 +3967,7 @@ ${slopes}
     const { width, height } = trayFrame(board.rows, board.cols);
     return {
       viewBox: `-14 -10 ${width + 28} ${height + 36}`,
-      markup: `${boardDefs()}${trayMarkup(board.rows, board.cols)}<g filter="url(#pieceShadow)">${under.join("")}${over.join("")}</g>${glass.join("")}${marks.join("")}${ghostMarkup}`
+      markup: `${boardDefs()}${trayMarkup(board.rows, board.cols)}<g filter="url(#pieceShadow)">${under.join("")}${over.join("")}</g>${glass.join("")}${marks.join("")}${selMarkup}${ghostMarkup}`
     };
   }
   var LOOK_PARTS2 = {
@@ -3807,6 +4136,18 @@ ${slopes}
 <figure><div class="spread-pages">${pageBox(book, sh.inside[0], pages)}${pageBox(book, sh.inside[1], pages)}</div><figcaption>Inside (back of the same sheet): pages ${sh.inside[0]} and ${sh.inside[1]}</figcaption></figure>
 </section>`).join("")}</div>`;
     }
+    function cardsMarkup(book) {
+      const layout = cardSheet(book);
+      const n = book.challenges.length;
+      const sheets = Math.max(1, Math.ceil(n / layout.perSheet));
+      const face = (svg2, label) => `<figure class="deck-card"><div class="card-face">${svg2}</div>${label ? `<figcaption>${label}</figcaption>` : ""}</figure>`;
+      return `<div class="deck is-${book.shape}">
+<p class="muted">${n} card${n === 1 ? "" : "s"} of ${layout.w} × ${layout.h} mm: ${layout.perSheet} fit on a sheet of ${PAPER[book.paper].name}, so ${sheets} sheet${sheets === 1 ? "" : "s"}, printed on both sides.</p>
+${n ? `<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book, i), "")).join("")}</div>` : '<p class="muted">No challenges yet: each challenge you add becomes a card.</p>'}
+<h3 class="deck-h">The back of every card</h3>
+<div class="deck-grid">${face(cardSvg(book, null), "")}</div>
+</div>`;
+    }
     function renderStage2(container) {
       const st = state2();
       const book = currentBook();
@@ -3815,10 +4156,11 @@ ${slopes}
         const pages = bookPages(book);
         const view = st.bookView;
         st.bookLeaf = Math.min(st.bookLeaf ?? 0, pages.length / 2);
-        const views = [["3d", "Book (3D)"], ["spreads", "Spreads"], ["sheets", "Print sheets"]].map(([id, label]) => `<button type="button" class="chip${view === id ? " is-on" : ""}" data-action="book-view" data-id="${id}" aria-pressed="${view === id}">${label}</button>`).join("");
-        const body = view === "spreads" ? spreadsMarkup(book, pages) : view === "sheets" ? sheetsMarkup(book, pages) : flipbookMarkup(book, pages);
+        const views = [["3d", "Book (3D)"], ["spreads", "Spreads"], ["sheets", "Print sheets"], ["cards", "Cards"]].map(([id, label]) => `<button type="button" class="chip${view === id ? " is-on" : ""}" data-action="book-view" data-id="${id}" aria-pressed="${view === id}">${label}</button>`).join("");
+        const body = view === "spreads" ? spreadsMarkup(book, pages) : view === "sheets" ? sheetsMarkup(book, pages) : view === "cards" ? cardsMarkup(book) : flipbookMarkup(book, pages);
+        const about = view === "cards" ? `${book.challenges.length} card${book.challenges.length === 1 ? "" : "s"}` : `${pages.length} pages · ${pages.length / 4} sheet${pages.length > 4 ? "s" : ""} of ${PAPER[book.paper].name}`;
         container.innerHTML = `<div class="book-head"><div class="chips" role="group" aria-label="Preview">${views}</div>
-<p class="muted">${pages.length} pages · ${pages.length / 4} sheet${pages.length > 4 ? "s" : ""} of ${PAPER[book.paper].name}</p></div>
+<p class="muted">${about}</p></div>
 <div class="book-preview view-${view}">${body}</div>`;
         builtFor = sig;
         if (view === "3d") attachFlipbook(container);
@@ -3966,6 +4308,15 @@ ${coverRow("back", "Back cover")}
 <button type="button" class="btn" data-action="book-copy">${ICONS.copy}Copy as text</button>
 </div>
 <p class="hint">The .json file keeps the challenges, their stars and answers, the title and the covers, so you can carry on later or on another device.</p>
+</section>
+<section class="card" aria-labelledby="cards-h">
+<h2 id="cards-h">Cards</h2>
+<p class="muted">A deck with one card per challenge, in the shape of the ${rows}×${cols} tray: ${CARD[book.shape].w} × ${CARD[book.shape].h} mm. Players draw a card and build its picture.</p>
+<div class="row-buttons">
+<button type="button" class="btn primary" data-action="book-cards-pdf">${ICONS.download}PDF of the cards</button>
+<button type="button" class="btn" data-action="book-view" data-id="cards"${st.bookView === "cards" ? " disabled" : ""}>Show the cards</button>
+</div>
+<p class="hint">Print it on ${PAPER[book.paper].name}, both sides, <b>flip on the long edge</b>, so each card gets the back. Then cut along the marks.</p>
 </section>`;
     }
     function addLooks(looks, answer, source) {
@@ -3994,6 +4345,18 @@ ${coverRow("back", "Back cover")}
       if (!book.challenges.length && !await ctx.confirmDialog("The book has no challenges yet. Make the PDF anyway?", "Make PDF")) return;
       const bytes = bookPdf(book, layout);
       const name = `${slug(book.title)}-${layout === "pages" ? "pages" : "booklet"}.pdf`;
+      const res = await ctx.saveFile(name, new Blob([bytes], { type: "application/pdf" }), "application/pdf");
+      if (res === "saved") ctx.setStatus(`Saved ${name}.`);
+      else if (res === "failed") ctx.setStatus("The PDF could not be saved here.", true, "bad");
+    }
+    async function exportCards() {
+      const book = currentBook();
+      if (!book.challenges.length) {
+        ctx.setStatus("Add some challenges first: each one becomes a card.", true, "bad");
+        return;
+      }
+      const bytes = cardsPdf(book);
+      const name = `${slug(book.title)}-cards.pdf`;
       const res = await ctx.saveFile(name, new Blob([bytes], { type: "application/pdf" }), "application/pdf");
       if (res === "saved") ctx.setStatus(`Saved ${name}.`);
       else if (res === "failed") ctx.setStatus("The PDF could not be saved here.", true, "bad");
@@ -4047,6 +4410,7 @@ ${coverRow("back", "Back cover")}
       "book-view": (el) => {
         state2().bookView = el.dataset.id;
         changed();
+        if (el.closest("#panel")) document.getElementById("bookStage")?.scrollIntoView({ block: "start", behavior: "smooth" });
       },
       "book-prev": () => turnPage(-1),
       "book-next": () => turnPage(1),
@@ -4112,6 +4476,7 @@ ${coverRow("back", "Back cover")}
         changed();
       },
       "book-pdf": (el) => exportPdf(el.dataset.id),
+      "book-cards-pdf": exportCards,
       "book-export": exportJson,
       "book-import": () => pickFile("application/json,.json", importFile),
       "book-copy": () => ctx.copyText(exportBook(currentBook()), "Book")
@@ -4668,9 +5033,12 @@ ${coverRow("back", "Back cover")}
   };
   var state;
   var bookUI;
-  var pointer = { down: false, id: null, type: "mouse", erase: false, x: 0, y: 0 };
+  var pointer = { down: false, id: null, type: "mouse", erase: false, x: 0, y: 0, moved: false, dragging: false, grab: null };
   var hits3d = [];
   var outline3d = [];
+  var ghostPolys3d = [];
+  var dockDrag = { pending: null, quietUntil: 0 };
+  var DRAG_PX = 8;
   var statusTimer = 0;
   var saveTimer = 0;
   var finePointer = () => typeof matchMedia === "function" && matchMedia("(pointer: fine)").matches;
@@ -4689,7 +5057,8 @@ ${coverRow("back", "Back cover")}
       check: { status: "idle" },
       selected: "mixW",
       orient: { mix: 4, tri: 3 },
-      tool: "place",
+      // The piece being worked on (see "The selection" below), or null.
+      sel: null,
       xray: false,
       view: "top",
       azimuth: 0,
@@ -4749,7 +5118,7 @@ ${coverRow("back", "Back cover")}
         xray: !!data.xray,
         books: data.books && typeof data.books === "object" ? data.books : {},
         bookKey: typeof data.bookKey === "string" ? data.bookKey : base.bookKey,
-        bookView: ["3d", "spreads", "sheets"].includes(data.bookView) ? data.bookView : "3d"
+        bookView: ["3d", "spreads", "sheets", "cards"].includes(data.bookView) ? data.bookView : "3d"
       };
     } catch {
       return base;
@@ -4788,7 +5157,9 @@ ${coverRow("back", "Back cover")}
       case "outside":
         return piece.type === "mix" ? "The prism part would stick out of the tray. Rotate the piece or pick another square." : "That is outside the tray.";
       case "taken":
-        return `That square is already full. ${finePointer() ? "Right-click a piece to remove it." : "Turn on Remove to take a piece out."}`;
+        return "That square is already full. Select the piece there and Remove it first, or choose another square.";
+      case "not-on-tray":
+        return `${finePointer() ? "Drag the piece onto the tray, or click a square for it." : "Drag the piece onto the tray, or tap a square for it."}`;
       case "clash":
         return "Only the matching half fits next to the piece already in that square.";
       case "needs-ramp":
@@ -4802,9 +5173,9 @@ ${coverRow("back", "Back cover")}
     const placed = board.pieces.size;
     const total = board.totalPieces();
     const hollow = board.hollowCells().length;
-    let text2 = placed === total ? `Tray full: all ${total} pieces placed.` : `${placed} of ${total} pieces placed.`;
-    if (hollow) text2 += ` ${hollow} roof${hollow > 1 ? "s have" : " has"} a hollow underneath.`;
-    return text2;
+    let text3 = placed === total ? `Tray full: all ${total} pieces placed.` : `${placed} of ${total} pieces placed.`;
+    if (hollow) text3 += ` ${hollow} roof${hollow > 1 ? "s have" : " has"} a hollow underneath.`;
+    return text3;
   }
   function starsHtml(level, { label = true } = {}) {
     const d = DIFFICULTY[level];
@@ -4816,7 +5187,7 @@ ${coverRow("back", "Back cover")}
     renderTabs();
     renderStage();
     renderPanel();
-    if (!statusTimer) setStatus(defaultStatus(), false);
+    if (!statusTimer) showDefaultStatus();
     scheduleSave();
   }
   function renderTabs() {
@@ -4867,31 +5238,49 @@ ${ch.solved ? "" : '<p class="challenge-goal">Make this picture: put all the pie
       svg2.setAttribute("aria-label", `Picture to check, ${state.rows} by ${state.cols}.`);
     } else {
       const board = state.build;
-      let ghost = null;
-      let hoverId = 0;
-      if (state.hover) {
-        if (state.tool === "place" && state.selected) {
-          const piece = currentPiece(state.hover.r, state.hover.c);
-          ghost = { piece, ok: board.check(piece).ok };
-        } else {
-          hoverId = state.hover.id ?? board.pieceAt(state.hover.r, state.hover.c, state.hover.fx, state.hover.fy);
-        }
-      }
+      if (state.sel?.src === "tray" && !board.pieces.has(state.sel.id)) state.sel = null;
+      const overlay = boardOverlay();
       if (state.view === "3d") {
-        view = board3d(board, { azimuth: state.azimuth, ghost, hoverId });
+        view = board3d(board, { azimuth: state.azimuth, ...overlay });
         hits3d = view.hits;
         outline3d = view.outline;
+        ghostPolys3d = view.ghostPolys;
       } else {
-        view = boardMarkup(board, { xray: state.xray, ghost, hoverId, freshIds: state.fresh });
+        view = boardMarkup(board, { xray: state.xray, ...overlay, freshIds: state.fresh });
       }
       svg2.setAttribute("aria-label", `Tray, ${state.rows} rows by ${state.cols} columns${state.view === "3d" ? ", 3D view" : ""}. ${progressText()}`);
     }
     svg2.setAttribute("viewBox", view.viewBox);
     svg2.innerHTML = view.markup;
     svg2.classList.toggle("is-3d", state.mode === "build" && state.view === "3d");
-    svg2.classList.toggle("is-remove", state.mode === "build" && state.tool === "remove");
+    svg2.classList.toggle("is-holding", state.mode === "build" && state.sel?.src === "new");
     $("#viewTurn").hidden = !(state.mode === "build" && state.view === "3d");
     state.fresh = /* @__PURE__ */ new Set();
+  }
+  function boardOverlay() {
+    const board = state.build;
+    const sel = state.sel;
+    const out = { ghost: null, hoverId: 0, selectedId: 0, liftedId: 0 };
+    if (sel?.src === "tray") {
+      if (selChanged(sel)) {
+        out.liftedId = sel.id;
+        out.ghost = { piece: selPiece(sel), ok: selCheck(sel).ok };
+      } else {
+        out.selectedId = sel.id;
+      }
+    } else if (sel?.src === "new") {
+      let piece = selPiece(sel);
+      if (!piece && state.hover && pointer.type === "mouse" && !pointer.down) {
+        const p = pieceOf(sel);
+        piece = { type: p.type, color: p.color, o: p.o, r: state.hover.r, c: state.hover.c };
+      }
+      if (piece) out.ghost = { piece, ok: board.check(piece).ok };
+    }
+    if (sel?.src !== "new" && state.hover && !pointer.down) {
+      const id = pickAt(state.hover);
+      if (id !== out.selectedId) out.hoverId = id;
+    }
+    return out;
   }
   function toolButton(action, icon, label, { pressed = null, disabled = false, hint = "", cls = "" } = {}) {
     const aria = pressed === null ? "" : ` aria-pressed="${pressed ? "true" : "false"}"`;
@@ -4909,36 +5298,46 @@ ${ch.solved ? "" : '<p class="challenge-goal">Make this picture: put all the pie
       return;
     }
     const board = state.build;
+    const sel = state.sel;
     const kinds = KINDS.map((kind, i) => {
-      const info = KIND_INFO[kind];
+      const info2 = KIND_INFO[kind];
       const left = board.remaining(kind);
-      const on = state.selected === kind && state.tool === "place";
-      return `<button type="button" class="kind${on ? " is-on" : ""}${left === 0 ? " is-empty" : ""}" data-action="select" data-kind="${kind}" aria-pressed="${on}" title="${info.label} (key ${i + 1})" aria-label="${info.label}, ${left} left">
-<span class="kind-icon">${pieceIcon(info.type, info.color, state.orient[info.type], { size: info.type === "mix" ? 44 : 30 })}</span><span class="kind-count">${left}</span></button>`;
+      const on = sel?.src === "new" && sel.kind === kind;
+      return `<button type="button" class="kind${on ? " is-on" : ""}${left === 0 ? " is-empty" : ""}" data-action="select" data-kind="${kind}" aria-pressed="${on}" title="${info2.label}: drag it onto the tray (key ${i + 1})" aria-label="${info2.label}, ${left} left">
+<span class="kind-icon">${pieceIcon(info2.type, info2.color, state.orient[info2.type], { size: info2.type === "mix" ? 44 : 30 })}</span><span class="kind-count">${left}</span></button>`;
     }).join("");
-    const noPiece = !state.selected || state.tool !== "place";
+    const info = pieceOf(sel);
+    const res = sel ? selCheck(sel) : null;
+    const canPlace = !!res?.ok && (sel.src === "new" || selChanged(sel));
+    const name = !info ? '<span class="sel-name is-none">No piece selected</span>' : `<span class="sel-name"><span class="sel-icon">${pieceIcon(info.type, info.color, sel.o, { size: info.type === "mix" ? 30 : 22 })}</span><span>${info.label}${sel.src === "new" ? " <small>new</small>" : ""}</span></span>`;
     const hist = state.history;
+    const fine = finePointer();
     bar.innerHTML = `<div class="dock">
-<div class="dock-kinds" role="group" aria-label="Choose a piece">${kinds}</div>
-<div class="dock-turn" role="group" aria-label="Turn the piece">
-${toolButton("turn", ICONS.rotate, "Rotate", { disabled: noPiece, hint: "Rotate the piece a quarter turn (R)", cls: "turn" })}
-${toolButton("flip", ICONS.flip, "Flip", { disabled: noPiece, hint: "Turn the piece upside down (F)", cls: "turn" })}
-${toolButton("tip", ICONS.tip, "Tip over", { disabled: noPiece, hint: "Stand the piece up or lay it down (T)", cls: "turn" })}
+<div class="dock-kinds" role="group" aria-label="Pieces: drag one onto the tray">${kinds}</div>
+<div class="dock-turn" role="group" aria-label="Turn the selected piece">
+${toolButton("turn", ICONS.rotate, "Rotate", { disabled: !sel, hint: "Rotate the piece a quarter turn (R)", cls: "turn" })}
+${toolButton("flip", ICONS.flip, "Flip", { disabled: !sel, hint: "Turn the piece upside down (F)", cls: "turn" })}
+${toolButton("tip", ICONS.tip, "Tip over", { disabled: !sel, hint: "Stand the piece up or lay it down (T)", cls: "turn" })}
 </div>
 </div>
+<div class="sel-bar${sel ? " has-sel" : ""}" role="group" aria-label="Selected piece">${name}
+<div class="sel-actions">
+${toolButton("place", ICONS.check, "Place", { disabled: !canPlace, hint: "Put the piece where it is shown (Enter)", cls: "place" })}
+${toolButton("remove-piece", ICONS.trash, "Remove", { disabled: sel?.src !== "tray", hint: "Take the selected piece out of the tray (Delete)" })}
+${toolButton("cancel", ICONS.close, "Cancel", { disabled: !sel, hint: "Leave everything as it was (Esc)" })}
+</div></div>
 <div class="tools">
 ${toolButton("undo", ICONS.undo, "Undo", { disabled: !hist.past.length, hint: "Undo (Ctrl+Z)" })}
 ${toolButton("redo", ICONS.redo, "Redo", { disabled: !hist.future.length, hint: "Redo (Ctrl+Y)" })}
-${toolButton("remove", ICONS.hand, "Remove", { pressed: state.tool === "remove", hint: "Remove pieces with a tap or click (P)" })}
 ${toolButton("xray", ICONS.xray, "X-ray", { pressed: state.xray, disabled: state.view === "3d", hint: "See pieces hidden under roofs (X)" })}
 ${toolButton("view", state.view === "3d" ? ICONS.board : ICONS.cube, state.view === "3d" ? "Top view" : "3D", { hint: "Switch between the top view and the 3D view (V)" })}
 </div>
-<p class="hint">${finePointer() ? "<b>Left-click</b> places the piece (its cube goes where you click). <b>Right-click</b> removes a piece." : "Tap a square to place the piece (its cube goes there). To take pieces out, turn on <b>Remove</b> and tap them."}</p>`;
+<p class="hint">${fine ? "<b>Drag</b> a piece onto the tray, turn it if you like, then press <b>Place</b>. <b>Click</b> a piece in the tray to select it (click again for the one underneath). Right-click removes a piece at once." : "<b>Drag</b> a piece onto the tray, turn it if you like, then tap <b>Place</b>. <b>Tap</b> a piece in the tray to select it (tap again for the one underneath)."}</p>`;
   }
   function orientMarkup() {
-    if (!state.selected) return '<p class="muted">Choose a piece under the tray to see every way it can be turned.</p>';
-    const info = KIND_INFO[state.selected];
-    const cur = state.orient[info.type];
+    const sel = state.sel;
+    const info = sel ? pieceOf(sel) : KIND_INFO[state.selected];
+    const cur = sel ? sel.o : state.orient[info.type];
     const button = (o, size) => {
       const on = o === cur;
       return `<button type="button" class="orient${on ? " is-on" : ""}" data-action="orient" data-o="${o}" aria-pressed="${on}" aria-label="${describeOrientation(info.type, o)}" title="${describeOrientation(info.type, o)}">${pieceIcon(info.type, info.color, o, { size })}</button>`;
@@ -4955,7 +5354,8 @@ ${toolButton("view", state.view === "3d" ? ICONS.board : ICONS.cube, state.view 
       const rows = [["Standing", [0, 1, 2, 3]], ["Lying, slope up", [4, 5, 6, 7]], ["Lying, slope down", [8, 9, 10, 11]]];
       for (const [label, list] of rows) grid += `<div class="orient-row"><span class="orient-label">${label}</span>${list.map((o) => button(o, 44)).join("")}</div>`;
     }
-    return `<div class="orient-grid ${info.type}">${grid}</div><p class="orient-now">${info.label}: ${describeOrientation(info.type, cur).toLowerCase()}</p>`;
+    const subject = sel?.src === "tray" ? `Selected ${info.label.toLowerCase()}` : info.label;
+    return `<div class="orient-grid ${info.type}">${grid}</div><p class="orient-now">${subject}: ${describeOrientation(info.type, cur).toLowerCase()}</p>`;
   }
   function sizeMarkup() {
     const d = state.sizeDraft;
@@ -5037,72 +5437,207 @@ ${sizeMarkup()}
     return `[data-action="${action}"]${extra}`;
   }
   function defaultStatus() {
-    if (state.mode === "check") return "";
-    if (state.view === "3d" && state.tool !== "remove" && state.selected) {
-      const info2 = KIND_INFO[state.selected];
-      return `3D view. ${info2.label}: ${describeOrientation(info2.type, state.orient[info2.type]).toLowerCase()}. ${progressText()}`;
+    if (state.mode === "check") return { text: "", tone: "" };
+    const sel = state.sel;
+    const fine = finePointer();
+    const prog = progressText();
+    if (!sel) return { text: `${fine ? "Drag a piece onto the tray, or click a piece in the tray to select it." : "Drag a piece onto the tray, or tap a piece in the tray to select it."} ${prog}`, tone: "" };
+    const info = pieceOf(sel);
+    const how = describeOrientation(info.type, sel.o).toLowerCase();
+    if (sel.src === "new" && sel.r === null) {
+      return { text: `${info.label}, ${how}: drag it onto the tray, or ${fine ? "click" : "tap"} a square for it.`, tone: "" };
     }
-    if (state.tool === "remove") return `Remove: ${finePointer() ? "click" : "tap"} a piece to take it out. ${progressText()}`;
-    if (!state.selected) return `Choose a piece. ${progressText()}`;
-    const info = KIND_INFO[state.selected];
-    return `${info.label}: ${describeOrientation(info.type, state.orient[info.type]).toLowerCase()}. ${progressText()}`;
+    const res = selCheck(sel);
+    if (sel.src === "new") {
+      return res.ok ? { text: `${info.label}, ${how}. Press Place to put it in, or drag it somewhere else.`, tone: "" } : { text: failureText(res, selPiece(sel)), tone: "bad" };
+    }
+    if (!selChanged(sel)) {
+      const piece = state.build.pieces.get(sel.id);
+      const stack = piece ? occupiedStack(piece) : [];
+      const more = stack.length > 1 ? ` ${fine ? "Click" : "Tap"} it again for the piece ${stack.indexOf(sel.id) === 0 ? "under" : "on top of"} it.` : "";
+      return { text: `${info.label} selected. Turn it or drag it, then Place; or Remove it.${more}`, tone: "" };
+    }
+    if (!res.ok) return { text: failureText(res, selPiece(sel)), tone: "bad" };
+    return { text: `Press Place to put the ${info.label.toLowerCase()} here${res.fallen.length ? " (the prism resting on it comes out)" : ""}, or Cancel to leave it where it was.`, tone: "" };
+  }
+  function showDefaultStatus() {
+    const { text: text3, tone } = defaultStatus();
+    setStatus(text3, false, tone);
   }
   function resetStatus() {
     clearTimeout(statusTimer);
     statusTimer = 0;
   }
-  function setStatus(text2, transient = true, tone = "") {
+  function setStatus(text3, transient = true, tone = "") {
     const el = $("#status");
-    el.textContent = text2;
+    el.textContent = text3;
     el.dataset.tone = tone;
     resetStatus();
     if (transient) {
       statusTimer = setTimeout(() => {
         statusTimer = 0;
-        setStatus(defaultStatus(), false);
+        showDefaultStatus();
       }, 4500);
     }
   }
   var escapeHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  function currentPiece(r, c) {
-    const info = KIND_INFO[state.selected];
-    return { type: info.type, color: info.color, r, c, o: state.orient[info.type] };
+  function pieceOf(sel = state.sel) {
+    if (!sel) return null;
+    if (sel.src === "new") {
+      const k = KIND_INFO[sel.kind];
+      return { type: k.type, color: k.color, o: sel.o, label: k.label };
+    }
+    const p = state.build.pieces.get(sel.id);
+    return p ? { type: p.type, color: p.color, o: sel.o, label: KIND_INFO[kindOf(p)].label } : null;
   }
-  function placeAt(h) {
+  function selPiece(sel = state.sel) {
+    const p = pieceOf(sel);
+    return p && sel.r !== null ? { type: p.type, color: p.color, o: p.o, r: sel.r, c: sel.c } : null;
+  }
+  function selChanged(sel = state.sel) {
+    if (sel?.src !== "tray") return false;
+    const p = state.build.pieces.get(sel.id);
+    return !!p && (p.r !== sel.r || p.c !== sel.c || p.o !== sel.o);
+  }
+  function selCheck(sel = state.sel) {
+    const piece = selPiece(sel);
+    if (!piece) return { ok: false, code: "not-on-tray", fallen: [] };
+    if (sel.src === "new") return { ...state.build.check(piece), fallen: [] };
+    return state.build.checkMove(sel.id, piece);
+  }
+  function occupiedStack(piece) {
+    for (const part of occupancy(piece)) {
+      const stack = state.build.stackWith(part.r, part.c, piece.id);
+      if (stack.length > 1) return stack;
+    }
+    return [piece.id];
+  }
+  function pickAt(h) {
+    if (!h) return 0;
     const board = state.build;
-    const piece = currentPiece(h.r, h.c);
-    const res = board.check(piece);
+    let stack;
+    let first;
+    if (h.id) {
+      stack = board.stackWith(h.r, h.c, h.id);
+      first = h.id;
+    } else {
+      stack = board.piecesAt(h.r, h.c, h.fx, h.fy);
+      first = stack[0] ?? 0;
+    }
+    if (!first) return 0;
+    const cur = state.sel?.src === "tray" ? stack.indexOf(state.sel.id) : -1;
+    return cur >= 0 ? stack[(cur + 1) % stack.length] : first;
+  }
+  function selectKind(kind) {
+    if (state.sel?.src === "new" && state.sel.kind === kind) {
+      state.sel = null;
+    } else {
+      if (state.build.remaining(kind) <= 0) {
+        setStatus(`No ${KIND_INFO[kind].label.toLowerCase()} left. Select one in the tray and Remove it first.`, true, "bad");
+        return false;
+      }
+      state.selected = kind;
+      state.sel = { src: "new", kind, o: state.orient[KIND_INFO[kind].type], r: null, c: null };
+    }
+    resetStatus();
+    render();
+    return true;
+  }
+  function selectPiece(id) {
+    const p = state.build.pieces.get(id);
+    if (!p) return;
+    state.sel = { src: "tray", id, o: p.o, r: p.r, c: p.c };
+    resetStatus();
+    render();
+  }
+  function moveSel(r, c) {
+    const sel = state.sel;
+    if (!sel) return false;
+    const R = r === null ? null : Math.max(0, Math.min(state.rows - 1, r));
+    const C = c === null ? null : Math.max(0, Math.min(state.cols - 1, c));
+    if (sel.r === R && sel.c === C) return false;
+    sel.r = R;
+    sel.c = C;
+    return true;
+  }
+  function refreshSelection({ bar = true } = {}) {
+    renderBoard();
+    if (bar) renderStageBar();
+    if (!statusTimer) showDefaultStatus();
+  }
+  function tapSelect(h) {
+    const id = pickAt(h);
+    if (id) {
+      if (state.sel?.src === "tray" && state.sel.id === id) return;
+      selectPiece(id);
+    } else if (state.sel) {
+      state.sel = null;
+      resetStatus();
+      render();
+    }
+  }
+  function placeSelection() {
+    const sel = state.sel;
+    if (!sel) return;
+    const board = state.build;
+    const piece = selPiece(sel);
+    if (!piece) {
+      setStatus(failureText({ code: "not-on-tray" }, null), true, "bad");
+      return;
+    }
+    if (sel.src === "tray" && !selChanged(sel)) {
+      state.sel = null;
+      render();
+      return;
+    }
+    const res = selCheck(sel);
     if (!res.ok) {
       setStatus(failureText(res, piece), true, "bad");
       pulseBoard();
       return;
     }
     state.history.record(board);
-    const placed = board.place(piece);
-    state.fresh = /* @__PURE__ */ new Set([placed.id]);
-    afterMove();
-    if (board.remaining(state.selected) === 0) {
-      const next = KINDS.find((k) => KIND_INFO[k].type === KIND_INFO[state.selected].type && board.remaining(k) > 0) ?? KINDS.find((k) => board.remaining(k) > 0);
-      if (next) {
-        setStatus(`That was the last ${pieceName(piece)}. Switched to the ${KIND_INFO[next].label.toLowerCase()}.`);
-        state.selected = next;
-      }
+    const name = pieceName(piece);
+    if (sel.src === "new") {
+      const placed = board.place(piece);
+      state.fresh = /* @__PURE__ */ new Set([placed.id]);
+      setStatus(`Placed the ${name}.`);
+    } else {
+      const before = board.pieces.get(sel.id);
+      const what = before.o === piece.o ? "Moved" : before.r === piece.r && before.c === piece.c ? "Turned" : "Moved and turned";
+      const moved = board.move(sel.id, piece);
+      state.fresh = /* @__PURE__ */ new Set([sel.id]);
+      setStatus(`${what} the ${name}.${moved.fallen.length ? " The prism resting on it came out." : ""}`);
     }
+    state.sel = null;
+    afterMove();
     render();
   }
-  function removeAt(h) {
+  function removePiece(id) {
     const board = state.build;
-    const id = h.id ?? board.pieceAt(h.r, h.c, h.fx ?? 0.5, h.fy ?? 0.5);
-    if (!id) {
-      setStatus("Nothing to remove there.", true);
-      return;
-    }
     const piece = board.pieces.get(id);
+    if (!piece) return;
     state.history.record(board);
     const removed = board.remove(id);
+    if (state.sel?.src === "tray" && removed.includes(state.sel.id)) state.sel = null;
     afterMove();
     setStatus(removed.length > 1 ? `Removed the ${pieceName(piece)} and the prism resting on it.` : `Removed the ${pieceName(piece)}.`);
     state.hover = null;
+    render();
+  }
+  function removeSelection() {
+    if (state.sel?.src === "tray") removePiece(state.sel.id);
+  }
+  function quickRemove(h) {
+    const id = h ? h.id || state.build.piecesAt(h.r, h.c, h.fx, h.fy)[0] : 0;
+    if (id) removePiece(id);
+    else setStatus("Nothing to remove there.");
+  }
+  function cancelSelection() {
+    const sel = state.sel;
+    if (!sel) return;
+    state.sel = null;
+    setStatus(sel.src === "new" ? "Put the piece back under the tray." : "Left the piece where it was.");
     render();
   }
   function pulseBoard() {
@@ -5115,6 +5650,7 @@ ${sizeMarkup()}
     const board = state.history.undo(state.build);
     if (!board) return;
     state.build = board;
+    state.sel = null;
     afterMove(false);
     render();
   }
@@ -5122,14 +5658,19 @@ ${sizeMarkup()}
     const board = state.history.redo(state.build);
     if (!board) return;
     state.build = board;
+    state.sel = null;
     afterMove(false);
     render();
   }
   function changeOrientation(fn) {
-    if (!state.selected) return;
-    const type = KIND_INFO[state.selected].type;
-    state.orient[type] = fn(type, state.orient[type]);
-    state.tool = "place";
+    const sel = state.sel;
+    if (!sel) {
+      setStatus(`${finePointer() ? "Click" : "Tap"} a piece in the tray, or drag one onto it, to turn it.`);
+      return;
+    }
+    const type = pieceOf(sel).type;
+    sel.o = fn(type, sel.o);
+    if (sel.src === "new") state.orient[type] = sel.o;
     resetStatus();
     render();
   }
@@ -5161,6 +5702,7 @@ ${sizeMarkup()}
     state.cols = cols;
     state.sizeDraft = { rows, cols };
     state.build = new Board(rows, cols);
+    state.sel = null;
     state.history = new History();
     state.challenge = null;
     state.pattern = emptyPicture(rows, cols);
@@ -5185,6 +5727,7 @@ ${sizeMarkup()}
     }
     state.history.record(state.build);
     state.build = Board.fromJSON(preset);
+    state.sel = null;
     state.challenge = null;
     render();
     setStatus(`Loaded ${preset.name}: each cube + prism lies as a ramp with a prism on top, so every square looks full.`);
@@ -5193,6 +5736,7 @@ ${sizeMarkup()}
     state.history.record(state.build);
     const pieces = randomArrangement(state.rows, state.cols, state.build.inventory, makeRng(Date.now() >>> 0), 0.5);
     state.build = loadPieces(pieces, state.rows, state.cols);
+    state.sel = null;
     afterMove();
     render();
     setStatus("Filled the tray with a random arrangement.");
@@ -5202,13 +5746,14 @@ ${sizeMarkup()}
     if (!await confirmDialog("Take every piece out of the tray?", "Empty tray")) return;
     state.history.record(state.build);
     state.build = new Board(state.rows, state.cols);
+    state.sel = null;
     afterMove(false);
     render();
     setStatus("The tray is empty. Undo brings the pieces back.");
   }
-  async function copyText(text2, what) {
+  async function copyText(text3, what) {
     try {
-      await navigator.clipboard.writeText(text2);
+      await navigator.clipboard.writeText(text3);
       setStatus(`${what} copied.`);
       return true;
     } catch {
@@ -5217,9 +5762,9 @@ ${sizeMarkup()}
     }
   }
   function loadCode() {
-    const text2 = $("#codeIn")?.value ?? "";
+    const text3 = $("#codeIn")?.value ?? "";
     try {
-      const board = decodeBoard(text2);
+      const board = decodeBoard(text3);
       if (board.rows !== state.rows || board.cols !== state.cols) {
         state.rows = board.rows;
         state.cols = board.cols;
@@ -5231,6 +5776,7 @@ ${sizeMarkup()}
         state.history.record(state.build);
       }
       state.build = board;
+      state.sel = null;
       state.challenge = null;
       state.mode = "build";
       render();
@@ -5261,7 +5807,7 @@ ${sizeMarkup()}
     state.build = new Board(rows, cols);
     state.challenge = { target, answer, difficulty, label, moves: 0, solved: false, revealed: false };
     state.mode = "build";
-    state.tool = "place";
+    state.sel = null;
     render();
     setStatus("Fill the tray so that, seen from above, it looks like the picture.");
     const bar = document.getElementById("challengeBar");
@@ -5306,6 +5852,7 @@ ${sizeMarkup()}
     if (!ch.solved && !await confirmDialog("Show the answer? The pieces in the tray will be replaced.", "Show answer")) return;
     state.history.record(state.build);
     state.build = loadPieces(ch.answer, state.rows, state.cols);
+    state.sel = null;
     ch.revealed = true;
     ch.solved = true;
     render();
@@ -5549,13 +6096,21 @@ ${sizeMarkup()}
     if (!offTray3d(evt.changedTouches[0])) evt.preventDefault();
   }
   var isRemoveClick = (evt) => evt.button === 2 || evt.button === 0 && evt.pointerType === "mouse" && evt.ctrlKey;
-  function sameTarget(a, b) {
+  function sameHover(a, b) {
     if (!a || !b) return a === b;
     if (a.r !== b.r || a.c !== b.c) return false;
-    if (state.tool === "place" && state.selected) return true;
-    const idA = a.id ?? state.build.pieceAt(a.r, a.c, a.fx, a.fy);
-    const idB = b.id ?? state.build.pieceAt(b.r, b.c, b.fx, b.fy);
-    return idA === idB;
+    return state.sel?.src === "new" || pickAt(a) === pickAt(b);
+  }
+  function onSelection(h, evt) {
+    const sel = state.sel;
+    const piece = selPiece(sel);
+    if (!piece || !h) return false;
+    if (state.view === "3d") {
+      if (sel.src === "tray" && !selChanged(sel)) return h.id === sel.id;
+      const p = svgPoint(evt);
+      return !!p && insideAny(ghostPolys3d, p.x, p.y);
+    }
+    return pieceCovers(piece, h.r, h.c, h.fx, h.fy);
   }
   function onPointerMove(evt) {
     if (!pointer.down) pointer.type = evt.pointerType;
@@ -5569,8 +6124,20 @@ ${sizeMarkup()}
       }
       return;
     }
-    if (!pointer.down && evt.pointerType !== "mouse") return;
-    if (!sameTarget(h, state.hover)) {
+    if (pointer.down) {
+      if (evt.pointerId !== pointer.id) return;
+      if (!pointer.moved && Math.hypot(evt.clientX - pointer.x, evt.clientY - pointer.y) > DRAG_PX) {
+        pointer.moved = true;
+        pointer.dragging = !!pointer.grab || state.sel?.src === "new";
+      }
+      if (pointer.dragging && h) {
+        const g = pointer.grab ?? { dr: 0, dc: 0 };
+        if (moveSel(h.r - g.dr, h.c - g.dc)) refreshSelection();
+      }
+      return;
+    }
+    if (evt.pointerType !== "mouse") return;
+    if (!sameHover(h, state.hover)) {
       state.hover = h;
       renderBoard();
     } else if (h) {
@@ -5594,7 +6161,7 @@ ${sizeMarkup()}
     }
     if (right) {
       evt.preventDefault();
-      if (h) removeAt(h);
+      quickRemove(h);
       return;
     }
     $("#board").setPointerCapture?.(evt.pointerId);
@@ -5602,7 +6169,10 @@ ${sizeMarkup()}
     pointer.id = evt.pointerId;
     pointer.x = evt.clientX;
     pointer.y = evt.clientY;
-    const changed = !sameTarget(h, state.hover);
+    pointer.moved = false;
+    pointer.dragging = false;
+    pointer.grab = onSelection(h, evt) ? { dr: h.r - state.sel.r, dc: h.c - state.sel.c } : null;
+    const changed = !sameHover(h, state.hover);
     state.hover = h;
     if (changed && evt.pointerType === "mouse") {
       renderBoard();
@@ -5618,15 +6188,21 @@ ${sizeMarkup()}
     pointer.down = false;
     if (state.mode === "check") return;
     const h = pointerTarget(evt);
-    const slid = evt.pointerType !== "mouse" && Math.hypot(evt.clientX - pointer.x, evt.clientY - pointer.y) > 12;
-    if (h) {
-      state.hover = h;
-      if (state.tool === "remove" || !state.selected) {
-        if (!slid) removeAt(h);
-      } else {
-        placeAt(h);
+    if (pointer.dragging) {
+      pointer.dragging = false;
+      resetStatus();
+      render();
+    } else if (!pointer.moved) {
+      if (state.sel?.src === "new") {
+        if (h && moveSel(h.r, h.c)) {
+          resetStatus();
+          render();
+        }
+      } else if (!pointer.grab || !selChanged()) {
+        tapSelect(h);
       }
     }
+    pointer.grab = null;
     if (evt.pointerType !== "mouse") {
       state.hover = null;
       renderBoard();
@@ -5647,31 +6223,62 @@ ${sizeMarkup()}
     state.hover = { r, c, fx: 0.5, fy: 0.5 };
     if (state.mode === "check") state.hoverCell = r * state.cols + c;
     renderBoard();
+    if (state.mode === "build" && !statusTimer) {
+      const id = pickAt(state.hover);
+      setStatus(`Row ${r + 1}, column ${c + 1}: ${id ? `${pieceName(state.build.pieces.get(id))}. Enter selects it.` : "empty."}`, false);
+    }
   }
   function onBoardKey(evt) {
     const keys = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+    const sel = state.mode === "build" ? state.sel : null;
     if (keys[evt.key]) {
       evt.preventDefault();
-      moveCursor(...keys[evt.key]);
+      const [dr, dc] = keys[evt.key];
+      if (selPiece(sel)) {
+        if (moveSel(sel.r + dr, sel.c + dc)) {
+          resetStatus();
+          render();
+        }
+        return;
+      }
+      moveCursor(dr, dc);
       return;
     }
     if (evt.key === "Enter" || evt.key === " ") {
       evt.preventDefault();
-      if (!state.hover) {
-        moveCursor(0, 0);
+      if (state.mode === "check") {
+        if (!state.hover) moveCursor(0, 0);
+        else paintCell(state.hover.r * state.cols + state.hover.c, state.paint);
         return;
       }
-      if (state.mode === "check") paintCell(state.hover.r * state.cols + state.hover.c, state.paint);
-      else if (state.tool === "remove" || !state.selected) removeAt({ ...state.hover, id: null });
-      else placeAt(state.hover);
-    } else if ((evt.key === "Delete" || evt.key === "Backspace") && state.hover) {
+      if (sel?.src === "new" && sel.r === null) {
+        const at2 = state.hover ?? { r: 0, c: 0 };
+        moveSel(at2.r, at2.c);
+        resetStatus();
+        render();
+      } else if (sel && (sel.src === "new" || selChanged(sel))) {
+        placeSelection();
+      } else if (!state.hover) {
+        moveCursor(0, 0);
+      } else {
+        tapSelect(state.hover);
+      }
+    } else if (evt.key === "Delete" || evt.key === "Backspace") {
       evt.preventDefault();
-      if (state.mode === "check") paintCell(state.hover.r * state.cols + state.hover.c, LOOK.ANY);
-      else removeAt({ ...state.hover, id: null });
+      if (state.mode === "check") {
+        if (state.hover) paintCell(state.hover.r * state.cols + state.hover.c, LOOK.ANY);
+      } else if (sel?.src === "tray") {
+        removeSelection();
+      } else if (state.hover) {
+        quickRemove(state.hover);
+      }
+    } else if (evt.key === "Escape" && state.mode === "build") {
+      evt.preventDefault();
+      if (state.sel) cancelSelection();
     }
   }
   function onGlobalKey(evt) {
-    if (!$("#modal").hidden) return;
+    if (evt.defaultPrevented || !$("#modal").hidden) return;
     if (evt.target.closest?.("input, textarea, select")) return;
     if (state.mode === "book") {
       bookUI.onKey(evt);
@@ -5690,24 +6297,28 @@ ${sizeMarkup()}
       return;
     }
     if (evt.ctrlKey || evt.metaKey || evt.altKey || state.mode !== "build") return;
+    const onButton = !!evt.target.closest?.("button, a, summary");
     if (key === "r") turn();
     else if (key === "f") flip();
     else if (key === "t") tip();
-    else if (["1", "2", "3", "4"].includes(key)) ACTIONS.select({ dataset: { kind: KINDS[Number(key) - 1] } });
-    else if (key === "p") toggleRemove();
+    else if (["1", "2", "3", "4"].includes(key)) selectKind(KINDS[Number(key) - 1]);
     else if (key === "x" && state.view !== "3d") {
       state.xray = !state.xray;
       render();
     } else if (key === "v") toggleView();
     else if (key === "escape") {
-      state.hover = null;
-      renderBoard();
+      if (state.sel) cancelSelection();
+      else {
+        state.hover = null;
+        renderBoard();
+      }
+    } else if (key === "enter" && !onButton && state.sel) {
+      evt.preventDefault();
+      placeSelection();
+    } else if ((key === "delete" || key === "backspace") && state.sel?.src === "tray") {
+      evt.preventDefault();
+      removeSelection();
     }
-  }
-  function toggleRemove() {
-    state.tool = state.tool === "remove" ? "place" : "remove";
-    resetStatus();
-    render();
   }
   function toggleView() {
     state.view = state.view === "3d" ? "top" : "3d";
@@ -5715,17 +6326,68 @@ ${sizeMarkup()}
     resetStatus();
     render();
   }
+  var dragImage = null;
+  function boardTargetAt(clientX, clientY) {
+    if (state.mode !== "build") return null;
+    const rect = $("#board").getBoundingClientRect();
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+    return pointerTarget({ clientX, clientY });
+  }
+  function onDockDown(evt) {
+    const btn = evt.target.closest?.(".kind[data-kind]");
+    if (!btn || evt.button !== 0 || state.mode !== "build") return;
+    dockDrag.pending = { id: evt.pointerId, kind: btn.dataset.kind, x: evt.clientX, y: evt.clientY, type: evt.pointerType, started: false };
+  }
+  function onDockMove(evt) {
+    const d = dockDrag.pending;
+    if (!d || evt.pointerId !== d.id) return;
+    if (!d.started) {
+      if (Math.hypot(evt.clientX - d.x, evt.clientY - d.y) < 6) return;
+      d.started = true;
+      if (state.build.remaining(d.kind) <= 0) {
+        dockDrag.pending = null;
+        setStatus(`No ${KIND_INFO[d.kind].label.toLowerCase()} left. Select one in the tray and Remove it first.`, true, "bad");
+        return;
+      }
+      $("#stageBar").setPointerCapture?.(evt.pointerId);
+      state.selected = d.kind;
+      state.sel = { src: "new", kind: d.kind, o: state.orient[KIND_INFO[d.kind].type], r: null, c: null };
+      document.querySelectorAll(".kind").forEach((el) => el.classList.toggle("is-on", el.dataset.kind === d.kind));
+      const info = KIND_INFO[d.kind];
+      dragImage.innerHTML = pieceIcon(info.type, info.color, state.sel.o, { size: info.type === "mix" ? 64 : 44 });
+      resetStatus();
+    }
+    evt.preventDefault();
+    const h = boardTargetAt(evt.clientX, evt.clientY);
+    dragImage.hidden = !!h;
+    const lift = d.type === "mouse" ? 0 : 56;
+    dragImage.style.transform = `translate(${evt.clientX}px, ${evt.clientY - lift}px) translate(-50%, -50%)`;
+    if (moveSel(h ? h.r : null, h ? h.c : null)) refreshSelection({ bar: false });
+  }
+  function onDockUp(evt) {
+    const d = dockDrag.pending;
+    if (!d || evt.pointerId !== d.id) return;
+    dockDrag.pending = null;
+    if (!d.started) return;
+    dockDrag.quietUntil = Date.now() + 400;
+    dragImage.hidden = true;
+    resetStatus();
+    render();
+  }
   var ACTIONS = {
     select: (el) => {
-      state.selected = el.dataset.kind;
-      state.tool = "place";
-      resetStatus();
-      render();
+      if (Date.now() < dockDrag.quietUntil) return;
+      selectKind(el.dataset.kind);
     },
     orient: (el) => {
-      const type = KIND_INFO[state.selected].type;
-      state.orient[type] = Number(el.dataset.o);
-      state.tool = "place";
+      const o = Number(el.dataset.o);
+      const sel = state.sel;
+      if (sel) {
+        sel.o = o;
+        if (sel.src === "new") state.orient[pieceOf(sel).type] = o;
+      } else {
+        state.orient[KIND_INFO[state.selected].type] = o;
+      }
       resetStatus();
       render();
     },
@@ -5734,7 +6396,9 @@ ${sizeMarkup()}
     tip,
     undo,
     redo,
-    remove: toggleRemove,
+    place: placeSelection,
+    "remove-piece": removeSelection,
+    cancel: cancelSelection,
     xray: () => {
       state.xray = !state.xray;
       render();
@@ -5843,8 +6507,10 @@ ${sizeMarkup()}
     svg2.addEventListener("pointercancel", () => {
       if (!pointer.down && !state.hover) return;
       pointer.down = false;
+      pointer.dragging = false;
+      pointer.grab = null;
       state.hover = null;
-      renderBoard();
+      render();
     });
     svg2.addEventListener("pointerleave", onPointerLeave);
     svg2.addEventListener("contextmenu", (evt) => evt.preventDefault());
@@ -5852,6 +6518,15 @@ ${sizeMarkup()}
     document.addEventListener("pointerup", () => {
       pointer.down = false;
     });
+    dragImage = document.createElement("div");
+    dragImage.className = "drag-image";
+    dragImage.hidden = true;
+    dragImage.setAttribute("aria-hidden", "true");
+    document.body.append(dragImage);
+    $("#stageBar").addEventListener("pointerdown", onDockDown);
+    document.addEventListener("pointermove", onDockMove, { passive: false });
+    document.addEventListener("pointerup", onDockUp);
+    document.addEventListener("pointercancel", onDockUp);
     document.addEventListener("click", onClick);
     document.addEventListener("keydown", onGlobalKey);
     document.querySelector(".tabs").addEventListener("keydown", onTabKey);

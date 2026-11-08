@@ -1,13 +1,13 @@
 // The app: Build (with challenges), Check a picture, and Challenge book.
 
-import { Board, KINDS, MAX_SIZE, decodeBoard, encodeBoard, pieceName, sizeProblem } from './board.js';
+import { Board, KINDS, MAX_SIZE, decodeBoard, encodeBoard, kindOf, occupancy, pieceCovers, pieceName, sizeProblem } from './board.js';
 import { DIFFICULTY } from './book.js';
 import { createBookUI } from './bookui.js';
 import { LOOK, MIX_ORIENTS, flipMix, flipTri, isRamp, rotateMix, rotateTri, thickSide, tipMix, tipTri } from './geometry.js';
 import { ICONS } from './icons.js';
 import { PRESETS } from './presets.js';
 import { boardMarkup, cellFromPoint, flatPicture, pictureMarkup } from './render2d.js';
-import { board3d, hitTest3d, nearTray3d, pieceIcon } from './render3d.js';
+import { board3d, hitTest3d, insideAny, nearTray3d, pieceIcon } from './render3d.js';
 import { makeRng, quickCheck, randomArrangement, solvePattern } from './solver.js';
 
 const STORAGE_KEY = 'building-blocks-simulator:v2';
@@ -70,9 +70,15 @@ class History {
 
 let state;
 let bookUI;
-const pointer = { down: false, id: null, type: 'mouse', erase: false, x: 0, y: 0 };
+// The press in progress on the board: where it started, whether it has moved, and whether it
+// grabbed the selected piece (grab: offset from the piece's square to the square grabbed).
+const pointer = { down: false, id: null, type: 'mouse', erase: false, x: 0, y: 0, moved: false, dragging: false, grab: null };
 let hits3d = [];
 let outline3d = [];
+let ghostPolys3d = [];
+// A press on a piece under the tray, which becomes a drag once it moves.
+const dockDrag = { pending: null, quietUntil: 0 };
+const DRAG_PX = 8;
 let statusTimer = 0;
 let saveTimer = 0;
 
@@ -93,7 +99,8 @@ function defaultState() {
     check: { status: 'idle' },
     selected: 'mixW',
     orient: { mix: 4, tri: 3 },
-    tool: 'place',
+    // The piece being worked on (see "The selection" below), or null.
+    sel: null,
     xray: false,
     view: 'top',
     azimuth: 0,
@@ -155,7 +162,7 @@ function restore(data) {
       xray: !!data.xray,
       books: data.books && typeof data.books === 'object' ? data.books : {},
       bookKey: typeof data.bookKey === 'string' ? data.bookKey : base.bookKey,
-      bookView: ['3d', 'spreads', 'sheets'].includes(data.bookView) ? data.bookView : '3d',
+      bookView: ['3d', 'spreads', 'sheets', 'cards'].includes(data.bookView) ? data.bookView : '3d',
     };
   } catch {
     return base;
@@ -201,7 +208,9 @@ function failureText(res, piece) {
     case 'outside':
       return piece.type === 'mix' ? 'The prism part would stick out of the tray. Rotate the piece or pick another square.' : 'That is outside the tray.';
     case 'taken':
-      return `That square is already full. ${finePointer() ? 'Right-click a piece to remove it.' : 'Turn on Remove to take a piece out.'}`;
+      return 'That square is already full. Select the piece there and Remove it first, or choose another square.';
+    case 'not-on-tray':
+      return `${finePointer() ? 'Drag the piece onto the tray, or click a square for it.' : 'Drag the piece onto the tray, or tap a square for it.'}`;
     case 'clash':
       return 'Only the matching half fits next to the piece already in that square.';
     case 'needs-ramp':
@@ -235,7 +244,7 @@ function render() {
   renderTabs();
   renderStage();
   renderPanel();
-  if (!statusTimer) setStatus(defaultStatus(), false);
+  if (!statusTimer) showDefaultStatus();
   scheduleSave();
 }
 
@@ -292,31 +301,53 @@ function renderBoard() {
     svg.setAttribute('aria-label', `Picture to check, ${state.rows} by ${state.cols}.`);
   } else {
     const board = state.build;
-    let ghost = null;
-    let hoverId = 0;
-    if (state.hover) {
-      if (state.tool === 'place' && state.selected) {
-        const piece = currentPiece(state.hover.r, state.hover.c);
-        ghost = { piece, ok: board.check(piece).ok };
-      } else {
-        hoverId = state.hover.id ?? board.pieceAt(state.hover.r, state.hover.c, state.hover.fx, state.hover.fy);
-      }
-    }
+    if (state.sel?.src === 'tray' && !board.pieces.has(state.sel.id)) state.sel = null;
+    const overlay = boardOverlay();
     if (state.view === '3d') {
-      view = board3d(board, { azimuth: state.azimuth, ghost, hoverId });
+      view = board3d(board, { azimuth: state.azimuth, ...overlay });
       hits3d = view.hits;
       outline3d = view.outline;
+      ghostPolys3d = view.ghostPolys;
     } else {
-      view = boardMarkup(board, { xray: state.xray, ghost, hoverId, freshIds: state.fresh });
+      view = boardMarkup(board, { xray: state.xray, ...overlay, freshIds: state.fresh });
     }
     svg.setAttribute('aria-label', `Tray, ${state.rows} rows by ${state.cols} columns${state.view === '3d' ? ', 3D view' : ''}. ${progressText()}`);
   }
   svg.setAttribute('viewBox', view.viewBox);
   svg.innerHTML = view.markup;
   svg.classList.toggle('is-3d', state.mode === 'build' && state.view === '3d');
-  svg.classList.toggle('is-remove', state.mode === 'build' && state.tool === 'remove');
+  svg.classList.toggle('is-holding', state.mode === 'build' && state.sel?.src === 'new');
   $('#viewTurn').hidden = !(state.mode === 'build' && state.view === '3d');
   state.fresh = new Set();
+}
+
+/** What to draw over the tray for the selection: its ghost, and which pieces to mark. */
+function boardOverlay() {
+  const board = state.build;
+  const sel = state.sel;
+  const out = { ghost: null, hoverId: 0, selectedId: 0, liftedId: 0 };
+  if (sel?.src === 'tray') {
+    if (selChanged(sel)) {
+      out.liftedId = sel.id;
+      out.ghost = { piece: selPiece(sel), ok: selCheck(sel).ok };
+    } else {
+      out.selectedId = sel.id;
+    }
+  } else if (sel?.src === 'new') {
+    let piece = selPiece(sel);
+    // Not on the tray yet: with a mouse it follows the pointer until a click puts it down.
+    if (!piece && state.hover && pointer.type === 'mouse' && !pointer.down) {
+      const p = pieceOf(sel);
+      piece = { type: p.type, color: p.color, o: p.o, r: state.hover.r, c: state.hover.c };
+    }
+    if (piece) out.ghost = { piece, ok: board.check(piece).ok };
+  }
+  // With a mouse or the keyboard, the piece a click would select lights up.
+  if (sel?.src !== 'new' && state.hover && !pointer.down) {
+    const id = pickAt(state.hover);
+    if (id !== out.selectedId) out.hoverId = id;
+  }
+  return out;
 }
 
 function toolButton(action, icon, label, { pressed = null, disabled = false, hint = '', cls = '' } = {}) {
@@ -336,39 +367,51 @@ function renderStageBar() {
     return;
   }
   const board = state.build;
+  const sel = state.sel;
   const kinds = KINDS.map((kind, i) => {
     const info = KIND_INFO[kind];
     const left = board.remaining(kind);
-    const on = state.selected === kind && state.tool === 'place';
-    return `<button type="button" class="kind${on ? ' is-on' : ''}${left === 0 ? ' is-empty' : ''}" data-action="select" data-kind="${kind}" aria-pressed="${on}" title="${info.label} (key ${i + 1})" aria-label="${info.label}, ${left} left">
+    const on = sel?.src === 'new' && sel.kind === kind;
+    return `<button type="button" class="kind${on ? ' is-on' : ''}${left === 0 ? ' is-empty' : ''}" data-action="select" data-kind="${kind}" aria-pressed="${on}" title="${info.label}: drag it onto the tray (key ${i + 1})" aria-label="${info.label}, ${left} left">
 <span class="kind-icon">${pieceIcon(info.type, info.color, state.orient[info.type], { size: info.type === 'mix' ? 44 : 30 })}</span><span class="kind-count">${left}</span></button>`;
   }).join('');
-  const noPiece = !state.selected || state.tool !== 'place';
+  const info = pieceOf(sel);
+  const res = sel ? selCheck(sel) : null;
+  const canPlace = !!res?.ok && (sel.src === 'new' || selChanged(sel));
+  const name = !info
+    ? '<span class="sel-name is-none">No piece selected</span>'
+    : `<span class="sel-name"><span class="sel-icon">${pieceIcon(info.type, info.color, sel.o, { size: info.type === 'mix' ? 30 : 22 })}</span><span>${info.label}${sel.src === 'new' ? ' <small>new</small>' : ''}</span></span>`;
   const hist = state.history;
+  const fine = finePointer();
   bar.innerHTML = `<div class="dock">
-<div class="dock-kinds" role="group" aria-label="Choose a piece">${kinds}</div>
-<div class="dock-turn" role="group" aria-label="Turn the piece">
-${toolButton('turn', ICONS.rotate, 'Rotate', { disabled: noPiece, hint: 'Rotate the piece a quarter turn (R)', cls: 'turn' })}
-${toolButton('flip', ICONS.flip, 'Flip', { disabled: noPiece, hint: 'Turn the piece upside down (F)', cls: 'turn' })}
-${toolButton('tip', ICONS.tip, 'Tip over', { disabled: noPiece, hint: 'Stand the piece up or lay it down (T)', cls: 'turn' })}
+<div class="dock-kinds" role="group" aria-label="Pieces: drag one onto the tray">${kinds}</div>
+<div class="dock-turn" role="group" aria-label="Turn the selected piece">
+${toolButton('turn', ICONS.rotate, 'Rotate', { disabled: !sel, hint: 'Rotate the piece a quarter turn (R)', cls: 'turn' })}
+${toolButton('flip', ICONS.flip, 'Flip', { disabled: !sel, hint: 'Turn the piece upside down (F)', cls: 'turn' })}
+${toolButton('tip', ICONS.tip, 'Tip over', { disabled: !sel, hint: 'Stand the piece up or lay it down (T)', cls: 'turn' })}
 </div>
 </div>
+<div class="sel-bar${sel ? ' has-sel' : ''}" role="group" aria-label="Selected piece">${name}
+<div class="sel-actions">
+${toolButton('place', ICONS.check, 'Place', { disabled: !canPlace, hint: 'Put the piece where it is shown (Enter)', cls: 'place' })}
+${toolButton('remove-piece', ICONS.trash, 'Remove', { disabled: sel?.src !== 'tray', hint: 'Take the selected piece out of the tray (Delete)' })}
+${toolButton('cancel', ICONS.close, 'Cancel', { disabled: !sel, hint: 'Leave everything as it was (Esc)' })}
+</div></div>
 <div class="tools">
 ${toolButton('undo', ICONS.undo, 'Undo', { disabled: !hist.past.length, hint: 'Undo (Ctrl+Z)' })}
 ${toolButton('redo', ICONS.redo, 'Redo', { disabled: !hist.future.length, hint: 'Redo (Ctrl+Y)' })}
-${toolButton('remove', ICONS.hand, 'Remove', { pressed: state.tool === 'remove', hint: 'Remove pieces with a tap or click (P)' })}
 ${toolButton('xray', ICONS.xray, 'X-ray', { pressed: state.xray, disabled: state.view === '3d', hint: 'See pieces hidden under roofs (X)' })}
 ${toolButton('view', state.view === '3d' ? ICONS.board : ICONS.cube, state.view === '3d' ? 'Top view' : '3D', { hint: 'Switch between the top view and the 3D view (V)' })}
 </div>
-<p class="hint">${finePointer()
-    ? '<b>Left-click</b> places the piece (its cube goes where you click). <b>Right-click</b> removes a piece.'
-    : 'Tap a square to place the piece (its cube goes there). To take pieces out, turn on <b>Remove</b> and tap them.'}</p>`;
+<p class="hint">${fine
+    ? '<b>Drag</b> a piece onto the tray, turn it if you like, then press <b>Place</b>. <b>Click</b> a piece in the tray to select it (click again for the one underneath). Right-click removes a piece at once.'
+    : '<b>Drag</b> a piece onto the tray, turn it if you like, then tap <b>Place</b>. <b>Tap</b> a piece in the tray to select it (tap again for the one underneath).'}</p>`;
 }
 
 function orientMarkup() {
-  if (!state.selected) return '<p class="muted">Choose a piece under the tray to see every way it can be turned.</p>';
-  const info = KIND_INFO[state.selected];
-  const cur = state.orient[info.type];
+  const sel = state.sel;
+  const info = sel ? pieceOf(sel) : KIND_INFO[state.selected];
+  const cur = sel ? sel.o : state.orient[info.type];
   const button = (o, size) => {
     const on = o === cur;
     return `<button type="button" class="orient${on ? ' is-on' : ''}" data-action="orient" data-o="${o}" aria-pressed="${on}" aria-label="${describeOrientation(info.type, o)}" title="${describeOrientation(info.type, o)}">${pieceIcon(info.type, info.color, o, { size })}</button>`;
@@ -385,7 +428,8 @@ function orientMarkup() {
     const rows = [['Standing', [0, 1, 2, 3]], ['Lying, slope up', [4, 5, 6, 7]], ['Lying, slope down', [8, 9, 10, 11]]];
     for (const [label, list] of rows) grid += `<div class="orient-row"><span class="orient-label">${label}</span>${list.map((o) => button(o, 44)).join('')}</div>`;
   }
-  return `<div class="orient-grid ${info.type}">${grid}</div><p class="orient-now">${info.label}: ${describeOrientation(info.type, cur).toLowerCase()}</p>`;
+  const subject = sel?.src === 'tray' ? `Selected ${info.label.toLowerCase()}` : info.label;
+  return `<div class="orient-grid ${info.type}">${grid}</div><p class="orient-now">${subject}: ${describeOrientation(info.type, cur).toLowerCase()}</p>`;
 }
 
 function sizeMarkup() {
@@ -482,16 +526,37 @@ function focusKey(el) {
   return `[data-action="${action}"]${extra}`;
 }
 
+/** The status line when nothing else is being said: { text, tone }. */
 function defaultStatus() {
-  if (state.mode === 'check') return '';
-  if (state.view === '3d' && state.tool !== 'remove' && state.selected) {
-    const info = KIND_INFO[state.selected];
-    return `3D view. ${info.label}: ${describeOrientation(info.type, state.orient[info.type]).toLowerCase()}. ${progressText()}`;
+  if (state.mode === 'check') return { text: '', tone: '' };
+  const sel = state.sel;
+  const fine = finePointer();
+  const prog = progressText();
+  if (!sel) return { text: `${fine ? 'Drag a piece onto the tray, or click a piece in the tray to select it.' : 'Drag a piece onto the tray, or tap a piece in the tray to select it.'} ${prog}`, tone: '' };
+  const info = pieceOf(sel);
+  const how = describeOrientation(info.type, sel.o).toLowerCase();
+  if (sel.src === 'new' && sel.r === null) {
+    return { text: `${info.label}, ${how}: drag it onto the tray, or ${fine ? 'click' : 'tap'} a square for it.`, tone: '' };
   }
-  if (state.tool === 'remove') return `Remove: ${finePointer() ? 'click' : 'tap'} a piece to take it out. ${progressText()}`;
-  if (!state.selected) return `Choose a piece. ${progressText()}`;
-  const info = KIND_INFO[state.selected];
-  return `${info.label}: ${describeOrientation(info.type, state.orient[info.type]).toLowerCase()}. ${progressText()}`;
+  const res = selCheck(sel);
+  if (sel.src === 'new') {
+    return res.ok
+      ? { text: `${info.label}, ${how}. Press Place to put it in, or drag it somewhere else.`, tone: '' }
+      : { text: failureText(res, selPiece(sel)), tone: 'bad' };
+  }
+  if (!selChanged(sel)) {
+    const piece = state.build.pieces.get(sel.id);
+    const stack = piece ? occupiedStack(piece) : [];
+    const more = stack.length > 1 ? ` ${fine ? 'Click' : 'Tap'} it again for the piece ${stack.indexOf(sel.id) === 0 ? 'under' : 'on top of'} it.` : '';
+    return { text: `${info.label} selected. Turn it or drag it, then Place; or Remove it.${more}`, tone: '' };
+  }
+  if (!res.ok) return { text: failureText(res, selPiece(sel)), tone: 'bad' };
+  return { text: `Press Place to put the ${info.label.toLowerCase()} here${res.fallen.length ? ' (the prism resting on it comes out)' : ''}, or Cancel to leave it where it was.`, tone: '' };
+}
+
+function showDefaultStatus() {
+  const { text, tone } = defaultStatus();
+  setStatus(text, false, tone);
 }
 
 function resetStatus() {
@@ -507,7 +572,7 @@ function setStatus(text, transient = true, tone = '') {
   if (transient) {
     statusTimer = setTimeout(() => {
       statusTimer = 0;
-      setStatus(defaultStatus(), false);
+      showDefaultStatus();
     }, 4500);
   }
 }
@@ -516,48 +581,202 @@ const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
 
 // ---- Build actions -----------------------------------------------------------------------
 
-function currentPiece(r, c) {
-  const info = KIND_INFO[state.selected];
-  return { type: info.type, color: info.color, r, c, o: state.orient[info.type] };
+// ---- The selection -----------------------------------------------------------------------
+//
+// state.sel is the piece being worked on:
+//   { src: 'new', kind, o, r, c }   a piece taken from under the tray; r and c are null until
+//                                   it is dragged onto the tray. Place puts it in.
+//   { src: 'tray', id, o, r, c }    a piece in the tray. Turning or dragging it shows where it
+//                                   would go (the piece itself stays, faded, until Place).
+// (r, c) is the square of the cube (or of a loose prism), as for pieces in the tray.
+
+/** Type, colour, orientation and name of the selection, or null. */
+function pieceOf(sel = state.sel) {
+  if (!sel) return null;
+  if (sel.src === 'new') {
+    const k = KIND_INFO[sel.kind];
+    return { type: k.type, color: k.color, o: sel.o, label: k.label };
+  }
+  const p = state.build.pieces.get(sel.id);
+  return p ? { type: p.type, color: p.color, o: sel.o, label: KIND_INFO[kindOf(p)].label } : null;
 }
 
-function placeAt(h) {
+/** The selection as a piece where it is shown, or null while it is not on the tray. */
+function selPiece(sel = state.sel) {
+  const p = pieceOf(sel);
+  return p && sel.r !== null ? { type: p.type, color: p.color, o: p.o, r: sel.r, c: sel.c } : null;
+}
+
+/** Has the selected tray piece been moved or turned, and not placed yet? */
+function selChanged(sel = state.sel) {
+  if (sel?.src !== 'tray') return false;
+  const p = state.build.pieces.get(sel.id);
+  return !!p && (p.r !== sel.r || p.c !== sel.c || p.o !== sel.o);
+}
+
+/** Can the selection go where it is shown? The board check, plus `fallen` for moves. */
+function selCheck(sel = state.sel) {
+  const piece = selPiece(sel);
+  if (!piece) return { ok: false, code: 'not-on-tray', fallen: [] };
+  if (sel.src === 'new') return { ...state.build.check(piece), fallen: [] };
+  return state.build.checkMove(sel.id, piece);
+}
+
+/** The pieces sharing a square with this one, one above the other (a roof and its ramp). */
+function occupiedStack(piece) {
+  for (const part of occupancy(piece)) {
+    const stack = state.build.stackWith(part.r, part.c, piece.id);
+    if (stack.length > 1) return stack;
+  }
+  return [piece.id];
+}
+
+/**
+ * The tray piece a tap at h would select: the piece seen there (the top one), or the next one
+ * down when that one is already selected, so that taps go round a stack. 0 for empty space.
+ */
+function pickAt(h) {
+  if (!h) return 0;
   const board = state.build;
-  const piece = currentPiece(h.r, h.c);
-  const res = board.check(piece);
+  let stack;
+  let first;
+  if (h.id) {
+    // 3D: the face that was hit belongs to the piece seen there.
+    stack = board.stackWith(h.r, h.c, h.id);
+    first = h.id;
+  } else {
+    stack = board.piecesAt(h.r, h.c, h.fx, h.fy);
+    first = stack[0] ?? 0;
+  }
+  if (!first) return 0;
+  const cur = state.sel?.src === 'tray' ? stack.indexOf(state.sel.id) : -1;
+  return cur >= 0 ? stack[(cur + 1) % stack.length] : first;
+}
+
+/** Take a new piece from under the tray (not on the tray yet), or put it back if it is held. */
+function selectKind(kind) {
+  if (state.sel?.src === 'new' && state.sel.kind === kind) {
+    state.sel = null;
+  } else {
+    if (state.build.remaining(kind) <= 0) {
+      setStatus(`No ${KIND_INFO[kind].label.toLowerCase()} left. Select one in the tray and Remove it first.`, true, 'bad');
+      return false;
+    }
+    state.selected = kind;
+    state.sel = { src: 'new', kind, o: state.orient[KIND_INFO[kind].type], r: null, c: null };
+  }
+  resetStatus();
+  render();
+  return true;
+}
+
+function selectPiece(id) {
+  const p = state.build.pieces.get(id);
+  if (!p) return;
+  state.sel = { src: 'tray', id, o: p.o, r: p.r, c: p.c };
+  resetStatus();
+  render();
+}
+
+/** Show the selection with its cube (or loose prism) in square (r, c); null takes it off the tray. */
+function moveSel(r, c) {
+  const sel = state.sel;
+  if (!sel) return false;
+  const R = r === null ? null : Math.max(0, Math.min(state.rows - 1, r));
+  const C = c === null ? null : Math.max(0, Math.min(state.cols - 1, c));
+  if (sel.r === R && sel.c === C) return false;
+  sel.r = R;
+  sel.c = C;
+  return true;
+}
+
+/** Redraw what depends on the selection while it moves (cheaper than render()). */
+function refreshSelection({ bar = true } = {}) {
+  renderBoard();
+  if (bar) renderStageBar();
+  if (!statusTimer) showDefaultStatus();
+}
+
+/** Tap on the tray with no new piece in hand: select what is there, or let go of the selection. */
+function tapSelect(h) {
+  const id = pickAt(h);
+  if (id) {
+    if (state.sel?.src === 'tray' && state.sel.id === id) return;
+    selectPiece(id);
+  } else if (state.sel) {
+    state.sel = null;
+    resetStatus();
+    render();
+  }
+}
+
+function placeSelection() {
+  const sel = state.sel;
+  if (!sel) return;
+  const board = state.build;
+  const piece = selPiece(sel);
+  if (!piece) {
+    setStatus(failureText({ code: 'not-on-tray' }, null), true, 'bad');
+    return;
+  }
+  if (sel.src === 'tray' && !selChanged(sel)) {
+    state.sel = null;
+    render();
+    return;
+  }
+  const res = selCheck(sel);
   if (!res.ok) {
     setStatus(failureText(res, piece), true, 'bad');
     pulseBoard();
     return;
   }
   state.history.record(board);
-  const placed = board.place(piece);
-  state.fresh = new Set([placed.id]);
-  afterMove();
-  if (board.remaining(state.selected) === 0) {
-    const next = KINDS.find((k) => KIND_INFO[k].type === KIND_INFO[state.selected].type && board.remaining(k) > 0)
-      ?? KINDS.find((k) => board.remaining(k) > 0);
-    if (next) {
-      setStatus(`That was the last ${pieceName(piece)}. Switched to the ${KIND_INFO[next].label.toLowerCase()}.`);
-      state.selected = next;
-    }
+  const name = pieceName(piece);
+  if (sel.src === 'new') {
+    const placed = board.place(piece);
+    state.fresh = new Set([placed.id]);
+    setStatus(`Placed the ${name}.`);
+  } else {
+    const before = board.pieces.get(sel.id);
+    const what = before.o === piece.o ? 'Moved' : before.r === piece.r && before.c === piece.c ? 'Turned' : 'Moved and turned';
+    const moved = board.move(sel.id, piece);
+    state.fresh = new Set([sel.id]);
+    setStatus(`${what} the ${name}.${moved.fallen.length ? ' The prism resting on it came out.' : ''}`);
   }
+  state.sel = null;
+  afterMove();
   render();
 }
 
-function removeAt(h) {
+function removePiece(id) {
   const board = state.build;
-  const id = h.id ?? board.pieceAt(h.r, h.c, h.fx ?? 0.5, h.fy ?? 0.5);
-  if (!id) {
-    setStatus('Nothing to remove there.', true);
-    return;
-  }
   const piece = board.pieces.get(id);
+  if (!piece) return;
   state.history.record(board);
   const removed = board.remove(id);
+  if (state.sel?.src === 'tray' && removed.includes(state.sel.id)) state.sel = null;
   afterMove();
   setStatus(removed.length > 1 ? `Removed the ${pieceName(piece)} and the prism resting on it.` : `Removed the ${pieceName(piece)}.`);
   state.hover = null;
+  render();
+}
+
+function removeSelection() {
+  if (state.sel?.src === 'tray') removePiece(state.sel.id);
+}
+
+/** Right-click (or Delete on a square): take out the piece seen there straight away. */
+function quickRemove(h) {
+  const id = h ? h.id || state.build.piecesAt(h.r, h.c, h.fx, h.fy)[0] : 0;
+  if (id) removePiece(id);
+  else setStatus('Nothing to remove there.');
+}
+
+function cancelSelection() {
+  const sel = state.sel;
+  if (!sel) return;
+  state.sel = null;
+  setStatus(sel.src === 'new' ? 'Put the piece back under the tray.' : 'Left the piece where it was.');
   render();
 }
 
@@ -572,6 +791,7 @@ function undo() {
   const board = state.history.undo(state.build);
   if (!board) return;
   state.build = board;
+  state.sel = null;
   afterMove(false);
   render();
 }
@@ -580,15 +800,21 @@ function redo() {
   const board = state.history.redo(state.build);
   if (!board) return;
   state.build = board;
+  state.sel = null;
   afterMove(false);
   render();
 }
 
+/** Turn the selection (a new piece also keeps the turn for the next one taken). */
 function changeOrientation(fn) {
-  if (!state.selected) return;
-  const type = KIND_INFO[state.selected].type;
-  state.orient[type] = fn(type, state.orient[type]);
-  state.tool = 'place';
+  const sel = state.sel;
+  if (!sel) {
+    setStatus(`${finePointer() ? 'Click' : 'Tap'} a piece in the tray, or drag one onto it, to turn it.`);
+    return;
+  }
+  const type = pieceOf(sel).type;
+  sel.o = fn(type, sel.o);
+  if (sel.src === 'new') state.orient[type] = sel.o;
   resetStatus();
   render();
 }
@@ -625,6 +851,7 @@ async function setSize(rows, cols, { ask = true } = {}) {
   state.cols = cols;
   state.sizeDraft = { rows, cols };
   state.build = new Board(rows, cols);
+  state.sel = null;
   state.history = new History();
   state.challenge = null;
   state.pattern = emptyPicture(rows, cols);
@@ -651,6 +878,7 @@ async function usePreset(id) {
   }
   state.history.record(state.build);
   state.build = Board.fromJSON(preset);
+  state.sel = null;
   state.challenge = null;
   render();
   setStatus(`Loaded ${preset.name}: each cube + prism lies as a ramp with a prism on top, so every square looks full.`);
@@ -660,6 +888,7 @@ function randomFill() {
   state.history.record(state.build);
   const pieces = randomArrangement(state.rows, state.cols, state.build.inventory, makeRng(Date.now() >>> 0), 0.5);
   state.build = loadPieces(pieces, state.rows, state.cols);
+  state.sel = null;
   afterMove();
   render();
   setStatus('Filled the tray with a random arrangement.');
@@ -670,6 +899,7 @@ async function clearBoard() {
   if (!(await confirmDialog('Take every piece out of the tray?', 'Empty tray'))) return;
   state.history.record(state.build);
   state.build = new Board(state.rows, state.cols);
+  state.sel = null;
   afterMove(false);
   render();
   setStatus('The tray is empty. Undo brings the pieces back.');
@@ -701,6 +931,7 @@ function loadCode() {
       state.history.record(state.build);
     }
     state.build = board;
+    state.sel = null;
     state.challenge = null;
     state.mode = 'build';
     render();
@@ -736,7 +967,7 @@ async function startChallenge({ target, answer, difficulty, label, rows = state.
   state.build = new Board(rows, cols);
   state.challenge = { target, answer, difficulty, label, moves: 0, solved: false, revealed: false };
   state.mode = 'build';
-  state.tool = 'place';
+  state.sel = null;
   render();
   setStatus('Fill the tray so that, seen from above, it looks like the picture.');
   // The picture sits above the tray; bring it into view (the button may be far below).
@@ -787,6 +1018,7 @@ async function revealAnswer() {
   if (!ch.solved && !(await confirmDialog('Show the answer? The pieces in the tray will be replaced.', 'Show answer'))) return;
   state.history.record(state.build);
   state.build = loadPieces(ch.answer, state.rows, state.cols);
+  state.sel = null;
   ch.revealed = true;
   ch.solved = true;
   render();
@@ -1083,13 +1315,24 @@ function onTouchStart(evt) {
 /** A secondary click: the right button, or Ctrl + click (how a Mac with one button right-clicks). */
 const isRemoveClick = (evt) => evt.button === 2 || (evt.button === 0 && evt.pointerType === 'mouse' && evt.ctrlKey);
 
-function sameTarget(a, b) {
+/** Would the board look different with the pointer at b instead of a? */
+function sameHover(a, b) {
   if (!a || !b) return a === b;
   if (a.r !== b.r || a.c !== b.c) return false;
-  if (state.tool === 'place' && state.selected) return true;
-  const idA = a.id ?? state.build.pieceAt(a.r, a.c, a.fx, a.fy);
-  const idB = b.id ?? state.build.pieceAt(b.r, b.c, b.fx, b.fy);
-  return idA === idB;
+  return state.sel?.src === 'new' || pickAt(a) === pickAt(b);
+}
+
+/** Is the pointer (at board target h) on the selected piece, or on its ghost? */
+function onSelection(h, evt) {
+  const sel = state.sel;
+  const piece = selPiece(sel);
+  if (!piece || !h) return false;
+  if (state.view === '3d') {
+    if (sel.src === 'tray' && !selChanged(sel)) return h.id === sel.id;
+    const p = svgPoint(evt);
+    return !!p && insideAny(ghostPolys3d, p.x, p.y);
+  }
+  return pieceCovers(piece, h.r, h.c, h.fx, h.fy);
 }
 
 function onPointerMove(evt) {
@@ -1104,8 +1347,22 @@ function onPointerMove(evt) {
     }
     return;
   }
-  if (!pointer.down && evt.pointerType !== 'mouse') return;
-  if (!sameTarget(h, state.hover)) {
+  if (pointer.down) {
+    if (evt.pointerId !== pointer.id) return;
+    if (!pointer.moved && Math.hypot(evt.clientX - pointer.x, evt.clientY - pointer.y) > DRAG_PX) {
+      pointer.moved = true;
+      // Dragging moves the selected piece when the press was on it, and a new piece in hand
+      // wherever the press was.
+      pointer.dragging = !!pointer.grab || state.sel?.src === 'new';
+    }
+    if (pointer.dragging && h) {
+      const g = pointer.grab ?? { dr: 0, dc: 0 };
+      if (moveSel(h.r - g.dr, h.c - g.dc)) refreshSelection();
+    }
+    return;
+  }
+  if (evt.pointerType !== 'mouse') return;
+  if (!sameHover(h, state.hover)) {
     state.hover = h;
     renderBoard();
   } else if (h) {
@@ -1130,9 +1387,9 @@ function onPointerDown(evt) {
     return;
   }
   if (right) {
-    // Right-click removes, whatever tool is on.
+    // Right-click takes the piece out straight away.
     evt.preventDefault();
-    if (h) removeAt(h);
+    quickRemove(h);
     return;
   }
   // The board is redrawn while the pointer is down, which takes away the shape it went down
@@ -1143,7 +1400,10 @@ function onPointerDown(evt) {
   pointer.id = evt.pointerId;
   pointer.x = evt.clientX;
   pointer.y = evt.clientY;
-  const changed = !sameTarget(h, state.hover);
+  pointer.moved = false;
+  pointer.dragging = false;
+  pointer.grab = onSelection(h, evt) ? { dr: h.r - state.sel.r, dc: h.c - state.sel.c } : null;
+  const changed = !sameHover(h, state.hover);
   state.hover = h;
   if (changed && evt.pointerType === 'mouse') {
     renderBoard();
@@ -1162,17 +1422,25 @@ function onPointerUp(evt) {
   pointer.down = false;
   if (state.mode === 'check') return;
   const h = pointerTarget(evt);
-  // A finger that slid across the tray was not a tap (perhaps an attempt to scroll): it does
-  // not remove what it ends on. Sliding to aim a piece before placing it still works.
-  const slid = evt.pointerType !== 'mouse' && Math.hypot(evt.clientX - pointer.x, evt.clientY - pointer.y) > 12;
-  if (h) {
-    state.hover = h;
-    if (state.tool === 'remove' || !state.selected) {
-      if (!slid) removeAt(h);
-    } else {
-      placeAt(h);
+  if (pointer.dragging) {
+    pointer.dragging = false;
+    resetStatus();
+    render();
+  } else if (!pointer.moved) {
+    // A tap (a press that slid without dragging anything does nothing).
+    if (state.sel?.src === 'new') {
+      // The new piece goes where the tap was (its cube on that square).
+      if (h && moveSel(h.r, h.c)) {
+        resetStatus();
+        render();
+      }
+    } else if (!pointer.grab || !selChanged()) {
+      // A tap on the selected piece goes on to the piece above or under it, if any; a tap on
+      // the ghost of a piece being moved does nothing.
+      tapSelect(h);
     }
   }
+  pointer.grab = null;
   if (evt.pointerType !== 'mouse') {
     state.hover = null;
     renderBoard();
@@ -1195,33 +1463,65 @@ function moveCursor(dr, dc) {
   state.hover = { r, c, fx: 0.5, fy: 0.5 };
   if (state.mode === 'check') state.hoverCell = r * state.cols + c;
   renderBoard();
+  if (state.mode === 'build' && !statusTimer) {
+    const id = pickAt(state.hover);
+    setStatus(`Row ${r + 1}, column ${c + 1}: ${id ? `${pieceName(state.build.pieces.get(id))}. Enter selects it.` : 'empty.'}`, false);
+  }
 }
 
 function onBoardKey(evt) {
   const keys = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+  const sel = state.mode === 'build' ? state.sel : null;
   if (keys[evt.key]) {
     evt.preventDefault();
-    moveCursor(...keys[evt.key]);
+    const [dr, dc] = keys[evt.key];
+    // With a piece on the tray selected, the arrows move it; otherwise they move the cursor.
+    if (selPiece(sel)) {
+      if (moveSel(sel.r + dr, sel.c + dc)) {
+        resetStatus();
+        render();
+      }
+      return;
+    }
+    moveCursor(dr, dc);
     return;
   }
   if (evt.key === 'Enter' || evt.key === ' ') {
     evt.preventDefault();
-    if (!state.hover) {
-      moveCursor(0, 0);
+    if (state.mode === 'check') {
+      if (!state.hover) moveCursor(0, 0);
+      else paintCell(state.hover.r * state.cols + state.hover.c, state.paint);
       return;
     }
-    if (state.mode === 'check') paintCell(state.hover.r * state.cols + state.hover.c, state.paint);
-    else if (state.tool === 'remove' || !state.selected) removeAt({ ...state.hover, id: null });
-    else placeAt(state.hover);
-  } else if ((evt.key === 'Delete' || evt.key === 'Backspace') && state.hover) {
+    if (sel?.src === 'new' && sel.r === null) {
+      const at = state.hover ?? { r: 0, c: 0 };
+      moveSel(at.r, at.c);
+      resetStatus();
+      render();
+    } else if (sel && (sel.src === 'new' || selChanged(sel))) {
+      placeSelection();
+    } else if (!state.hover) {
+      moveCursor(0, 0);
+    } else {
+      tapSelect(state.hover);
+    }
+  } else if (evt.key === 'Delete' || evt.key === 'Backspace') {
     evt.preventDefault();
-    if (state.mode === 'check') paintCell(state.hover.r * state.cols + state.hover.c, LOOK.ANY);
-    else removeAt({ ...state.hover, id: null });
+    if (state.mode === 'check') {
+      if (state.hover) paintCell(state.hover.r * state.cols + state.hover.c, LOOK.ANY);
+    } else if (sel?.src === 'tray') {
+      removeSelection();
+    } else if (state.hover) {
+      quickRemove(state.hover);
+    }
+  } else if (evt.key === 'Escape' && state.mode === 'build') {
+    evt.preventDefault();
+    if (state.sel) cancelSelection();
   }
 }
 
 function onGlobalKey(evt) {
-  if (!$('#modal').hidden) return;
+  if (evt.defaultPrevented || !$('#modal').hidden) return;
   if (evt.target.closest?.('input, textarea, select')) return;
   if (state.mode === 'book') {
     bookUI.onKey(evt);
@@ -1240,25 +1540,28 @@ function onGlobalKey(evt) {
     return;
   }
   if (evt.ctrlKey || evt.metaKey || evt.altKey || state.mode !== 'build') return;
+  const onButton = !!evt.target.closest?.('button, a, summary');
   if (key === 'r') turn();
   else if (key === 'f') flip();
   else if (key === 't') tip();
-  else if (['1', '2', '3', '4'].includes(key)) ACTIONS.select({ dataset: { kind: KINDS[Number(key) - 1] } });
-  else if (key === 'p') toggleRemove();
+  else if (['1', '2', '3', '4'].includes(key)) selectKind(KINDS[Number(key) - 1]);
   else if (key === 'x' && state.view !== '3d') {
     state.xray = !state.xray;
     render();
   } else if (key === 'v') toggleView();
   else if (key === 'escape') {
-    state.hover = null;
-    renderBoard();
+    if (state.sel) cancelSelection();
+    else {
+      state.hover = null;
+      renderBoard();
+    }
+  } else if (key === 'enter' && !onButton && state.sel) {
+    evt.preventDefault();
+    placeSelection();
+  } else if ((key === 'delete' || key === 'backspace') && state.sel?.src === 'tray') {
+    evt.preventDefault();
+    removeSelection();
   }
-}
-
-function toggleRemove() {
-  state.tool = state.tool === 'remove' ? 'place' : 'remove';
-  resetStatus();
-  render();
 }
 
 function toggleView() {
@@ -1268,17 +1571,83 @@ function toggleView() {
   render();
 }
 
+// ---- Dragging pieces from under the tray -------------------------------------------------
+//
+// Press on a piece under the tray and move: the piece comes along, shown on the tray where
+// it would land; let go and it stays there until Place. A plain tap picks it up instead (see
+// the "select" action) and a tap on the tray then puts it down.
+
+let dragImage = null;
+
+/** The square of the tray under a point of the screen, or null. */
+function boardTargetAt(clientX, clientY) {
+  if (state.mode !== 'build') return null;
+  const rect = $('#board').getBoundingClientRect();
+  if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+  return pointerTarget({ clientX, clientY });
+}
+
+function onDockDown(evt) {
+  const btn = evt.target.closest?.('.kind[data-kind]');
+  if (!btn || evt.button !== 0 || state.mode !== 'build') return;
+  dockDrag.pending = { id: evt.pointerId, kind: btn.dataset.kind, x: evt.clientX, y: evt.clientY, type: evt.pointerType, started: false };
+}
+
+function onDockMove(evt) {
+  const d = dockDrag.pending;
+  if (!d || evt.pointerId !== d.id) return;
+  if (!d.started) {
+    if (Math.hypot(evt.clientX - d.x, evt.clientY - d.y) < 6) return;
+    d.started = true;
+    if (state.build.remaining(d.kind) <= 0) {
+      dockDrag.pending = null;
+      setStatus(`No ${KIND_INFO[d.kind].label.toLowerCase()} left. Select one in the tray and Remove it first.`, true, 'bad');
+      return;
+    }
+    // Keep the pointer's events coming here even though the dock is not redrawn until the end.
+    $('#stageBar').setPointerCapture?.(evt.pointerId);
+    state.selected = d.kind;
+    state.sel = { src: 'new', kind: d.kind, o: state.orient[KIND_INFO[d.kind].type], r: null, c: null };
+    document.querySelectorAll('.kind').forEach((el) => el.classList.toggle('is-on', el.dataset.kind === d.kind));
+    const info = KIND_INFO[d.kind];
+    dragImage.innerHTML = pieceIcon(info.type, info.color, state.sel.o, { size: info.type === 'mix' ? 64 : 44 });
+    resetStatus();
+  }
+  evt.preventDefault();
+  // Over the tray the piece is shown in place; elsewhere it follows the pointer (above a
+  // finger, so the finger does not hide it).
+  const h = boardTargetAt(evt.clientX, evt.clientY);
+  dragImage.hidden = !!h;
+  const lift = d.type === 'mouse' ? 0 : 56;
+  dragImage.style.transform = `translate(${evt.clientX}px, ${evt.clientY - lift}px) translate(-50%, -50%)`;
+  if (moveSel(h ? h.r : null, h ? h.c : null)) refreshSelection({ bar: false });
+}
+
+function onDockUp(evt) {
+  const d = dockDrag.pending;
+  if (!d || evt.pointerId !== d.id) return;
+  dockDrag.pending = null;
+  if (!d.started) return; // a tap: the click picks the piece up
+  dockDrag.quietUntil = Date.now() + 400;
+  dragImage.hidden = true;
+  resetStatus();
+  render();
+}
+
 const ACTIONS = {
   select: (el) => {
-    state.selected = el.dataset.kind;
-    state.tool = 'place';
-    resetStatus();
-    render();
+    if (Date.now() < dockDrag.quietUntil) return; // the click that ends a drag from the dock
+    selectKind(el.dataset.kind);
   },
   orient: (el) => {
-    const type = KIND_INFO[state.selected].type;
-    state.orient[type] = Number(el.dataset.o);
-    state.tool = 'place';
+    const o = Number(el.dataset.o);
+    const sel = state.sel;
+    if (sel) {
+      sel.o = o;
+      if (sel.src === 'new') state.orient[pieceOf(sel).type] = o;
+    } else {
+      state.orient[KIND_INFO[state.selected].type] = o;
+    }
     resetStatus();
     render();
   },
@@ -1287,7 +1656,9 @@ const ACTIONS = {
   tip,
   undo,
   redo,
-  remove: toggleRemove,
+  place: placeSelection,
+  'remove-piece': removeSelection,
+  cancel: cancelSelection,
   xray: () => {
     state.xray = !state.xray;
     render();
@@ -1402,8 +1773,10 @@ export function start(hotData) {
   svg.addEventListener('pointercancel', () => {
     if (!pointer.down && !state.hover) return;
     pointer.down = false;
+    pointer.dragging = false;
+    pointer.grab = null;
     state.hover = null;
-    renderBoard();
+    render();
   });
   svg.addEventListener('pointerleave', onPointerLeave);
   svg.addEventListener('contextmenu', (evt) => evt.preventDefault());
@@ -1411,6 +1784,15 @@ export function start(hotData) {
   document.addEventListener('pointerup', () => {
     pointer.down = false;
   });
+  dragImage = document.createElement('div');
+  dragImage.className = 'drag-image';
+  dragImage.hidden = true;
+  dragImage.setAttribute('aria-hidden', 'true');
+  document.body.append(dragImage);
+  $('#stageBar').addEventListener('pointerdown', onDockDown);
+  document.addEventListener('pointermove', onDockMove, { passive: false });
+  document.addEventListener('pointerup', onDockUp);
+  document.addEventListener('pointercancel', onDockUp);
   document.addEventListener('click', onClick);
   document.addEventListener('keydown', onGlobalKey);
   document.querySelector('.tabs').addEventListener('keydown', onTabKey);
