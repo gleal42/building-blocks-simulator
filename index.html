@@ -1484,6 +1484,382 @@ kbd {
   margin-top: 6px;
 }
 
+/* ---- Packs ---------------------------------------------------------------------------- */
+
+.tab-short {
+  display: none;
+}
+
+body[data-mode="packs"] .board-wrap > svg {
+  cursor: cell;
+}
+
+.board-wrap > svg.is-locked {
+  cursor: default;
+  touch-action: pan-y;
+}
+
+.pk-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+}
+
+.pk-top p {
+  margin: 0;
+}
+
+.pk-top-pack {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.pk-top-pack small,
+.pk-top-where small {
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.pk-top-where {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.pk-top-nav {
+  display: flex;
+  gap: 6px;
+}
+
+.pk-draft-actions {
+  flex-basis: 100%;
+}
+
+.pk-draft-actions .row-buttons {
+  margin-top: 0;
+}
+
+.pk-draft-actions > p {
+  margin: 0 0 8px;
+}
+
+.pk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pk-grid.is-wide {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.pk-item,
+.ph-pick {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 18px 6px 6px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+}
+
+.pk-item.is-on,
+.ph-item.is-on .ph-pick {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+}
+
+.pk-item.is-bad,
+.ph-item.is-bad .ph-pick {
+  border-style: dashed;
+  border-color: var(--bad);
+}
+
+.pk-num {
+  position: absolute;
+  top: 3px;
+  left: 8px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pk-badge {
+  position: absolute;
+  top: 3px;
+  right: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pk-badge.ok {
+  color: var(--ok);
+}
+
+.pk-badge.bad {
+  color: var(--bad);
+}
+
+.pk-badge.warn {
+  color: var(--warn);
+}
+
+.pk-thumb svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.pk-stars {
+  min-height: 1em;
+  font-size: 11px;
+  letter-spacing: 1px;
+  line-height: 1;
+}
+
+.pk-stars.level-1 {
+  color: #2f9e57;
+}
+
+.pk-stars.level-2 {
+  color: #e0aa0b;
+}
+
+.pk-stars.level-3 {
+  color: #d5413a;
+}
+
+.pk-sel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+.hint.is-bad {
+  color: var(--bad);
+}
+
+.pk-paste {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--table);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  resize: vertical;
+}
+
+.card code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.pk-range {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.field-label output {
+  color: var(--ink);
+}
+
+.field-label small {
+  font-weight: 500;
+}
+
+/* Photo of designs */
+.photo-stage[hidden] {
+  display: none;
+}
+
+.ph-head p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.ph-head b {
+  color: var(--ink);
+}
+
+.ph-wrap {
+  border-radius: 14px;
+  overflow: hidden;
+  background: #111;
+}
+
+.ph-wrap svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(72vh, 820px);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ph-area {
+  fill: rgba(43, 85, 212, 0.1);
+  stroke: #2b55d4;
+  vector-effect: non-scaling-stroke;
+}
+
+.ph-region.is-ok .ph-area {
+  stroke: #1f9a57;
+  fill: rgba(31, 154, 87, 0.1);
+}
+
+.ph-region.is-bad .ph-area {
+  stroke: #e2412f;
+  fill: rgba(226, 65, 47, 0.12);
+}
+
+.ph-region.is-off .ph-area {
+  stroke: #9a9a9a;
+  stroke-dasharray: 6 5;
+  fill: rgba(0, 0, 0, 0.15);
+}
+
+.ph-region.is-on .ph-area {
+  stroke: #2b55d4;
+  fill: rgba(43, 85, 212, 0.16);
+}
+
+.ph-grid {
+  fill: none;
+  stroke: #2b55d4;
+  stroke-opacity: 0.75;
+}
+
+.ph-region:not(.is-on) .ph-grid {
+  stroke-opacity: 0.4;
+}
+
+.ph-unsure {
+  fill: rgba(226, 65, 47, 0.28);
+  stroke: #e2412f;
+}
+
+.ph-label rect {
+  fill: #2b55d4;
+}
+
+.ph-region.is-ok .ph-label rect {
+  fill: #1f9a57;
+}
+
+.ph-region.is-bad .ph-label rect {
+  fill: #e2412f;
+}
+
+.ph-region.is-off .ph-label rect {
+  fill: #7d7d7d;
+}
+
+.ph-label text {
+  fill: #fff;
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+.ph-handle {
+  fill: #fff;
+  fill-opacity: 0.85;
+  stroke: #2b55d4;
+  cursor: grab;
+}
+
+.ph-bar {
+  flex-basis: 100%;
+}
+
+.ph-bar .row-buttons {
+  margin-top: 10px;
+}
+
+.ph-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ph-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.ph-include {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ph-include input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.ph-note {
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.ph-item.is-bad .ph-note {
+  color: var(--bad);
+}
+
+@media (max-width: 520px) {
+  .tab-long {
+    display: none;
+  }
+
+  .tab-short {
+    display: inline;
+  }
+
+  .pk-grid {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  }
+
+  .pk-top-nav .tool span:not(.sr-only) {
+    display: none;
+  }
+}
+
 /* ---- Footer and dialog ----------------------------------------------------------------- */
 
 .foot {
@@ -1675,8 +2051,9 @@ kbd {
     </div>
     <nav class="tabs" role="tablist" aria-label="Mode">
       <button type="button" role="tab" data-tab="build" aria-selected="true">Build</button>
-      <button type="button" role="tab" data-tab="check" aria-selected="false" tabindex="-1">Check a picture</button>
-      <button type="button" role="tab" data-tab="book" aria-selected="false" tabindex="-1">Challenge book</button>
+      <button type="button" role="tab" data-tab="check" aria-selected="false" tabindex="-1"><span class="tab-long">Check a picture</span><span class="tab-short">Check</span></button>
+      <button type="button" role="tab" data-tab="packs" aria-selected="false" tabindex="-1">Packs</button>
+      <button type="button" role="tab" data-tab="book" aria-selected="false" tabindex="-1"><span class="tab-long">Challenge book</span><span class="tab-short">Book</span></button>
     </nav>
   </header>
   <main class="layout">
@@ -1692,6 +2069,7 @@ kbd {
         <svg id="board" role="application" tabindex="0" aria-label="Tray" xmlns="http://www.w3.org/2000/svg"></svg>
       </div>
       <div class="book-stage" id="bookStage" hidden></div>
+      <div class="photo-stage" id="photoStage" hidden></div>
       <p class="status" id="status" aria-live="polite"></p>
       <div class="stage-bar" id="stageBar"></div>
     </section>
@@ -2909,12 +3287,12 @@ ${xrefAt}
   }
   function facesOf(solid, toWorld) {
     const verts = solid.verts.map(toWorld);
-    const centre = verts.reduce((a, v) => [a[0] + v[0] / verts.length, a[1] + v[1] / verts.length, a[2] + v[2] / verts.length], [0, 0, 0]);
+    const centre2 = verts.reduce((a, v) => [a[0] + v[0] / verts.length, a[1] + v[1] / verts.length, a[2] + v[2] / verts.length], [0, 0, 0]);
     return solid.faces.map((f) => {
       const pts = f.map((i) => verts[i]);
       let n = norm(cross(sub(pts[1], pts[0]), sub(pts[2], pts[0])));
       const fc = pts.reduce((a, v) => [a[0] + v[0] / pts.length, a[1] + v[1] / pts.length, a[2] + v[2] / pts.length], [0, 0, 0]);
-      if (dot(n, sub(fc, centre)) < 0) n = n.map((x) => -x);
+      if (dot(n, sub(fc, centre2)) < 0) n = n.map((x) => -x);
       return { pts, normal: n, centre: fc };
     });
   }
@@ -2951,11 +3329,11 @@ ${xrefAt}
     });
   }
   function insetSolid(solid, gap, join) {
-    const centre = solid.verts.reduce((a, v) => a.map((x, i) => x + v[i] / solid.verts.length), [0, 0, 0]);
+    const centre2 = solid.verts.reduce((a, v) => a.map((x, i) => x + v[i] / solid.verts.length), [0, 0, 0]);
     const planes = solid.faces.map((f) => {
       const [p0, p1, p2] = f.map((i) => solid.verts[i]);
       let n = norm(cross(sub(p1, p0), sub(p2, p0)));
-      if (dot(n, sub(p0, centre)) < 0) n = n.map((x) => -x);
+      if (dot(n, sub(p0, centre2)) < 0) n = n.map((x) => -x);
       const stays = Math.abs(n[2]) > 0.999 || join && dot(n, join) > 0.999;
       return { n, c: dot(n, p0) - (stays ? 0 : gap) };
     });
@@ -4085,6 +4463,12 @@ ${slopes}
       return st.books[st.bookKey];
     }
     const bookTraySize = () => bookTray(currentBook());
+    function bookFor(shape, n) {
+      const st = state2();
+      const key = bookKey(shape, n);
+      if (!st.books[key]) st.books[key] = newBook(shape, n);
+      return st.books[key];
+    }
     function changed() {
       builtFor = "";
       ctx.scheduleSave();
@@ -4260,6 +4644,9 @@ ${n ? `<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book,
 <button type="button" class="icon-btn" data-action="book-down" data-index="${i}" ${i === book.challenges.length - 1 ? "disabled" : ""} title="Move down">${ICONS.down}<span class="sr-only">Move challenge ${i + 1} down</span></button>
 <button type="button" class="icon-btn" data-action="book-delete" data-index="${i}" title="Delete">${ICONS.close}<span class="sr-only">Delete challenge ${i + 1}</span></button>
 </span></li>`).join("");
+      const packs = ctx.packsFor(rows, cols);
+      const adding = ctx.addingPack();
+      const packChips = packs.map((p) => `<button type="button" class="chip" data-action="book-add-pack" data-id="${esc2(p.id)}" ${adding ? "disabled" : ""}>+ ${esc2(p.name)} <small>${p.count}</small></button>`).join("");
       const coverRow = (which, label) => {
         const custom = book.cover[which];
         const number = which === "front" ? 1 : pages.length;
@@ -4288,6 +4675,8 @@ ${custom ? `<button type="button" class="btn small" data-action="book-cover-rese
 <button type="button" class="btn small" data-action="book-add-build" ${buildFits ? "" : "disabled"} title="${buildFits ? "Add the picture of the Build tray" : `Fill a ${rows}×${cols} Build tray first`}">+ Build tray</button>
 <button type="button" class="btn small" data-action="book-add-check" ${checkFits ? "" : "disabled"} title="${checkFits ? "Add the picture from Check a picture" : `Paint a possible ${rows}×${cols} picture in Check a picture first`}">+ Checked picture</button>
 </div>
+<p class="field-label">Add a pack of designs</p>
+${packs.length ? `<div class="chips tight" role="group" aria-label="Packs">${packChips}</div><p class="hint">Adds every design of the pack that can be built and is not in the book yet. Make and change packs in the Packs tab.</p>` : `<p class="hint">No ${rows}×${cols} packs yet. Make one in the Packs tab.</p>`}
 ${book.challenges.length ? `<ol class="ch-list">${list}</ol>` : '<p class="muted">No challenges yet. Add some above; they appear in the preview as you go.</p>'}
 </section>
 <section class="card" aria-labelledby="cov-h">
@@ -4441,6 +4830,7 @@ ${coverRow("back", "Back cover")}
         addLooks(st.build.looks(), st.build.toJSON().pieces, "the Build tray picture");
       },
       "book-add-check": addFromCheck,
+      "book-add-pack": (el) => ctx.addPackToBook(el.dataset.id),
       "book-stars": (el) => {
         currentBook().challenges[Number(el.dataset.index)].difficulty = Number(el.dataset.level);
         changed();
@@ -4504,47 +4894,147 @@ ${coverRow("back", "Back cover")}
       } else if (evt.key === "Home") goTo(0);
       else if (evt.key === "End") goTo(leafCount);
     }
-    return { renderStage: renderStage2, panelMarkup, actions, attach, onKey, currentBook, bookTraySize, addFromCheck };
+    function invalidate() {
+      builtFor = "";
+      ctx.scheduleSave();
+    }
+    return { renderStage: renderStage2, panelMarkup, actions, attach, onKey, currentBook, bookTraySize, addFromCheck, bookFor, invalidate };
   }
 
-  // src/presets.js
-  var mixO = (dir, pose) => MIX_ORIENTS.find((m) => m.dir === dir && m.pose === pose).o;
-  var RAMP = 2;
-  var RIGHT = 1;
-  function brickRows(rowsFrom, rowsTo) {
-    const pieces = [];
-    for (let r = rowsFrom; r < rowsTo; r += 1) {
-      pieces.push({ type: "mix", color: "W", r, c: 0, o: mixO(E, RAMP) });
-      pieces.push({ type: "tri", color: "W", r, c: 1, o: HALF.O_E });
-      pieces.push({ type: "mix", color: "B", r, c: 3, o: mixO(W, RAMP) });
-      pieces.push({ type: "tri", color: "B", r, c: 2, o: HALF.O_W });
-    }
-    return pieces;
-  }
-  var PRESETS = Object.freeze([
+  // src/builtinpacks.js
+  var BUILT_IN_PACKS = [
     {
-      id: "photo-1",
-      name: "Photo 1 (4×4)",
+      id: "starter-4x4",
+      name: "Starter 4×4",
       rows: 4,
       cols: 4,
-      pieces: [
-        // Top row: two standing cube + prism pieces, prisms pointing left, and two loose
-        // standing prisms filling the lower-left halves.
-        { type: "mix", color: "W", r: 0, c: 1, o: mixO(W, RIGHT) },
-        { type: "tri", color: "B", r: 0, c: 0, o: HALF.U_SW },
-        { type: "mix", color: "B", r: 0, c: 3, o: mixO(W, RIGHT) },
-        { type: "tri", color: "W", r: 0, c: 2, o: HALF.U_SW },
-        ...brickRows(1, 4)
+      designs: [
+        { looks: "1121/1122/1122/1122", stars: 1 },
+        { looks: "5111/2121/2223/1122", stars: 1 },
+        { looks: "2411/2221/5122/1124", stars: 2 },
+        { looks: "2212/2432/2416/1111", stars: 2 },
+        { looks: "6512/1322/1132/2141", stars: 3 },
+        { looks: "6113/1322/2266/2411", stars: 3 }
       ]
-    },
-    {
-      id: "photo-2",
-      name: "Photo 2 (8×4)",
-      rows: 8,
-      cols: 4,
-      pieces: brickRows(0, 8)
     }
+  ];
+
+  // src/packs.js
+  var PACK_FORMAT = "building-blocks-pack";
+  var PACK_VERSION = 1;
+  var MAX_PACK_NAME = 60;
+  var PACK_SIZES = Object.freeze([
+    ...BOOK_SIZES.square.map((n) => ({ shape: "square", n, rows: n, cols: n })),
+    ...BOOK_SIZES.rect.map((n) => ({ shape: "rect", n, rows: n, cols: 2 * n }))
   ]);
+  var sizeLabel = (rows, cols) => `${rows}×${cols}`;
+  var isPackSize = (rows, cols) => PACK_SIZES.some((s) => s.rows === rows && s.cols === cols);
+  function bookShapeFor(rows, cols) {
+    const s = PACK_SIZES.find((x) => x.rows === rows && x.cols === cols);
+    return s ? { shape: s.shape, n: s.n } : null;
+  }
+  var designKey = (rows, cols, looks) => `${rows}x${cols}:${looks.join("")}`;
+  function slugify(s) {
+    return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "pack";
+  }
+  function looksToText(looks, cols) {
+    const rows = [];
+    for (let i = 0; i < looks.length; i += cols) rows.push(looks.slice(i, i + cols).join(""));
+    return rows.join("/");
+  }
+  function textToLooks(text3, rows, cols) {
+    const digits = String(text3).replace(/[\s/,|]+/g, "");
+    if (!/^[1-6]*$/.test(digits)) throw new Error("A design may only use the digits 1 to 6.");
+    if (digits.length !== rows * cols) throw new Error(`A ${sizeLabel(rows, cols)} design needs ${rows * cols} squares; this one has ${digits.length}.`);
+    return [...digits].map(Number);
+  }
+  function newPack({ id, name = "New pack", rows = 4, cols = 4 } = {}) {
+    if (!isPackSize(rows, cols)) throw new Error(`Packs can be ${PACK_SIZES.map((s) => sizeLabel(s.rows, s.cols)).join(", ")}.`);
+    return { id: id ?? `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, rows, cols, builtIn: false, designs: [] };
+  }
+  function normalizePack(raw, { builtIn = false } = {}) {
+    if (!raw || typeof raw !== "object") throw new Error("That is not a pack.");
+    const rows = Number(raw.rows);
+    const cols = Number(raw.cols);
+    if (!isPackSize(rows, cols)) {
+      throw new Error(`The pack is ${raw.rows}×${raw.cols}; packs can be ${PACK_SIZES.map((s) => sizeLabel(s.rows, s.cols)).join(", ")}.`);
+    }
+    if (!Array.isArray(raw.designs)) throw new Error("The pack has no list of designs.");
+    const designs = raw.designs.map((d, i) => {
+      let looks;
+      try {
+        looks = Array.isArray(d?.looks) ? d.looks.map(Number) : textToLooks(d?.looks ?? "", rows, cols);
+      } catch (err) {
+        throw new Error(`Design ${i + 1}: ${err.message}`);
+      }
+      if (looks.length !== rows * cols || !looks.every((l) => Number.isInteger(l) && l >= LOOK.WHITE && l <= LOOK.BACK_BW)) {
+        throw new Error(`Design ${i + 1} does not fit a ${sizeLabel(rows, cols)} tray.`);
+      }
+      const stars2 = [1, 2, 3].includes(Number(d.stars)) ? Number(d.stars) : suggestDifficulty(looks);
+      return { looks, stars: stars2 };
+    });
+    const name = typeof raw.name === "string" && raw.name.trim() ? raw.name.trim().slice(0, MAX_PACK_NAME) : "Pack";
+    const id = typeof raw.id === "string" && raw.id ? raw.id : slugify(name);
+    return { id: builtIn ? `builtin:${id}` : id, name, rows, cols, builtIn, designs };
+  }
+  var builtInPacks = () => BUILT_IN_PACKS.map((p) => normalizePack(p, { builtIn: true }));
+  function packToCode(pack) {
+    const id = pack.builtIn ? pack.id.replace(/^builtin:/, "") : slugify(pack.name);
+    const lines = pack.designs.map((d) => `    { "looks": ${JSON.stringify(looksToText(d.looks, pack.cols))}, "stars": ${d.stars} }`);
+    return `{
+  "format": "${PACK_FORMAT}",
+  "version": ${PACK_VERSION},
+  "id": ${JSON.stringify(id)},
+  "name": ${JSON.stringify(pack.name)},
+  "rows": ${pack.rows},
+  "cols": ${pack.cols},
+  "designs": [
+${lines.join(",\n")}
+  ]
+}`;
+  }
+  function parsePacks(text3) {
+    const cleaned = String(text3).replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*export\s+const\s+\w+\s*=\s*/m, "").replace(/;\s*$/, "").replace(/,\s*([\]}])/g, "$1").replace(/,\s*$/, "").trim();
+    if (!cleaned) throw new Error("There is nothing to read.");
+    let data;
+    try {
+      data = JSON.parse(cleaned);
+    } catch {
+      try {
+        data = JSON.parse(cleaned.replace(/([{,]\s*)([A-Za-z_]\w*)\s*:/g, '$1"$2":').replace(/'([^'\\]*)'/g, '"$1"'));
+      } catch {
+        throw new Error("That text is not a pack (it should look like what “Copy as code” gives).");
+      }
+    }
+    if (data && data.format && data.format !== PACK_FORMAT) throw new Error("That file is not a pack from this app.");
+    if (data && data.version > PACK_VERSION) throw new Error("That pack was saved by a newer version of the app.");
+    const list = Array.isArray(data) ? data : data?.pack ? [data.pack] : Array.isArray(data?.packs) ? data.packs : [data];
+    if (!list.length) throw new Error("There are no packs in that text.");
+    return list.map((p) => normalizePack(p));
+  }
+  function addDesigns(pack, designs) {
+    const seen = new Set(pack.designs.map((d) => d.looks.join("")));
+    let added = 0;
+    let duplicates = 0;
+    for (const d of designs) {
+      const key = d.looks.join("");
+      if (seen.has(key)) {
+        duplicates += 1;
+        continue;
+      }
+      seen.add(key);
+      pack.designs.push({ looks: d.looks.slice(), stars: [1, 2, 3].includes(d.stars) ? d.stars : suggestDifficulty(d.looks) });
+      added += 1;
+    }
+    return { added, duplicates };
+  }
+  function packFromBook(book, id) {
+    const rows = book.n;
+    const cols = book.shape === "rect" ? 2 * book.n : book.n;
+    const pack = newPack({ id, name: book.title || "From the book", rows, cols });
+    addDesigns(pack, book.challenges.map((c) => ({ looks: c.looks, stars: c.difficulty })));
+    return pack;
+  }
 
   // src/solver.js
   var WEDGE = 1;
@@ -4983,6 +5473,1470 @@ ${coverRow("back", "Back cover")}
     return [...mixes, ...loose];
   }
 
+  // src/packcheck.js
+  var BUDGET = 15e5;
+  var LONG_BUDGET = 8e6;
+  function createChecker({ workerSource = null, onResult = () => {
+  } } = {}) {
+    const results = /* @__PURE__ */ new Map();
+    const waiting = /* @__PURE__ */ new Map();
+    let queue = [];
+    let busy = null;
+    let worker2 = null;
+    let broken = !workerSource;
+    let seq = 0;
+    function getWorker2() {
+      if (worker2 || broken) return worker2;
+      try {
+        worker2 = new Worker(URL.createObjectURL(new Blob([workerSource], { type: "text/javascript" })));
+        worker2.onmessage = (event) => {
+          if (busy && event.data.id === busy.id) finish(busy, event.data.result);
+        };
+        worker2.onerror = () => {
+          broken = true;
+          worker2 = null;
+          if (busy) {
+            const job = busy;
+            busy = null;
+            queue.unshift(job);
+            setTimeout(pump, 0);
+          }
+        };
+      } catch {
+        broken = true;
+        worker2 = null;
+      }
+      return worker2;
+    }
+    function finish(job, result) {
+      busy = null;
+      if (result.status === "unknown" && job.budget < LONG_BUDGET) {
+        queue.push({ ...job, budget: LONG_BUDGET });
+      } else {
+        const kept = result.status === "possible" ? { status: "possible", pieces: result.pieces } : { status: result.status, reason: result.reason };
+        results.set(job.key, kept);
+        for (const resolve of waiting.get(job.key) ?? []) resolve(kept);
+        waiting.delete(job.key);
+        onResult(job.key, kept);
+      }
+      setTimeout(pump, 0);
+    }
+    function pump() {
+      if (busy || !queue.length) return;
+      const job = queue.shift();
+      if (results.has(job.key)) {
+        setTimeout(pump, 0);
+        return;
+      }
+      seq += 1;
+      busy = { ...job, id: seq };
+      const w = getWorker2();
+      if (w) {
+        w.postMessage({ id: busy.id, rows: job.rows, cols: job.cols, looks: job.looks, inventory: defaultInventory(job.rows, job.cols), maxNodes: job.budget });
+      } else {
+        const current = busy;
+        setTimeout(() => {
+          let result;
+          try {
+            result = solvePattern(job.rows, job.cols, job.looks, defaultInventory(job.rows, job.cols), { maxNodes: job.budget });
+          } catch (err) {
+            result = { status: "unknown", reason: err.message };
+          }
+          if (busy === current) finish(current, result);
+        }, 10);
+      }
+    }
+    function get(rows, cols, looks) {
+      return results.get(designKey(rows, cols, looks));
+    }
+    function check(rows, cols, looks, { first = false } = {}) {
+      const key = designKey(rows, cols, looks);
+      if (results.has(key)) return Promise.resolve(results.get(key));
+      const promise = new Promise((resolve) => {
+        if (!waiting.has(key)) waiting.set(key, []);
+        waiting.get(key).push(resolve);
+      });
+      const queued = queue.findIndex((j) => j.key === key);
+      if (busy?.key !== key) {
+        const job = queued >= 0 ? queue.splice(queued, 1)[0] : { key, rows, cols, looks: looks.slice(), budget: BUDGET };
+        if (first) queue.unshift(job);
+        else queue.push(job);
+      }
+      pump();
+      return promise;
+    }
+    function drop(rows, cols, looks) {
+      const key = designKey(rows, cols, looks);
+      queue = queue.filter((j) => j.key !== key);
+      waiting.delete(key);
+    }
+    return { get, check, drop, pending: () => queue.length + (busy ? 1 : 0) };
+  }
+
+  // src/photo.js
+  function toGray(rgba, width, height) {
+    const data = new Uint8Array(width * height);
+    for (let i = 0, j = 0; i < data.length; i += 1, j += 4) {
+      data[i] = (rgba[j] * 299 + rgba[j + 1] * 587 + rgba[j + 2] * 114) / 1e3;
+    }
+    return { width, height, data };
+  }
+  function otsu(img) {
+    const hist = new Float64Array(256);
+    for (const v of img.data) hist[v] += 1;
+    const total = img.data.length;
+    let sum = 0;
+    for (let i = 0; i < 256; i += 1) sum += i * hist[i];
+    let sumB = 0;
+    let wB = 0;
+    let best = 0;
+    let threshold = 128;
+    for (let t = 0; t < 256; t += 1) {
+      wB += hist[t];
+      if (!wB) continue;
+      const wF = total - wB;
+      if (!wF) break;
+      sumB += t * hist[t];
+      const mB = sumB / wB;
+      const mF = (sum - sumB) / wF;
+      const between = wB * wF * (mB - mF) ** 2;
+      if (between > best) {
+        best = between;
+        threshold = t + 0.5;
+      }
+    }
+    return Math.round(threshold);
+  }
+  function squareToQuad(quad) {
+    const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = quad;
+    const dx1 = x1 - x2;
+    const dx2 = x3 - x2;
+    const dx3 = x0 - x1 + x2 - x3;
+    const dy1 = y1 - y2;
+    const dy2 = y3 - y2;
+    const dy3 = y0 - y1 + y2 - y3;
+    const den = dx1 * dy2 - dx2 * dy1;
+    const g = Math.abs(den) < 1e-9 ? 0 : (dx3 * dy2 - dx2 * dy3) / den;
+    const h = Math.abs(den) < 1e-9 ? 0 : (dx1 * dy3 - dx3 * dy1) / den;
+    const a = x1 - x0 + g * x1;
+    const b = x3 - x0 + h * x3;
+    const d = y1 - y0 + g * y1;
+    const e = y3 - y0 + h * y3;
+    return (u, v) => {
+      const w = g * u + h * v + 1;
+      return [(a * u + b * v + x0) / w, (d * u + e * v + y0) / w];
+    };
+  }
+  function sample(img, x, y) {
+    const { width, height, data } = img;
+    const fx = Math.min(width - 1.001, Math.max(0, x - 0.5));
+    const fy = Math.min(height - 1.001, Math.max(0, y - 0.5));
+    const x0 = Math.floor(fx);
+    const y0 = Math.floor(fy);
+    const tx = fx - x0;
+    const ty = fy - y0;
+    const i = y0 * width + x0;
+    const top = data[i] * (1 - tx) + data[i + 1] * tx;
+    const bottom = data[i + width] * (1 - tx) + data[i + width + 1] * tx;
+    return top * (1 - ty) + bottom * ty;
+  }
+  var PROTOTYPES = [
+    [LOOK.WHITE, [0, 0, 0, 0]],
+    [LOOK.BLACK, [1, 1, 1, 1]],
+    [LOOK.SLASH_WB, [0, 1, 1, 0]],
+    [LOOK.SLASH_BW, [1, 0, 0, 1]],
+    [LOOK.BACK_WB, [0, 0, 1, 1]],
+    [LOOK.BACK_BW, [1, 1, 0, 0]]
+  ];
+  var SAMPLES = (() => {
+    const groups = [[], [], [], []];
+    const n = 11;
+    for (let i = 0; i < n; i += 1) {
+      for (let j = 0; j < n; j += 1) {
+        const fx = (i + 0.5) / n;
+        const fy = (j + 0.5) / n;
+        if (fx < 0.13 || fx > 0.87 || fy < 0.13 || fy > 0.87) continue;
+        if (Math.abs(fx - fy) < 0.08 || Math.abs(fx + fy - 1) < 0.08) continue;
+        const above = fy < fx;
+        const aboveSlash = fx + fy < 1;
+        const t = above && aboveSlash ? 0 : above ? 1 : !aboveSlash ? 2 : 3;
+        groups[t].push([fx, fy]);
+      }
+    }
+    return groups;
+  })();
+  function classifySquare(dark) {
+    const scored = PROTOTYPES.map(([look, p]) => [look, p.reduce((s, v, k) => s + (v - dark[k]) ** 2, 0)]).sort((a, b) => a[1] - b[1]);
+    return { look: scored[0][0], margin: scored[1][1] - scored[0][1] };
+  }
+  function readPattern(img, quad, rows, cols, threshold) {
+    const map = squareToQuad(quad);
+    const soft = 18;
+    const looks = [];
+    const unsure = [];
+    for (let r = 0; r < rows; r += 1) {
+      for (let c = 0; c < cols; c += 1) {
+        const dark = SAMPLES.map((group) => {
+          let s = 0;
+          for (const [fx, fy] of group) {
+            const [x, y] = map((c + fx) / cols, (r + fy) / rows);
+            s += Math.min(1, Math.max(0, (threshold + soft - sample(img, x, y)) / (2 * soft)));
+          }
+          return s / group.length;
+        });
+        const { look, margin } = classifySquare(dark);
+        looks.push(look);
+        unsure.push(margin < 1);
+      }
+    }
+    return { looks, unsure };
+  }
+  function dilate(mask, width, height, r) {
+    if (r <= 0) return mask;
+    const tmp = new Uint8Array(mask.length);
+    const out = new Uint8Array(mask.length);
+    for (let y = 0; y < height; y += 1) {
+      const row = y * width;
+      let count = 0;
+      for (let x = 0; x < Math.min(r, width); x += 1) count += mask[row + x];
+      for (let x = 0; x < width; x += 1) {
+        if (x + r < width) count += mask[row + x + r];
+        if (x - r - 1 >= 0) count -= mask[row + x - r - 1];
+        tmp[row + x] = count > 0 ? 1 : 0;
+      }
+    }
+    for (let x = 0; x < width; x += 1) {
+      let count = 0;
+      for (let y = 0; y < Math.min(r, height); y += 1) count += tmp[y * width + x];
+      for (let y = 0; y < height; y += 1) {
+        if (y + r < height) count += tmp[(y + r) * width + x];
+        if (y - r - 1 >= 0) count -= tmp[(y - r - 1) * width + x];
+        out[y * width + x] = count > 0 ? 1 : 0;
+      }
+    }
+    return out;
+  }
+  function emptyBox() {
+    return { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity, ink: 0, sMin: Infinity, sMax: -Infinity, dMin: Infinity, dMax: -Infinity, tl: null, br: null, tr: null, bl: null };
+  }
+  function addPoint(box, x, y) {
+    box.ink += 1;
+    if (x < box.x0) box.x0 = x;
+    if (x > box.x1) box.x1 = x;
+    if (y < box.y0) box.y0 = y;
+    if (y > box.y1) box.y1 = y;
+    const s = x + y;
+    const d = x - y;
+    if (s < box.sMin) {
+      box.sMin = s;
+      box.tl = [x, y];
+    }
+    if (s > box.sMax) {
+      box.sMax = s;
+      box.br = [x + 1, y + 1];
+    }
+    if (d > box.dMax) {
+      box.dMax = d;
+      box.tr = [x + 1, y];
+    }
+    if (d < box.dMin) {
+      box.dMin = d;
+      box.bl = [x, y + 1];
+    }
+  }
+  function mergeBoxes(a, b) {
+    const m = emptyBox();
+    m.x0 = Math.min(a.x0, b.x0);
+    m.y0 = Math.min(a.y0, b.y0);
+    m.x1 = Math.max(a.x1, b.x1);
+    m.y1 = Math.max(a.y1, b.y1);
+    m.ink = a.ink + b.ink;
+    for (const [key, keep, lo] of [["sMin", "tl", true], ["sMax", "br", false], ["dMax", "tr", false], ["dMin", "bl", true]]) {
+      const pick = lo ? a[key] <= b[key] ? a : b : a[key] >= b[key] ? a : b;
+      m[key] = pick[key];
+      m[keep] = pick[keep];
+    }
+    return m;
+  }
+  var boxW = (b) => b.x1 - b.x0 + 1;
+  var boxH = (b) => b.y1 - b.y0 + 1;
+  var gapBetween = (a, b) => Math.max(0, Math.max(a.x0, b.x0) - Math.min(a.x1, b.x1) - 1, Math.max(a.y0, b.y0) - Math.min(a.y1, b.y1) - 1);
+  var shapeOff = (w, h, rows, cols) => {
+    const ratio = w / h / (cols / rows);
+    return ratio >= 1 ? ratio : 1 / ratio;
+  };
+  function findPatterns(img, { rows, cols, threshold = otsu(img) } = {}) {
+    const { width, height, data } = img;
+    const n = width * height;
+    const ink = new Uint8Array(n);
+    for (let i = 0; i < n; i += 1) ink[i] = data[i] < threshold ? 1 : 0;
+    const grow = Math.max(1, Math.round(Math.max(width, height) * 3e-3));
+    const joined = dilate(ink, width, height, grow);
+    const label = new Int32Array(n).fill(-1);
+    const boxes = [];
+    const stack = new Int32Array(n);
+    for (let start2 = 0; start2 < n; start2 += 1) {
+      if (!joined[start2] || label[start2] >= 0) continue;
+      const id = boxes.length;
+      const box = emptyBox();
+      let top = 0;
+      stack[top++] = start2;
+      label[start2] = id;
+      while (top) {
+        const i = stack[--top];
+        const x = i % width;
+        const y = (i - x) / width;
+        if (ink[i]) addPoint(box, x, y);
+        if (x > 0 && joined[i - 1] && label[i - 1] < 0) {
+          label[i - 1] = id;
+          stack[top++] = i - 1;
+        }
+        if (x < width - 1 && joined[i + 1] && label[i + 1] < 0) {
+          label[i + 1] = id;
+          stack[top++] = i + 1;
+        }
+        if (y > 0 && joined[i - width] && label[i - width] < 0) {
+          label[i - width] = id;
+          stack[top++] = i - width;
+        }
+        if (y < height - 1 && joined[i + width] && label[i + width] < 0) {
+          label[i + width] = id;
+          stack[top++] = i + width;
+        }
+      }
+      if (box.ink) boxes.push(box);
+    }
+    const minSide = Math.min(width, height);
+    let parts = boxes.filter((b) => Math.max(boxW(b), boxH(b)) >= minSide * 0.012);
+    parts = parts.filter((b) => !((b.x0 === 0 || b.y0 === 0 || b.x1 === width - 1 || b.y1 === height - 1) && boxW(b) * boxH(b) > n * 0.2));
+    const cellOf = (b) => Math.max(boxW(b) / cols, boxH(b) / rows);
+    const cell = parts.reduce((m, b) => Math.max(m, cellOf(b)), 0);
+    if (!cell) return [];
+    for (const b of parts) {
+      b.complete = shapeOff(boxW(b), boxH(b), rows, cols) < 1.3 && cellOf(b) >= cell * 0.8 && isConvex([b.tl, b.tr, b.br, b.bl]) && edgesInked([b.tl, b.tr, b.br, b.bl], ink, width);
+    }
+    for (; ; ) {
+      let best = null;
+      for (let i = 0; i < parts.length; i += 1) {
+        for (let j = i + 1; j < parts.length; j += 1) {
+          const a = parts[i];
+          const b = parts[j];
+          if (a.complete || b.complete) continue;
+          const gap = gapBetween(a, b);
+          if (gap > cell * 1.2) continue;
+          const w = Math.max(a.x1, b.x1) - Math.min(a.x0, b.x0) + 1;
+          const h = Math.max(a.y1, b.y1) - Math.min(a.y0, b.y0) + 1;
+          if (w > cols * cell * 1.12 || h > rows * cell * 1.12) continue;
+          if (!best || gap < best.gap) best = { i, j, gap };
+        }
+      }
+      if (!best) break;
+      const merged = mergeBoxes(parts[best.i], parts[best.j]);
+      parts = parts.filter((_, k) => k !== best.i && k !== best.j);
+      parts.push(merged);
+    }
+    const candidates = [];
+    for (const b of parts) {
+      if (cellOf(b) < cell * 0.55 || Math.max(boxW(b), boxH(b)) < minSide * 0.04) continue;
+      if (shapeOff(boxW(b), boxH(b), rows, cols) < 1.3) candidates.push({ b, quad: quadOf(b, ink, width), widened: false });
+      else if (boxW(b) <= cols * cell * 1.12 && boxH(b) <= rows * cell * 1.12) candidates.push({ b, quad: widen(quadOf(b, ink, width), b, cols * cell, rows * cell), widened: true });
+    }
+    candidates.sort((p, q) => q.b.ink - p.b.ink);
+    const kept = [];
+    for (const cand of candidates) {
+      const [cx, cy] = centre(cand.quad);
+      if (kept.some((k) => insideQuad(k.quad, cx, cy))) continue;
+      kept.push(cand);
+    }
+    const found = kept.slice(0, 60).map((k) => {
+      const xs = k.quad.map((p) => p[0]);
+      const ys = k.quad.map((p) => p[1]);
+      return { quad: k.quad, widened: k.widened, x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+    });
+    for (const f of found.filter((x) => x.widened)) {
+      const span = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / Math.min(a1 - a0, b1 - b0);
+      const sure = found.filter((x) => !x.widened);
+      const beside = sure.find((x) => span(x.y0, x.y1, f.y0, f.y1) > 0.5 && Math.abs(x.y1 - x.y0 - (f.y1 - f.y0)) < (f.y1 - f.y0) * 0.2);
+      const above = sure.find((x) => span(x.x0, x.x1, f.x0, f.x1) > 0.5 && Math.abs(x.x1 - x.x0 - (f.x1 - f.x0)) < (f.x1 - f.x0) * 0.2);
+      if (beside) [f.y0, f.y1] = [beside.y0, beside.y1];
+      if (above) [f.x0, f.x1] = [above.x0, above.x1];
+      if (beside || above) f.quad = [[f.x0, f.y0], [f.x1, f.y0], [f.x1, f.y1], [f.x0, f.y1]];
+    }
+    found.sort((a, b) => a.y0 + a.y1 - (b.y0 + b.y1));
+    const lines = [];
+    for (const b of found) {
+      const mid = (b.y0 + b.y1) / 2;
+      const line = lines.find((l) => Math.abs(l.mid - mid) < boxH(b) * 0.5);
+      if (line) line.items.push(b);
+      else lines.push({ mid, items: [b] });
+    }
+    return lines.flatMap((l) => l.items.sort((a, b) => a.x0 - b.x0)).map((f) => f.quad);
+  }
+  var centre = (quad) => [quad.reduce((s, p) => s + p[0], 0) / 4, quad.reduce((s, p) => s + p[1], 0) / 4];
+  function insideQuad(quad, x, y) {
+    let sign = 0;
+    for (let i = 0; i < 4; i += 1) {
+      const [ax, ay] = quad[i];
+      const [bx, by] = quad[(i + 1) % 4];
+      const z = (bx - ax) * (y - ay) - (by - ay) * (x - ax);
+      if (Math.abs(z) < 1e-9) continue;
+      if (!sign) sign = Math.sign(z);
+      else if (Math.sign(z) !== sign) return false;
+    }
+    return true;
+  }
+  function widen(quad, b, w, h) {
+    const [cx, cy] = centre(quad);
+    const sx = Math.max(1, w / boxW(b));
+    const sy = Math.max(1, h / boxH(b));
+    return quad.map(([x, y]) => [cx + (x - cx) * sx, cy + (y - cy) * sy]);
+  }
+  function quadOf(b, ink, width) {
+    const quad = [b.tl, b.tr, b.br, b.bl];
+    const box = [[b.x0, b.y0], [b.x1 + 1, b.y0], [b.x1 + 1, b.y1 + 1], [b.x0, b.y1 + 1]];
+    if (!isConvex(quad)) return box;
+    return edgesInked(quad, ink, width) ? quad.map(([x, y]) => [x, y]) : box;
+  }
+  function edgesInked(quad, ink, width) {
+    const height = ink.length / width;
+    const [cx, cy] = centre(quad);
+    const inkNear = (x, y) => {
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          const xi = Math.round(x) + dx;
+          const yi = Math.round(y) + dy;
+          if (xi >= 0 && yi >= 0 && xi < width && yi < height && ink[yi * width + xi]) return true;
+        }
+      }
+      return false;
+    };
+    for (let i = 0; i < 4; i += 1) {
+      const [ax, ay] = quad[i];
+      const [bx, by] = quad[(i + 1) % 4];
+      let hits = 0;
+      const n = 40;
+      for (let k = 0; k < n; k += 1) {
+        const t = 0.05 + 0.9 * (k + 0.5) / n;
+        const x = ax + (bx - ax) * t;
+        const y = ay + (by - ay) * t;
+        if ([0, 8e-3, 0.016, 0.025].some((f) => inkNear(x + (cx - x) * f, y + (cy - y) * f))) hits += 1;
+      }
+      if (hits < n * 0.85) return false;
+    }
+    return true;
+  }
+  function isConvex(quad) {
+    let sign = 0;
+    for (let i = 0; i < 4; i += 1) {
+      const [ax, ay] = quad[i];
+      const [bx, by] = quad[(i + 1) % 4];
+      const [cx, cy] = quad[(i + 2) % 4];
+      const z = (bx - ax) * (cy - by) - (by - ay) * (cx - bx);
+      if (Math.abs(z) < 1e-6) return false;
+      if (!sign) sign = Math.sign(z);
+      else if (Math.sign(z) !== sign) return false;
+    }
+    return true;
+  }
+  function defaultQuad(width, height, rows, cols) {
+    const s = Math.min(width * 0.5 / cols, height * 0.5 / rows);
+    const w = s * cols;
+    const h = s * rows;
+    const x = (width - w) / 2;
+    const y = (height - h) / 2;
+    return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+  }
+
+  // src/packui.js
+  var esc3 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  var plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  var PHOTO_MAX = 1400;
+  async function loadPhoto(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      const scale = Math.min(1, PHOTO_MAX / Math.max(img.naturalWidth, img.naturalHeight));
+      const width = Math.max(1, Math.round(img.naturalWidth * scale));
+      const height = Math.max(1, Math.round(img.naturalHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const g = canvas.getContext("2d", { willReadFrequently: true });
+      g.fillStyle = "#ffffff";
+      g.fillRect(0, 0, width, height);
+      g.drawImage(img, 0, 0, width, height);
+      const gray = toGray(g.getImageData(0, 0, width, height).data, width, height);
+      return { src: canvas.toDataURL("image/jpeg", 0.85), gray, width, height };
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  function createPackUI(ctx) {
+    const state2 = () => ctx.getState();
+    const BUILT_IN = builtInPacks();
+    let photo = null;
+    let photoDrag = null;
+    let refreshTimer = 0;
+    let thresholdTimer = 0;
+    let addingToBook = false;
+    const checker = createChecker({
+      workerSource: ctx.workerSource,
+      onResult: () => {
+        clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(refreshAfterCheck, 120);
+      }
+    });
+    const allPacks = () => [...BUILT_IN, ...state2().packs];
+    function currentPack() {
+      const st = state2();
+      let pack = allPacks().find((p) => p.id === st.packId);
+      if (!pack) {
+        pack = allPacks()[0];
+        st.packId = pack.id;
+        st.packIndex = pack.designs.length ? 0 : -1;
+      }
+      return pack;
+    }
+    const editable = (pack = currentPack()) => !pack.builtIn;
+    function emptyLooks(pack) {
+      return new Array(pack.rows * pack.cols).fill(LOOK.ANY);
+    }
+    function draft() {
+      const st = state2();
+      const pack = currentPack();
+      if (st.packIndex >= pack.designs.length) st.packIndex = pack.designs.length - 1;
+      const d = st.packDraft;
+      if (!d || d.packId !== pack.id || d.index !== st.packIndex || d.looks.length !== pack.rows * pack.cols) {
+        const saved = pack.designs[st.packIndex];
+        st.packDraft = { packId: pack.id, index: st.packIndex, looks: saved ? saved.looks.slice() : emptyLooks(pack) };
+      }
+      return st.packDraft;
+    }
+    function isDirty() {
+      const pack = currentPack();
+      const d = draft();
+      const saved = pack.designs[d.index];
+      if (!saved) return d.looks.some((l) => l !== LOOK.ANY);
+      return d.looks.join("") !== saved.looks.join("");
+    }
+    async function leaveDraft() {
+      if (!editable() || !isDirty()) return true;
+      return ctx.confirmDialog("The design in the tray has changes that are not saved. Drop them?", "Drop changes");
+    }
+    function changed() {
+      ctx.scheduleSave();
+      ctx.render();
+    }
+    function statusOf(rows, cols, looks, { first = false } = {}) {
+      if (looks.some((l) => l === LOOK.ANY)) return { status: "incomplete" };
+      const known = checker.get(rows, cols, looks);
+      if (known) return known;
+      const quick = quickCheck(rows, cols, looks, defaultInventory(rows, cols));
+      if (!quick.ok) return { status: "impossible", reason: quick.reason };
+      checker.check(rows, cols, looks, { first });
+      return { status: "pending" };
+    }
+    let lastDraftAsk = null;
+    function draftStatus() {
+      const pack = currentPack();
+      const d = draft();
+      if (lastDraftAsk && lastDraftAsk !== d.looks.join("")) {
+        checker.drop(pack.rows, pack.cols, [...lastDraftAsk].map(Number));
+      }
+      lastDraftAsk = d.looks.join("");
+      return statusOf(pack.rows, pack.cols, d.looks, { first: true });
+    }
+    function refreshAfterCheck() {
+      const st = state2();
+      if (st.mode === "packs") {
+        if (st.packView === "photo" && photo) {
+          redrawPhoto();
+          renderPhotoBar();
+        } else {
+          updateDraftBar();
+        }
+        ctx.renderPanel();
+      } else if (st.mode === "book") {
+        ctx.renderPanel();
+      }
+    }
+    function badge(s) {
+      switch (s.status) {
+        case "possible":
+          return '<span class="pk-badge ok" title="Can be built">✓</span>';
+        case "impossible":
+          return `<span class="pk-badge bad" title="${esc3(s.reason ?? "Cannot be built")}">✗</span>`;
+        case "unknown":
+          return '<span class="pk-badge warn" title="Could not decide">?</span>';
+        case "incomplete":
+          return '<span class="pk-badge warn" title="Not every square is painted">…</span>';
+        default:
+          return '<span class="pk-badge" title="Checking">…</span>';
+      }
+    }
+    function resultMarkup(s) {
+      switch (s.status) {
+        case "possible":
+          return '<div class="result is-possible"><span class="pill ok">Possible</span><p>The pieces can build this design.</p></div>';
+        case "impossible":
+          return `<div class="result is-impossible"><span class="pill bad">Impossible</span><p>${esc3(s.reason ?? "The pieces cannot build this design.")}</p></div>`;
+        case "unknown":
+          return `<div class="result is-unknown"><span class="pill warn">Couldn't decide</span><p>${esc3(s.reason ?? "")}</p></div>`;
+        case "incomplete":
+          return '<div class="result"><p class="muted">Paint every square. The design is checked as you paint.</p></div>';
+        default:
+          return '<div class="result is-running"><span class="spinner" aria-hidden="true"></span><p>Checking every way to place the pieces…</p></div>';
+      }
+    }
+    const showingPhoto = () => state2().packView === "photo" && !!photo;
+    function paintGrid() {
+      if (showingPhoto()) return null;
+      const pack = currentPack();
+      const d = draft();
+      return {
+        rows: pack.rows,
+        cols: pack.cols,
+        looks: d.looks,
+        editable: editable(pack),
+        paint(index, look) {
+          if (!editable(pack) || index < 0 || d.looks[index] === look) return;
+          d.looks[index] = look;
+          ctx.renderBoard();
+          updateDraftBar();
+          ctx.scheduleSave();
+        }
+      };
+    }
+    function stageTopMarkup() {
+      if (showingPhoto()) return "";
+      const st = state2();
+      const pack = currentPack();
+      const n = pack.designs.length;
+      const i = st.packIndex;
+      const where = i < 0 ? `New design <small>(not in the pack yet)</small>` : `Design ${i + 1} of ${n}`;
+      return `<div class="pk-top">
+<div><p class="pk-top-pack">${esc3(pack.name)} <small>${sizeLabel(pack.rows, pack.cols)}${pack.builtIn ? " · comes with the app" : ""}</small></p><p class="pk-top-where">${where}</p></div>
+<div class="pk-top-nav">
+<button type="button" class="tool" data-action="design-prev" ${i <= 0 ? "disabled" : ""} title="Previous design">${ICONS.prev}<span class="sr-only">Previous design</span></button>
+<button type="button" class="tool" data-action="design-next" ${i < 0 || i >= n - 1 ? "disabled" : ""} title="Next design">${ICONS.next}<span class="sr-only">Next design</span></button>
+${editable(pack) ? `<button type="button" class="tool" data-action="design-new" ${i < 0 ? "disabled" : ""} title="Paint a new design">${ICONS.board}<span>New</span></button>` : ""}
+</div></div>`;
+    }
+    function draftActionsMarkup() {
+      const pack = currentPack();
+      const st = state2();
+      const d = draft();
+      if (!editable(pack)) {
+        return `<p class="muted">This pack comes with the app, so it cannot be changed here. Make a copy to change it.</p>
+<div class="row-buttons"><button type="button" class="btn small primary" data-action="pack-copy">${ICONS.copy}Make a copy to edit</button>
+${d.index >= 0 ? `<button type="button" class="btn small" data-action="design-play">${ICONS.play}Play in Build</button>` : ""}</div>`;
+      }
+      const s = draftStatus();
+      const dirty = isDirty();
+      const canSave = dirty && (s.status === "possible" || s.status === "unknown");
+      const isNew = st.packIndex < 0;
+      const why = !dirty ? "" : s.status === "impossible" ? "Only designs that can be built are saved. " : s.status === "incomplete" ? "Paint every square to save. " : s.status === "pending" ? "Wait for the check to finish. " : "";
+      return `<div class="row-buttons">
+<button type="button" class="btn small primary" data-action="draft-save" ${canSave ? "" : "disabled"}>${ICONS.check}${isNew ? "Add to the pack" : "Save changes"}</button>
+<button type="button" class="btn small" data-action="draft-revert" ${dirty ? "" : "disabled"}>${ICONS.undo}${isNew ? "Clear" : "Undo changes"}</button>
+${isNew ? "" : `<button type="button" class="btn small" data-action="design-play" ${dirty ? "disabled" : ""}>${ICONS.play}Play in Build</button>`}
+</div>${why ? `<p class="hint">${why}</p>` : ""}`;
+    }
+    function stageBarMarkup() {
+      if (showingPhoto()) return photoBarMarkup();
+      const pack = currentPack();
+      const fine = typeof matchMedia === "function" && matchMedia("(pointer: fine)").matches;
+      const paint = editable(pack) ? `${ctx.paletteMarkup()}<p class="hint">${fine ? "<b>Left-click</b> paints a square, <b>right-click</b> erases it. Drag to paint several." : "Tap or drag to paint. Choose <b>Erase</b> to clear squares."}</p>` : "";
+      return `<div class="check-result" id="packResult" aria-live="polite">${resultMarkup(draftStatus())}</div>
+<div class="pk-draft-actions" id="packDraftActions">${draftActionsMarkup()}</div>
+${paint}`;
+    }
+    function updateDraftBar() {
+      if (state2().mode !== "packs" || showingPhoto()) return;
+      const box = document.getElementById("packResult");
+      if (box) box.innerHTML = resultMarkup(draftStatus());
+      const actions2 = document.getElementById("packDraftActions");
+      if (actions2) actions2.innerHTML = draftActionsMarkup();
+    }
+    function packsCard() {
+      const st = state2();
+      const pack = currentPack();
+      const chip = (p) => `<button type="button" class="chip${p.id === pack.id ? " is-on" : ""}" data-action="pack-select" data-id="${esc3(p.id)}" aria-pressed="${p.id === pack.id}">${esc3(p.name)} <small>${sizeLabel(p.rows, p.cols)} · ${p.designs.length}</small></button>`;
+      const mine = st.packs.map(chip).join("");
+      const sizes = PACK_SIZES.map((s) => `<button type="button" class="chip" data-action="pack-new" data-rows="${s.rows}" data-cols="${s.cols}">+ ${sizeLabel(s.rows, s.cols)}</button>`).join("");
+      const book = ctx.currentBook();
+      return `<section class="card" aria-labelledby="packs-h">
+<h2 id="packs-h">Packs</h2>
+<p class="field-label">Yours</p>
+${mine ? `<div class="chips tight" role="group" aria-label="Your packs">${mine}</div>` : '<p class="muted">None yet. Start one below, copy one that comes with the app, or read one from a photo.</p>'}
+<p class="field-label">Come with the app</p>
+<div class="chips tight" role="group" aria-label="Packs that come with the app">${BUILT_IN.map(chip).join("")}</div>
+<p class="field-label">Start a new pack (tray size)</p>
+<div class="chips tight" role="group" aria-label="New pack">${sizes}</div>
+<div class="row-buttons"><button type="button" class="btn small" data-action="pack-from-book" ${book.challenges.length ? "" : "disabled"}>${ICONS.book}New pack from the book “${esc3(book.title)}”</button></div>
+</section>`;
+    }
+    function designsCard() {
+      const st = state2();
+      const pack = currentPack();
+      const canEdit = editable(pack);
+      const thumbCell = Math.max(5, Math.round(64 / Math.max(pack.rows, pack.cols)));
+      const items = pack.designs.map((d, i2) => {
+        const s = statusOf(pack.rows, pack.cols, d.looks);
+        const on = i2 === st.packIndex;
+        return `<li><button type="button" class="pk-item${on ? " is-on" : ""}${s.status === "impossible" ? " is-bad" : ""}" data-action="design-select" data-index="${i2}" aria-pressed="${on}" aria-label="Design ${i2 + 1}">
+<span class="pk-num">${i2 + 1}</span>${badge(s)}<span class="pk-thumb">${flatPicture(pack.rows, pack.cols, d.looks, { cell: thumbCell, gap: 1 })}</span>
+<span class="pk-stars level-${d.stars}" aria-hidden="true">${"★".repeat(d.stars)}</span></button></li>`;
+      }).join("");
+      const sel = pack.designs[st.packIndex];
+      const i = st.packIndex;
+      const bad = pack.designs.filter((d) => statusOf(pack.rows, pack.cols, d.looks).status === "impossible").length;
+      const buildFits = ctx.buildFits(pack.rows, pack.cols);
+      const selTools = sel ? `<div class="pk-sel">
+<span class="ch-stars" role="group" aria-label="Difficulty of design ${i + 1}">${[1, 2, 3].map((level) => `<button type="button" class="star-btn level-${sel.stars}${level <= sel.stars ? " on" : ""}" data-action="design-stars" data-level="${level}" aria-label="${DIFFICULTY[level].name}" aria-pressed="${level === sel.stars}" ${canEdit ? "" : "disabled"}>★</button>`).join("")}</span>
+${canEdit ? `<span class="ch-actions">
+<button type="button" class="icon-btn" data-action="design-up" ${i === 0 ? "disabled" : ""} title="Move earlier">${ICONS.prev}<span class="sr-only">Move design ${i + 1} earlier</span></button>
+<button type="button" class="icon-btn" data-action="design-down" ${i === pack.designs.length - 1 ? "disabled" : ""} title="Move later">${ICONS.next}<span class="sr-only">Move design ${i + 1} later</span></button>
+<button type="button" class="icon-btn" data-action="design-copy" title="Duplicate">${ICONS.copy}<span class="sr-only">Duplicate design ${i + 1}</span></button>
+<button type="button" class="icon-btn" data-action="design-delete" title="Delete">${ICONS.trash}<span class="sr-only">Delete design ${i + 1}</span></button>
+</span>` : ""}</div>` : "";
+      const add = canEdit ? `<p class="field-label">Add a design</p>
+<div class="row-buttons">
+<button type="button" class="btn small" data-action="design-new" ${i < 0 ? "disabled" : ""}>${ICONS.board}Paint a new one</button>
+${[1, 2, 3].map((level) => `<button type="button" class="btn small level level-${level}" data-action="design-random" data-level="${level}" title="A random design that can be built">${ICONS.dice}<span class="stars level-${level}"><span aria-hidden="true">${"★".repeat(level)}</span><span class="sr-only">${DIFFICULTY[level].name}</span></span></button>`).join("")}
+<button type="button" class="btn small" data-action="design-from-build" ${buildFits ? "" : "disabled"} title="${buildFits ? "Copy the picture of the Build tray" : `Fill a ${sizeLabel(pack.rows, pack.cols)} Build tray first`}">+ Build tray</button>
+</div>` : "";
+      return `<section class="card" aria-labelledby="designs-h">
+<h2 id="designs-h">${esc3(pack.name)} <small>${sizeLabel(pack.rows, pack.cols)} · ${plural(pack.designs.length, "design")}</small></h2>
+${canEdit ? `<label class="field-label" for="packName">Name</label><input class="text-input" id="packName" maxlength="${MAX_PACK_NAME}" value="${esc3(pack.name)}" autocomplete="off">` : ""}
+${items ? `<ol class="pk-grid">${items}</ol>` : '<p class="muted">No designs yet.</p>'}
+${bad ? `<p class="hint is-bad">${plural(bad, "design")} cannot be built (marked ✗). Open ${bad === 1 ? "it" : "them"} and fix the squares; ${bad === 1 ? "it is" : "they are"} left out of the book.</p>` : ""}
+${selTools}
+${add}
+<div class="row-buttons pk-pack-actions">
+<button type="button" class="btn small" data-action="pack-copy">${ICONS.copy}Duplicate pack</button>
+${canEdit ? `<button type="button" class="btn small" data-action="pack-delete">${ICONS.trash}Delete pack</button>` : ""}
+</div>
+</section>`;
+    }
+    function useCard() {
+      const pack = currentPack();
+      const shape = bookShapeFor(pack.rows, pack.cols);
+      const book = ctx.bookFor(shape.shape, shape.n);
+      return `<section class="card" aria-labelledby="use-h">
+<h2 id="use-h">Book and cards</h2>
+<p class="muted">Adds every design that can be built to your ${sizeLabel(pack.rows, pack.cols)} book “${esc3(book.title)}” (${plural(book.challenges.length, "challenge")} now), with its stars. Designs already in the book are skipped. Each challenge in the book is also a card.</p>
+<div class="row-buttons"><button type="button" class="btn primary" data-action="pack-to-book" ${pack.designs.length && !addingToBook ? "" : "disabled"}>${ICONS.book}Add the pack to the book</button></div>
+</section>`;
+    }
+    function exportCard() {
+      const pack = currentPack();
+      return `<section class="card" aria-labelledby="pkx-h">
+<h2 id="pkx-h">Copy, save, open</h2>
+<div class="row-buttons">
+<button type="button" class="btn primary" data-action="pack-copy-code" ${pack.designs.length ? "" : "disabled"}>${ICONS.copy}Copy as code</button>
+<button type="button" class="btn" data-action="pack-save" ${pack.designs.length ? "" : "disabled"}>${ICONS.download}Save pack (.json)</button>
+<button type="button" class="btn" data-action="pack-open">${ICONS.upload}Open a pack file</button>
+</div>
+<p class="hint"><b>Copy as code</b> gives the pack as text. To build it into the app, paste it into the list in <code>src/builtinpacks.js</code>, or send it to whoever looks after the app. The same text can be pasted below to open it again.</p>
+<details class="share"><summary>Paste a pack</summary>
+<label class="sr-only" for="packPaste">Pack as text</label>
+<textarea id="packPaste" class="pk-paste" rows="5" placeholder='{ "name": "My pack", "rows": 4, "cols": 4, "designs": [ { "looks": "1121/1122/1122/1122", "stars": 1 } ] }' spellcheck="false"></textarea>
+<div class="row-buttons"><button type="button" class="btn small" data-action="pack-paste">Open pasted pack</button></div>
+</details>
+</section>`;
+    }
+    function photoCard() {
+      const pack = currentPack();
+      if (!photo) {
+        return `<section class="card" aria-labelledby="photo-h">
+<h2 id="photo-h">Designs from a photo</h2>
+<p class="muted">Take a photo of a page of a book of designs (flat, in good light, straight from above). The designs on it are found and read, and you can check and fix them before they go into a pack.</p>
+<div class="row-buttons"><button type="button" class="btn primary" data-action="photo-upload">${ICONS.upload}Choose a photo</button></div>
+<p class="hint">Designs are read as ${sizeLabel(pack.rows, pack.cols)} (the size of this pack); you can change that after.</p>
+</section>`;
+      }
+      const sizes = PACK_SIZES.map((s) => {
+        const on = s.rows === photo.rows && s.cols === photo.cols;
+        return `<button type="button" class="chip${on ? " is-on" : ""}" data-action="photo-size" data-rows="${s.rows}" data-cols="${s.cols}" aria-pressed="${on}">${sizeLabel(s.rows, s.cols)}</button>`;
+      }).join("");
+      const viewing = state2().packView === "photo";
+      return `<section class="card" aria-labelledby="photo-h">
+<h2 id="photo-h">Designs from a photo <small>${plural(photo.regions.length, "design")} found</small></h2>
+${viewing ? "" : `<div class="row-buttons"><button type="button" class="btn primary" data-action="photo-show">Back to the photo</button></div>`}
+<p class="field-label">Size of the designs in the photo</p>
+<div class="chips tight" role="group" aria-label="Size of the designs">${sizes}</div>
+<label class="field-label" for="photoThreshold">Dark or light: <output id="photoThresholdOut">${photo.threshold}</output> <small>(automatic: ${photo.auto})</small></label>
+<input type="range" id="photoThreshold" class="pk-range" min="20" max="235" value="${photo.threshold}">
+<p class="hint">Move it if light grey squares are read as black (move left) or black squares as white (move right).</p>
+<div class="row-buttons">
+<button type="button" class="btn small" data-action="photo-detect">${ICONS.rotate}Find the designs again</button>
+<button type="button" class="btn small" data-action="photo-upload">${ICONS.upload}Another photo</button>
+<button type="button" class="btn small" data-action="photo-close">${ICONS.close}Close the photo</button>
+</div>
+</section>`;
+    }
+    function panelMarkup() {
+      const showPhotoFirst = showingPhoto();
+      return showPhotoFirst ? `${photoCard()}${designsCard()}${useCard()}${exportCard()}${packsCard()}` : `${packsCard()}${designsCard()}${photoCard()}${useCard()}${exportCard()}`;
+    }
+    function regionStatus(region) {
+      const s = photoDrag ? checker.get(photo.rows, photo.cols, region.looks) ?? { status: "pending" } : statusOf(photo.rows, photo.cols, region.looks);
+      if (!region.userSet && s.status !== "pending") region.include = s.status !== "impossible";
+      return s;
+    }
+    function readRegion(region) {
+      const res = readPattern(photo.gray, region.quad, photo.rows, photo.cols, photo.threshold);
+      region.looks = res.looks;
+      region.unsure = res.unsure;
+    }
+    function detect() {
+      const quads = findPatterns(photo.gray, { rows: photo.rows, cols: photo.cols, threshold: photo.threshold });
+      photo.regions = quads.map((quad) => ({ quad, include: true, userSet: false, looks: [], unsure: [] }));
+      photo.regions.forEach(readRegion);
+      photo.selected = photo.regions.length ? 0 : -1;
+    }
+    const pts = (list) => list.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+    function photoSvgContent() {
+      const { width, height, rows, cols } = photo;
+      const unit = Math.max(width, height);
+      const sw = (unit / 600).toFixed(2);
+      let regions = "";
+      photo.regions.forEach((region, i) => {
+        const map = squareToQuad(region.quad);
+        let grid = "";
+        for (let c = 1; c < cols; c += 1) grid += `M${map(c / cols, 0).map((v) => v.toFixed(1)).join(" ")}L${map(c / cols, 1).map((v) => v.toFixed(1)).join(" ")}`;
+        for (let r = 1; r < rows; r += 1) grid += `M${map(0, r / rows).map((v) => v.toFixed(1)).join(" ")}L${map(1, r / rows).map((v) => v.toFixed(1)).join(" ")}`;
+        let unsure = "";
+        region.unsure.forEach((u, k) => {
+          if (!u) return;
+          const r = Math.floor(k / cols);
+          const c = k % cols;
+          unsure += `<polygon class="ph-unsure" points="${pts([map(c / cols, r / rows), map((c + 1) / cols, r / rows), map((c + 1) / cols, (r + 1) / rows), map(c / cols, (r + 1) / rows)])}" stroke-width="${sw * 2}"/>`;
+        });
+        const s = regionStatus(region);
+        const tone = !region.include ? "is-off" : s.status === "impossible" ? "is-bad" : "is-ok";
+        const [lx, ly] = region.quad[0];
+        const fs = unit / 32;
+        regions += `<g class="ph-region ${tone}${i === photo.selected ? " is-on" : ""}">
+<polygon class="ph-area" points="${pts(region.quad)}" stroke-width="${sw * (i === photo.selected ? 3 : 2)}"/>
+<path class="ph-grid" d="${grid}" stroke-width="${sw}"/>${unsure}
+<g class="ph-label"><rect x="${(lx - fs * 0.1).toFixed(1)}" y="${(ly - fs * 1.15).toFixed(1)}" width="${(fs * (String(i + 1).length * 0.65 + 0.6)).toFixed(1)}" height="${(fs * 1.1).toFixed(1)}" rx="${(fs * 0.2).toFixed(1)}"/>
+<text x="${(lx + fs * 0.2).toFixed(1)}" y="${(ly - fs * 0.27).toFixed(1)}" font-size="${fs.toFixed(1)}">${i + 1}</text></g></g>`;
+      });
+      let handles = "";
+      const sel = photo.regions[photo.selected];
+      if (sel) {
+        const rad = unit / 55;
+        handles = sel.quad.map(([x, y], k) => `<circle class="ph-handle" data-corner="${k}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad.toFixed(1)}" stroke-width="${sw * 2}"/>`).join("");
+      }
+      return `<image href="${photo.src}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="none"/>${regions}${handles}`;
+    }
+    function renderPhotoStage(container) {
+      let svg2 = container.querySelector("#photoSvg");
+      if (!svg2) {
+        container.innerHTML = `<div class="ph-head"><p><b>${plural(photo.regions.length, "design")} found.</b> Tap a design to select it, then drag its corners onto the corners of the design (or drag inside it to move it).</p></div>
+<div class="ph-wrap"><svg id="photoSvg" xmlns="http://www.w3.org/2000/svg" role="application" aria-label="Photo with the designs found on it"></svg></div>`;
+        svg2 = container.querySelector("#photoSvg");
+        svg2.addEventListener("pointerdown", onPhotoDown);
+        svg2.addEventListener("pointermove", onPhotoMove);
+        svg2.addEventListener("pointerup", onPhotoUp);
+        svg2.addEventListener("pointercancel", onPhotoUp);
+        svg2.addEventListener("touchstart", (evt) => {
+          if (!evt.cancelable || evt.touches.length !== 1) return;
+          const hit = photoHit(evt.touches[0]);
+          if (hit && (hit.kind === "corner" || hit.region === photo.selected)) evt.preventDefault();
+        }, { passive: false });
+      }
+      const head = container.querySelector(".ph-head b");
+      if (head) head.textContent = `${plural(photo.regions.length, "design")} found.`;
+      svg2.setAttribute("viewBox", `0 0 ${photo.width} ${photo.height}`);
+      svg2.innerHTML = photoSvgContent();
+    }
+    function redrawPhoto() {
+      const svg2 = document.getElementById("photoSvg");
+      if (svg2) svg2.innerHTML = photoSvgContent();
+    }
+    function photoBarMarkup() {
+      const { rows, cols } = photo;
+      const thumbCell = Math.max(4, Math.round(56 / Math.max(rows, cols)));
+      const list = photo.regions.map((region, i) => {
+        const s = regionStatus(region);
+        const note = s.status === "impossible" ? "cannot be built" : s.status === "possible" ? "" : s.status === "unknown" ? "not sure" : "checking…";
+        const unsure = region.unsure.filter(Boolean).length;
+        return `<li class="ph-item${i === photo.selected ? " is-on" : ""}${s.status === "impossible" ? " is-bad" : ""}">
+<button type="button" class="ph-pick" data-action="photo-select" data-index="${i}" aria-pressed="${i === photo.selected}"><span class="pk-num">${i + 1}</span>${badge(s)}<span class="pk-thumb">${flatPicture(rows, cols, region.looks, { cell: thumbCell, gap: 1, mismatches: region.unsure })}</span></button>
+<label class="ph-include"><input type="checkbox" data-region="${i}" ${region.include ? "checked" : ""}> Add</label>
+${note || unsure ? `<span class="ph-note">${note}${note && unsure ? " · " : ""}${unsure ? `${unsure} unsure` : ""}</span>` : ""}
+</li>`;
+      }).join("");
+      const count = photo.regions.filter((r) => r.include).length;
+      const pack = currentPack();
+      const into = editable(pack) && pack.rows === rows && pack.cols === cols ? `to “${esc3(pack.name)}”` : "to a new pack";
+      return `<div class="ph-bar" id="photoBar">
+${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">No designs found. Check the size of the designs and the dark/light setting in the panel, or add one by hand.</p>'}
+<p class="hint">Squares outlined in red were hard to read. Designs that cannot be built are not ticked; you can still add them and fix them in the pack.</p>
+<div class="row-buttons">
+<button type="button" class="btn primary" data-action="photo-add" ${count ? "" : "disabled"}>${ICONS.check}Add ${plural(count, "design")} ${into}</button>
+<button type="button" class="btn small" data-action="photo-add-region">+ Mark a design by hand</button>
+<button type="button" class="btn small" data-action="photo-remove-region" ${photo.selected >= 0 ? "" : "disabled"}>${ICONS.trash}Remove design ${photo.selected >= 0 ? photo.selected + 1 : ""}</button>
+<button type="button" class="btn small" data-action="photo-hide">Back to the pack</button>
+</div></div>`;
+    }
+    function renderPhotoBar() {
+      const bar = document.getElementById("stageBar");
+      if (bar && showingPhoto()) bar.innerHTML = photoBarMarkup();
+    }
+    function photoPoint(evt) {
+      const svg2 = document.getElementById("photoSvg");
+      const m = svg2?.getScreenCTM();
+      if (!m) return null;
+      const p = new DOMPoint(evt.clientX, evt.clientY).matrixTransform(m.inverse());
+      return [p.x, p.y, Math.hypot(m.a, m.b) || 1];
+    }
+    function photoHit(evt) {
+      const at2 = photoPoint(evt);
+      if (!at2) return null;
+      const [x, y, scale] = at2;
+      const reach = Math.max(photo.width, photo.height) / 30 + 14 / scale;
+      const sel = photo.regions[photo.selected];
+      let target = null;
+      if (sel) {
+        let best = -1;
+        let bestD = reach;
+        sel.quad.forEach(([cx, cy], k) => {
+          const d = Math.hypot(cx - x, cy - y);
+          if (d < bestD) {
+            bestD = d;
+            best = k;
+          }
+        });
+        if (best >= 0) target = { kind: "corner", region: photo.selected, corner: best };
+      }
+      if (!target) {
+        const order = [photo.selected, ...photo.regions.map((_, i) => i).filter((i) => i !== photo.selected)];
+        const hit = order.find((i) => i >= 0 && insideQuad(photo.regions[i].quad, x, y));
+        if (hit !== void 0) target = { kind: "move", region: hit };
+      }
+      return target ? { ...target, x, y } : null;
+    }
+    function onPhotoDown(evt) {
+      if (evt.button !== 0) return;
+      const target = photoHit(evt);
+      if (!target) return;
+      const { x, y } = target;
+      if (target.kind === "move" && target.region !== photo.selected && evt.pointerType !== "mouse") {
+        photo.selected = target.region;
+        redrawPhoto();
+        renderPhotoBar();
+        return;
+      }
+      evt.preventDefault();
+      evt.currentTarget.setPointerCapture?.(evt.pointerId);
+      const changedSel = target.region !== photo.selected;
+      photo.selected = target.region;
+      photoDrag = { ...target, id: evt.pointerId, x, y, start: photo.regions[target.region].quad.map((p) => p.slice()), moved: false };
+      if (changedSel) {
+        redrawPhoto();
+        renderPhotoBar();
+      }
+    }
+    function onPhotoMove(evt) {
+      if (!photoDrag || evt.pointerId !== photoDrag.id) return;
+      const at2 = photoPoint(evt);
+      if (!at2) return;
+      evt.preventDefault();
+      const [x, y] = at2;
+      const dx = x - photoDrag.x;
+      const dy = y - photoDrag.y;
+      if (!photoDrag.moved && Math.hypot(dx, dy) < 2) return;
+      photoDrag.moved = true;
+      const region = photo.regions[photoDrag.region];
+      const clamp = ([px, py]) => [Math.max(0, Math.min(photo.width, px)), Math.max(0, Math.min(photo.height, py))];
+      if (photoDrag.kind === "corner") {
+        region.quad = photoDrag.start.map((p, k) => k === photoDrag.corner ? clamp([p[0] + dx, p[1] + dy]) : p.slice());
+      } else {
+        region.quad = photoDrag.start.map(([px, py]) => clamp([px + dx, py + dy]));
+      }
+      readRegion(region);
+      redrawPhoto();
+    }
+    function onPhotoUp(evt) {
+      if (!photoDrag || evt.pointerId !== photoDrag.id) return;
+      const moved = photoDrag.moved;
+      photoDrag = null;
+      if (moved) {
+        redrawPhoto();
+        renderPhotoBar();
+      }
+    }
+    async function openPhoto(file) {
+      const pack = currentPack();
+      ctx.setStatus("Reading the photo…", false);
+      let loaded;
+      try {
+        loaded = await loadPhoto(file);
+      } catch {
+        ctx.setStatus("That picture could not be opened. Try a JPEG or PNG.", true, "bad");
+        return;
+      }
+      const auto = otsu(loaded.gray);
+      photo = { ...loaded, threshold: auto, auto, rows: photo?.rows ?? pack.rows, cols: photo?.cols ?? pack.cols, regions: [], selected: -1 };
+      detect();
+      state2().packView = "photo";
+      ctx.render();
+      ctx.setStatus(photo.regions.length ? `Found ${plural(photo.regions.length, "design")}. Check each one: move its corners if its grid does not sit on the squares.` : "No designs found. Check the size of the designs, or mark one by hand.", true, photo.regions.length ? "" : "bad");
+      document.getElementById("photoStage")?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+    async function addFromPhoto() {
+      const st = state2();
+      const chosen = photo.regions.filter((r) => r.include);
+      if (!chosen.length) return;
+      let pack = currentPack();
+      if (!editable(pack) || pack.rows !== photo.rows || pack.cols !== photo.cols) {
+        if (!await leaveDraft()) return;
+        pack = newPack({ name: "From a photo", rows: photo.rows, cols: photo.cols });
+        st.packs.push(pack);
+        st.packId = pack.id;
+      }
+      const { added, duplicates } = addDesigns(pack, chosen.map((r) => ({ looks: r.looks, stars: suggestDifficulty(r.looks) })));
+      st.packIndex = pack.designs.length ? pack.designs.length - added : -1;
+      st.packDraft = null;
+      st.packView = "design";
+      changed();
+      ctx.setStatus(`Added ${plural(added, "design")} to “${pack.name}”.${duplicates ? ` ${plural(duplicates, "design")} ${duplicates === 1 ? "was" : "were"} already in it.` : ""}`);
+    }
+    async function addPackToBook(pack, { show = true } = {}) {
+      if (addingToBook || !pack?.designs.length) return;
+      const st = state2();
+      const shape = bookShapeFor(pack.rows, pack.cols);
+      const book = ctx.bookFor(shape.shape, shape.n);
+      addingToBook = true;
+      ctx.renderPanel();
+      let added = 0;
+      let already = 0;
+      let impossible = 0;
+      let unsure = 0;
+      try {
+        const inBook = new Set(book.challenges.map((c) => c.looks.join("")));
+        for (let i = 0; i < pack.designs.length; i += 1) {
+          const d = pack.designs[i];
+          if (inBook.has(d.looks.join(""))) {
+            already += 1;
+            continue;
+          }
+          ctx.setStatus(`Checking design ${i + 1} of ${pack.designs.length}…`, false);
+          const quick = quickCheck(pack.rows, pack.cols, d.looks, defaultInventory(pack.rows, pack.cols));
+          const res = quick.ok ? await checker.check(pack.rows, pack.cols, d.looks) : { status: "impossible" };
+          if (res.status === "impossible") impossible += 1;
+          else if (res.status !== "possible") unsure += 1;
+          else {
+            addChallenge(book, { looks: d.looks, answer: res.pieces, difficulty: d.stars });
+            inBook.add(d.looks.join(""));
+            added += 1;
+          }
+        }
+      } finally {
+        addingToBook = false;
+      }
+      st.bookKey = bookKey(shape.shape, shape.n);
+      st.bookLeaf = 0;
+      ctx.bookChanged();
+      if (show) st.mode = "book";
+      ctx.render();
+      const notes = [
+        already ? `${already} already there` : "",
+        impossible ? `${impossible} cannot be built` : "",
+        unsure ? `${unsure} could not be checked` : ""
+      ].filter(Boolean).join(", ");
+      ctx.setStatus(`Added ${plural(added, "design")} from “${pack.name}” to the book “${book.title}”${notes ? ` (${notes}, left out)` : ""}.`, true, added ? "ok" : "");
+    }
+    function openPacks(text3, source) {
+      let packs;
+      try {
+        packs = parsePacks(text3);
+      } catch (err) {
+        ctx.setStatus(err.message, true, "bad");
+        return false;
+      }
+      const st = state2();
+      for (const p of packs) {
+        p.id = newPack({ rows: p.rows, cols: p.cols }).id;
+        p.builtIn = false;
+        st.packs.push(p);
+      }
+      st.packId = packs[0].id;
+      st.packIndex = packs[0].designs.length ? 0 : -1;
+      st.packDraft = null;
+      st.packView = "design";
+      changed();
+      ctx.setStatus(packs.length === 1 ? `Opened “${packs[0].name}” (${plural(packs[0].designs.length, "design")}) from ${source}.` : `Opened ${packs.length} packs from ${source}.`);
+      return true;
+    }
+    async function selectDesign(index) {
+      const st = state2();
+      if (index === st.packIndex) return;
+      if (!await leaveDraft()) return;
+      st.packIndex = index;
+      st.packDraft = null;
+      st.packView = "design";
+      changed();
+    }
+    function moveDesign(step) {
+      const st = state2();
+      const list = currentPack().designs;
+      const i = st.packIndex;
+      const j = i + step;
+      if (i < 0 || j < 0 || j >= list.length) return;
+      [list[i], list[j]] = [list[j], list[i]];
+      st.packIndex = j;
+      if (st.packDraft) st.packDraft.index = j;
+      changed();
+    }
+    function pickFile(accept, onFile) {
+      const input = document.getElementById("filePicker");
+      input.value = "";
+      input.accept = accept;
+      input.onchange = () => {
+        const file = input.files?.[0];
+        if (file) onFile(file);
+      };
+      input.click();
+    }
+    const actions = {
+      "pack-select": async (el) => {
+        const st = state2();
+        if (el.dataset.id === st.packId) return;
+        if (!await leaveDraft()) return;
+        st.packId = el.dataset.id;
+        st.packIndex = currentPack().designs.length ? 0 : -1;
+        st.packDraft = null;
+        st.packView = "design";
+        changed();
+      },
+      "pack-new": async (el) => {
+        if (!await leaveDraft()) return;
+        const st = state2();
+        const rows = Number(el.dataset.rows);
+        const cols = Number(el.dataset.cols);
+        const mine = st.packs.length + 1;
+        const pack = newPack({ name: `My pack ${mine}`, rows, cols });
+        st.packs.push(pack);
+        st.packId = pack.id;
+        st.packIndex = -1;
+        st.packDraft = null;
+        st.packView = "design";
+        changed();
+        ctx.setStatus(`New ${sizeLabel(rows, cols)} pack. Paint its first design in the tray, or add random ones.`);
+      },
+      "pack-copy": async () => {
+        if (!await leaveDraft()) return;
+        const st = state2();
+        const from = currentPack();
+        const pack = newPack({ name: `${from.name} (copy)`.slice(0, MAX_PACK_NAME), rows: from.rows, cols: from.cols });
+        pack.designs = from.designs.map((d) => ({ looks: d.looks.slice(), stars: d.stars }));
+        st.packs.push(pack);
+        st.packId = pack.id;
+        st.packIndex = Math.min(Math.max(st.packIndex, 0), pack.designs.length - 1);
+        st.packDraft = null;
+        changed();
+        ctx.setStatus(`Made “${pack.name}”: your own copy, ready to change.`);
+      },
+      "pack-delete": async () => {
+        const st = state2();
+        const pack = currentPack();
+        if (!editable(pack)) return;
+        if (!await ctx.confirmDialog(`Delete the pack “${pack.name}” and its ${plural(pack.designs.length, "design")}?`, "Delete pack")) return;
+        st.packs = st.packs.filter((p) => p.id !== pack.id);
+        st.packId = "";
+        st.packDraft = null;
+        currentPack();
+        changed();
+        ctx.setStatus(`Deleted “${pack.name}”.`);
+      },
+      "pack-from-book": async () => {
+        if (!await leaveDraft()) return;
+        const st = state2();
+        const pack = packFromBook(ctx.currentBook());
+        st.packs.push(pack);
+        st.packId = pack.id;
+        st.packIndex = pack.designs.length ? 0 : -1;
+        st.packDraft = null;
+        st.packView = "design";
+        changed();
+        ctx.setStatus(`Made the pack “${pack.name}” from the book's ${plural(pack.designs.length, "challenge")}.`);
+      },
+      "design-select": (el) => selectDesign(Number(el.dataset.index)),
+      "design-prev": () => selectDesign(Math.max(0, state2().packIndex - 1)),
+      "design-next": () => selectDesign(Math.min(currentPack().designs.length - 1, state2().packIndex + 1)),
+      "design-new": () => selectDesign(-1),
+      "design-random": async (el) => {
+        if (!await leaveDraft()) return;
+        const st = state2();
+        const pack = currentPack();
+        const level = Number(el.dataset.level);
+        let made = null;
+        for (let k = 0; k < 8 && !made; k += 1) {
+          const { target } = ctx.randomChallenge(pack.rows, pack.cols, level);
+          if (!pack.designs.some((d) => d.looks.join("") === target.join(""))) made = target;
+        }
+        if (!made) {
+          ctx.setStatus("Could not find a new design of that kind; try another level.", true, "bad");
+          return;
+        }
+        pack.designs.push({ looks: made, stars: level });
+        st.packIndex = pack.designs.length - 1;
+        st.packDraft = null;
+        st.packView = "design";
+        changed();
+        ctx.setStatus(`Added design ${pack.designs.length} (${DIFFICULTY[level].name.toLowerCase()}). Paint over it to change it.`);
+      },
+      "design-from-build": async () => {
+        const pack = currentPack();
+        if (!ctx.buildFits(pack.rows, pack.cols)) return;
+        if (!await leaveDraft()) return;
+        const st = state2();
+        st.packIndex = -1;
+        st.packDraft = { packId: pack.id, index: -1, looks: ctx.buildLooks() };
+        st.packView = "design";
+        changed();
+        ctx.setStatus("Copied the Build tray as a new design. Add it to the pack, or paint over it first.");
+      },
+      "design-stars": (el) => {
+        const pack = currentPack();
+        const d = pack.designs[state2().packIndex];
+        if (!d || !editable(pack)) return;
+        d.stars = Number(el.dataset.level);
+        changed();
+      },
+      "design-up": () => moveDesign(-1),
+      "design-down": () => moveDesign(1),
+      "design-copy": () => {
+        const st = state2();
+        const pack = currentPack();
+        const d = pack.designs[st.packIndex];
+        if (!d) return;
+        st.packIndex = -1;
+        st.packDraft = { packId: pack.id, index: -1, looks: d.looks.slice() };
+        changed();
+        ctx.setStatus("A copy of the design is in the tray. Change it, then add it to the pack.");
+      },
+      "design-delete": async () => {
+        const st = state2();
+        const pack = currentPack();
+        const i = st.packIndex;
+        if (i < 0 || !editable(pack)) return;
+        if (!await ctx.confirmDialog(`Delete design ${i + 1} from “${pack.name}”?`, "Delete")) return;
+        pack.designs.splice(i, 1);
+        st.packIndex = Math.min(i, pack.designs.length - 1);
+        st.packDraft = null;
+        changed();
+      },
+      "design-play": () => {
+        const st = state2();
+        const pack = currentPack();
+        const d = pack.designs[st.packIndex];
+        if (!d) return;
+        const known = checker.get(pack.rows, pack.cols, d.looks);
+        ctx.startChallenge({ target: d.looks.slice(), answer: known?.pieces ?? null, difficulty: d.stars, label: `${pack.name}, design ${st.packIndex + 1}`, rows: pack.rows, cols: pack.cols });
+      },
+      "draft-save": () => {
+        const st = state2();
+        const pack = currentPack();
+        const d = draft();
+        const s = draftStatus();
+        if (!editable(pack) || !isDirty() || s.status !== "possible" && s.status !== "unknown") return;
+        const twin = pack.designs.findIndex((x, k) => k !== d.index && x.looks.join("") === d.looks.join(""));
+        if (twin >= 0) {
+          ctx.setStatus(`Design ${twin + 1} of the pack is already exactly this.`, true, "bad");
+          return;
+        }
+        if (d.index < 0) {
+          pack.designs.push({ looks: d.looks.slice(), stars: suggestDifficulty(d.looks) });
+          st.packIndex = pack.designs.length - 1;
+          ctx.setStatus(`Added design ${pack.designs.length} to “${pack.name}”. Set its stars in the panel.`, true, "ok");
+        } else {
+          pack.designs[d.index].looks = d.looks.slice();
+          ctx.setStatus(`Saved design ${d.index + 1}.`, true, "ok");
+        }
+        st.packDraft = null;
+        changed();
+      },
+      "draft-revert": () => {
+        state2().packDraft = null;
+        changed();
+      },
+      "pack-to-book": () => addPackToBook(currentPack()),
+      "pack-copy-code": () => ctx.copyText(packToCode(currentPack()), "Pack code"),
+      "pack-save": async () => {
+        const pack = currentPack();
+        const name = `${slugify(pack.name)}.pack.json`;
+        const res = await ctx.saveFile(name, packToCode(pack), "application/json");
+        if (res === "saved") ctx.setStatus(`Saved ${name}. Open it later with “Open a pack file”.`);
+        else if (res === "failed") ctx.setStatus("Saving is blocked here. Use “Copy as code” and keep the text somewhere safe.", true, "bad");
+      },
+      "pack-open": () => pickFile("application/json,.json,.js,.txt", async (file) => openPacks(await file.text(), file.name)),
+      "pack-paste": () => {
+        const box = document.getElementById("packPaste");
+        if (box && openPacks(box.value, "the pasted text")) box.value = "";
+      },
+      "photo-upload": () => pickFile("image/*", openPhoto),
+      "photo-show": () => {
+        state2().packView = "photo";
+        changed();
+      },
+      "photo-hide": () => {
+        state2().packView = "design";
+        changed();
+      },
+      "photo-close": () => {
+        photo = null;
+        state2().packView = "design";
+        changed();
+      },
+      "photo-size": (el) => {
+        photo.rows = Number(el.dataset.rows);
+        photo.cols = Number(el.dataset.cols);
+        detect();
+        changed();
+        ctx.setStatus(`Looked for ${sizeLabel(photo.rows, photo.cols)} designs: found ${photo.regions.length}.`);
+      },
+      "photo-detect": () => {
+        detect();
+        changed();
+        ctx.setStatus(`Found ${plural(photo.regions.length, "design")}.`);
+      },
+      "photo-select": (el) => {
+        photo.selected = Number(el.dataset.index);
+        redrawPhoto();
+        renderPhotoBar();
+        document.getElementById("photoStage")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      },
+      "photo-add-region": () => {
+        photo.regions.push({ quad: defaultQuad(photo.width, photo.height, photo.rows, photo.cols), include: true, userSet: true, looks: [], unsure: [] });
+        photo.selected = photo.regions.length - 1;
+        readRegion(photo.regions[photo.selected]);
+        redrawPhoto();
+        renderPhotoBar();
+        ctx.setStatus("Drag the corners of the new box onto the corners of the design.");
+      },
+      "photo-remove-region": () => {
+        if (photo.selected < 0) return;
+        photo.regions.splice(photo.selected, 1);
+        photo.selected = Math.min(photo.selected, photo.regions.length - 1);
+        redrawPhoto();
+        renderPhotoBar();
+      },
+      "photo-add": addFromPhoto
+    };
+    function attach() {
+      const panel = document.getElementById("panel");
+      panel.addEventListener("input", (evt) => {
+        if (evt.target.id === "packName") {
+          const pack = currentPack();
+          if (!editable(pack)) return;
+          pack.name = evt.target.value.slice(0, MAX_PACK_NAME) || "Pack";
+          ctx.scheduleSave();
+          const top = document.querySelector(".pk-top-pack");
+          if (top?.firstChild) top.firstChild.textContent = `${pack.name} `;
+        } else if (evt.target.id === "photoThreshold" && photo) {
+          photo.threshold = Number(evt.target.value);
+          const out = document.getElementById("photoThresholdOut");
+          if (out) out.textContent = String(photo.threshold);
+          clearTimeout(thresholdTimer);
+          thresholdTimer = setTimeout(() => {
+            photo.regions.forEach(readRegion);
+            redrawPhoto();
+            renderPhotoBar();
+          }, 60);
+        }
+      });
+      panel.addEventListener("change", (evt) => {
+        if (evt.target.id === "packName") ctx.renderPanel();
+      });
+      document.getElementById("stageBar").addEventListener("change", (evt) => {
+        const box = evt.target.closest?.("input[data-region]");
+        if (!box || !photo) return;
+        const region = photo.regions[Number(box.dataset.region)];
+        if (!region) return;
+        region.include = box.checked;
+        region.userSet = true;
+        redrawPhoto();
+        renderPhotoBar();
+      });
+    }
+    function packsFor(rows, cols) {
+      return allPacks().filter((p) => p.rows === rows && p.cols === cols && p.designs.length).map((p) => ({ id: p.id, name: p.name, count: p.designs.length, builtIn: p.builtIn }));
+    }
+    return {
+      actions,
+      attach,
+      paintGrid,
+      panelMarkup,
+      stageTopMarkup,
+      stageBarMarkup,
+      renderPhotoStage,
+      showingPhoto,
+      packsFor,
+      addPackById: (id) => addPackToBook(allPacks().find((p) => p.id === id), { show: false }),
+      isAdding: () => addingToBook
+    };
+  }
+  function revivePacks(list, normalize) {
+    if (!Array.isArray(list)) return [];
+    const out = [];
+    for (const raw of list) {
+      try {
+        const p = normalize(raw);
+        p.id = typeof raw.id === "string" && raw.id && !raw.id.startsWith("builtin:") ? raw.id : `p${out.length}${Date.now().toString(36)}`;
+        out.push(p);
+      } catch {
+      }
+    }
+    return out;
+  }
+
+  // src/presets.js
+  var mixO = (dir, pose) => MIX_ORIENTS.find((m) => m.dir === dir && m.pose === pose).o;
+  var RAMP = 2;
+  var RIGHT = 1;
+  function brickRows(rowsFrom, rowsTo) {
+    const pieces = [];
+    for (let r = rowsFrom; r < rowsTo; r += 1) {
+      pieces.push({ type: "mix", color: "W", r, c: 0, o: mixO(E, RAMP) });
+      pieces.push({ type: "tri", color: "W", r, c: 1, o: HALF.O_E });
+      pieces.push({ type: "mix", color: "B", r, c: 3, o: mixO(W, RAMP) });
+      pieces.push({ type: "tri", color: "B", r, c: 2, o: HALF.O_W });
+    }
+    return pieces;
+  }
+  var PRESETS = Object.freeze([
+    {
+      id: "photo-1",
+      name: "Photo 1 (4×4)",
+      rows: 4,
+      cols: 4,
+      pieces: [
+        // Top row: two standing cube + prism pieces, prisms pointing left, and two loose
+        // standing prisms filling the lower-left halves.
+        { type: "mix", color: "W", r: 0, c: 1, o: mixO(W, RIGHT) },
+        { type: "tri", color: "B", r: 0, c: 0, o: HALF.U_SW },
+        { type: "mix", color: "B", r: 0, c: 3, o: mixO(W, RIGHT) },
+        { type: "tri", color: "W", r: 0, c: 2, o: HALF.U_SW },
+        ...brickRows(1, 4)
+      ]
+    },
+    {
+      id: "photo-2",
+      name: "Photo 2 (8×4)",
+      rows: 8,
+      cols: 4,
+      pieces: brickRows(0, 8)
+    }
+  ]);
+
   // src/app.js
   var STORAGE_KEY = "building-blocks-simulator:v2";
   var OLD_STORAGE_KEY = "building-blocks-simulator:v1";
@@ -5033,6 +6987,7 @@ ${coverRow("back", "Back cover")}
   };
   var state;
   var bookUI;
+  var packUI;
   var pointer = { down: false, id: null, type: "mouse", erase: false, x: 0, y: 0, moved: false, dragging: false, grab: null };
   var hits3d = [];
   var outline3d = [];
@@ -5068,7 +7023,13 @@ ${coverRow("back", "Back cover")}
       books: {},
       bookKey: "square-4",
       bookView: "3d",
-      bookLeaf: 0
+      bookLeaf: 0,
+      // Packs tab: your packs, the pack and design shown, the design being painted.
+      packs: [],
+      packId: "",
+      packIndex: 0,
+      packDraft: null,
+      packView: "design"
     };
   }
   function snapshot() {
@@ -5086,7 +7047,11 @@ ${coverRow("back", "Back cover")}
       xray: state.xray,
       books: state.books,
       bookKey: state.bookKey,
-      bookView: state.bookView
+      bookView: state.bookView,
+      packs: state.packs.map((p) => ({ id: p.id, name: p.name, rows: p.rows, cols: p.cols, designs: p.designs })),
+      packId: state.packId,
+      packIndex: state.packIndex,
+      packDraft: state.packDraft
     };
   }
   function restore(data) {
@@ -5102,7 +7067,7 @@ ${coverRow("back", "Back cover")}
       const challenge = ch && Array.isArray(ch.target) && ch.target.length === rows * cols ? ch : null;
       return {
         ...base,
-        mode: ["build", "check", "book"].includes(data.mode) ? data.mode : "build",
+        mode: ["build", "check", "packs", "book"].includes(data.mode) ? data.mode : "build",
         rows,
         cols,
         sizeDraft: { rows, cols },
@@ -5118,7 +7083,11 @@ ${coverRow("back", "Back cover")}
         xray: !!data.xray,
         books: data.books && typeof data.books === "object" ? data.books : {},
         bookKey: typeof data.bookKey === "string" ? data.bookKey : base.bookKey,
-        bookView: ["3d", "spreads", "sheets", "cards"].includes(data.bookView) ? data.bookView : "3d"
+        bookView: ["3d", "spreads", "sheets", "cards"].includes(data.bookView) ? data.bookView : "3d",
+        packs: revivePacks(data.packs, normalizePack),
+        packId: typeof data.packId === "string" ? data.packId : "",
+        packIndex: Number.isInteger(data.packIndex) ? data.packIndex : 0,
+        packDraft: data.packDraft && typeof data.packDraft.packId === "string" && Number.isInteger(data.packDraft.index) && Array.isArray(data.packDraft.looks) && data.packDraft.looks.every((l) => Number.isInteger(l) && l >= 0 && l <= 6) ? data.packDraft : null
       };
     } catch {
       return base;
@@ -5200,8 +7169,17 @@ ${coverRow("back", "Back cover")}
   }
   function renderStage() {
     const book = state.mode === "book";
-    $("#boardWrap").hidden = book;
+    const photo = state.mode === "packs" && packUI.showingPhoto();
+    $("#boardWrap").hidden = book || photo;
     $("#bookStage").hidden = !book;
+    $("#photoStage").hidden = !photo;
+    if (photo) {
+      packUI.renderPhotoStage($("#photoStage"));
+      $("#stageTop").innerHTML = "";
+      $("#status").hidden = false;
+      renderStageBar();
+      return;
+    }
     if (book) {
       bookUI.renderStage($("#bookStage"));
       $("#stageTop").innerHTML = "";
@@ -5216,6 +7194,10 @@ ${coverRow("back", "Back cover")}
   }
   function renderStageTop() {
     const top = $("#stageTop");
+    if (state.mode === "packs") {
+      top.innerHTML = packUI.stageTopMarkup();
+      return;
+    }
     const ch = state.challenge;
     if (state.mode !== "build" || !ch) {
       top.innerHTML = "";
@@ -5236,6 +7218,10 @@ ${ch.solved ? "" : '<p class="challenge-goal">Make this picture: put all the pie
     if (state.mode === "check") {
       view = pictureMarkup(state.rows, state.cols, state.pattern, { hoverCell: state.hoverCell });
       svg2.setAttribute("aria-label", `Picture to check, ${state.rows} by ${state.cols}.`);
+    } else if (state.mode === "packs") {
+      const grid = packUI.paintGrid();
+      view = pictureMarkup(grid.rows, grid.cols, grid.looks, { hoverCell: grid.editable ? state.hoverCell : -1 });
+      svg2.setAttribute("aria-label", `Design, ${grid.rows} by ${grid.cols}${grid.editable ? ", to paint" : ""}.`);
     } else {
       const board = state.build;
       if (state.sel?.src === "tray" && !board.pieces.has(state.sel.id)) state.sel = null;
@@ -5253,6 +7239,7 @@ ${ch.solved ? "" : '<p class="challenge-goal">Make this picture: put all the pie
     svg2.setAttribute("viewBox", view.viewBox);
     svg2.innerHTML = view.markup;
     svg2.classList.toggle("is-3d", state.mode === "build" && state.view === "3d");
+    svg2.classList.toggle("is-locked", state.mode === "packs" && !packUI.paintGrid()?.editable);
     svg2.classList.toggle("is-holding", state.mode === "build" && state.sel?.src === "new");
     $("#viewTurn").hidden = !(state.mode === "build" && state.view === "3d");
     state.fresh = /* @__PURE__ */ new Set();
@@ -5288,12 +7275,13 @@ ${ch.solved ? "" : '<p class="challenge-goal">Make this picture: put all the pie
   }
   function renderStageBar() {
     const bar = $("#stageBar");
+    if (state.mode === "packs") {
+      bar.innerHTML = packUI.stageBarMarkup();
+      return;
+    }
     if (state.mode === "check") {
       bar.innerHTML = `<div class="check-result" id="checkResult" aria-live="polite">${checkResultMarkup()}</div>
-<div class="palette" role="group" aria-label="Paint">${PALETTE2.map(({ look, label }) => {
-        const on = state.paint === look;
-        return `<button type="button" class="swatch-btn${on ? " is-on" : ""}" data-action="paint" data-look="${look}" aria-pressed="${on}" title="${label}">${flatPicture(1, 1, [look], { cell: 26, gap: 0 })}<span>${label}</span></button>`;
-      }).join("")}</div>
+${paletteMarkup()}
 <p class="hint">${finePointer() ? "<b>Left-click</b> paints a square, <b>right-click</b> erases it. Drag to paint several." : "Tap or drag to paint. Choose <b>Erase</b> to clear squares."}</p>`;
       return;
     }
@@ -5333,6 +7321,12 @@ ${toolButton("xray", ICONS.xray, "X-ray", { pressed: state.xray, disabled: state
 ${toolButton("view", state.view === "3d" ? ICONS.board : ICONS.cube, state.view === "3d" ? "Top view" : "3D", { hint: "Switch between the top view and the 3D view (V)" })}
 </div>
 <p class="hint">${fine ? "<b>Drag</b> a piece onto the tray, turn it if you like, then press <b>Place</b>. <b>Click</b> a piece in the tray to select it (click again for the one underneath). Right-click removes a piece at once." : "<b>Drag</b> a piece onto the tray, turn it if you like, then tap <b>Place</b>. <b>Tap</b> a piece in the tray to select it (tap again for the one underneath)."}</p>`;
+  }
+  function paletteMarkup() {
+    return `<div class="palette" role="group" aria-label="Paint">${PALETTE2.map(({ look, label }) => {
+      const on = state.paint === look;
+      return `<button type="button" class="swatch-btn${on ? " is-on" : ""}" data-action="paint" data-look="${look}" aria-pressed="${on}" title="${label}">${flatPicture(1, 1, [look], { cell: 26, gap: 0 })}<span>${label}</span></button>`;
+    }).join("")}</div>`;
   }
   function orientMarkup() {
     const sel = state.sel;
@@ -5425,6 +7419,7 @@ ${sizeMarkup()}
     const focused = document.activeElement && panel.contains(document.activeElement) ? focusKey(document.activeElement) : null;
     const openDetails = panel.querySelector("details[open]") !== null;
     if (state.mode === "book") panel.innerHTML = bookUI.panelMarkup();
+    else if (state.mode === "packs") panel.innerHTML = packUI.panelMarkup();
     else panel.innerHTML = state.mode === "check" ? checkPanel() : buildPanel();
     if (openDetails) panel.querySelector("details")?.setAttribute("open", "");
     if (focused) panel.querySelector(focused)?.focus({ preventScroll: true });
@@ -5437,7 +7432,7 @@ ${sizeMarkup()}
     return `[data-action="${action}"]${extra}`;
   }
   function defaultStatus() {
-    if (state.mode === "check") return { text: "", tone: "" };
+    if (state.mode === "check" || state.mode === "packs") return { text: "", tone: "" };
     const sel = state.sel;
     const fine = finePointer();
     const prog = progressText();
@@ -6072,6 +8067,18 @@ ${sizeMarkup()}
       document.addEventListener("keydown", onKey, true);
     });
   }
+  function paintTarget() {
+    if (state.mode === "check") return { rows: state.rows, cols: state.cols, paint: paintCell };
+    if (state.mode === "packs") {
+      const grid = packUI.paintGrid();
+      return grid?.editable ? grid : null;
+    }
+    return null;
+  }
+  function boardSize() {
+    const grid = state.mode === "packs" ? packUI.paintGrid() : null;
+    return grid ?? { rows: state.rows, cols: state.cols };
+  }
   function svgPoint(evt) {
     const m = $("#board").getScreenCTM();
     if (!m) return null;
@@ -6081,7 +8088,8 @@ ${sizeMarkup()}
     const p = svgPoint(evt);
     if (!p) return null;
     if (state.mode === "build" && state.view === "3d") return hitTest3d(hits3d, p.x, p.y);
-    return cellFromPoint(state.rows, state.cols, p.x, p.y);
+    const { rows, cols } = boardSize();
+    return cellFromPoint(rows, cols, p.x, p.y);
   }
   var TRAY_MARGIN_PX = 8;
   function offTray3d(point) {
@@ -6115,9 +8123,11 @@ ${sizeMarkup()}
   function onPointerMove(evt) {
     if (!pointer.down) pointer.type = evt.pointerType;
     const h = pointerTarget(evt);
-    if (state.mode === "check") {
-      const index = h ? h.r * state.cols + h.c : -1;
-      if (pointer.down && index >= 0) paintCell(index, pointer.erase ? LOOK.ANY : state.paint);
+    if (state.mode !== "build") {
+      const t = paintTarget();
+      if (!t) return;
+      const index = h ? h.r * t.cols + h.c : -1;
+      if (pointer.down && index >= 0) t.paint(index, pointer.erase ? LOOK.ANY : state.paint);
       if (index !== state.hoverCell) {
         state.hoverCell = index;
         renderBoard();
@@ -6150,12 +8160,14 @@ ${sizeMarkup()}
     if (evt.pointerType !== "mouse" && offTray3d(evt)) return;
     pointer.type = evt.pointerType;
     const h = pointerTarget(evt);
-    if (state.mode === "check") {
+    if (state.mode !== "build") {
+      const t = paintTarget();
+      if (!t) return;
       $("#board").setPointerCapture?.(evt.pointerId);
       pointer.down = true;
       pointer.id = evt.pointerId;
       pointer.erase = right;
-      if (h) paintCell(h.r * state.cols + h.c, right ? LOOK.ANY : state.paint);
+      if (h) t.paint(h.r * t.cols + h.c, right ? LOOK.ANY : state.paint);
       evt.preventDefault();
       return;
     }
@@ -6186,7 +8198,7 @@ ${sizeMarkup()}
   function onPointerUp(evt) {
     if (!pointer.down || evt.pointerId !== pointer.id) return;
     pointer.down = false;
-    if (state.mode === "check") return;
+    if (state.mode !== "build") return;
     const h = pointerTarget(evt);
     if (pointer.dragging) {
       pointer.dragging = false;
@@ -6217,11 +8229,12 @@ ${sizeMarkup()}
     }
   }
   function moveCursor(dr, dc) {
+    const { rows, cols } = boardSize();
     const h = state.hover ?? { r: 0, c: 0 };
-    const r = Math.max(0, Math.min(state.rows - 1, h.r + dr));
-    const c = Math.max(0, Math.min(state.cols - 1, h.c + dc));
+    const r = Math.max(0, Math.min(rows - 1, h.r + dr));
+    const c = Math.max(0, Math.min(cols - 1, h.c + dc));
     state.hover = { r, c, fx: 0.5, fy: 0.5 };
-    if (state.mode === "check") state.hoverCell = r * state.cols + c;
+    if (state.mode !== "build") state.hoverCell = r * cols + c;
     renderBoard();
     if (state.mode === "build" && !statusTimer) {
       const id = pickAt(state.hover);
@@ -6246,9 +8259,11 @@ ${sizeMarkup()}
     }
     if (evt.key === "Enter" || evt.key === " ") {
       evt.preventDefault();
-      if (state.mode === "check") {
+      if (state.mode !== "build") {
+        const t = paintTarget();
+        if (!t) return;
         if (!state.hover) moveCursor(0, 0);
-        else paintCell(state.hover.r * state.cols + state.hover.c, state.paint);
+        else t.paint(state.hover.r * t.cols + state.hover.c, state.paint);
         return;
       }
       if (sel?.src === "new" && sel.r === null) {
@@ -6265,8 +8280,9 @@ ${sizeMarkup()}
       }
     } else if (evt.key === "Delete" || evt.key === "Backspace") {
       evt.preventDefault();
-      if (state.mode === "check") {
-        if (state.hover) paintCell(state.hover.r * state.cols + state.hover.c, LOOK.ANY);
+      if (state.mode !== "build") {
+        const t = paintTarget();
+        if (t && state.hover) t.paint(state.hover.r * t.cols + state.hover.c, LOOK.ANY);
       } else if (sel?.src === "tray") {
         removeSelection();
       } else if (state.hover) {
@@ -6284,6 +8300,7 @@ ${sizeMarkup()}
       bookUI.onKey(evt);
       return;
     }
+    if (state.mode === "packs") return;
     const key = evt.key.toLowerCase();
     if ((evt.ctrlKey || evt.metaKey) && key === "z") {
       evt.preventDefault();
@@ -6457,7 +8474,7 @@ ${sizeMarkup()}
     }
     const el = evt.target.closest("[data-action]");
     if (!el || el.disabled) return;
-    const action = ACTIONS[el.dataset.action] ?? bookUI.actions[el.dataset.action];
+    const action = ACTIONS[el.dataset.action] ?? bookUI.actions[el.dataset.action] ?? packUI.actions[el.dataset.action];
     if (action) action(el, evt);
   }
   function onTabKey(evt) {
@@ -6495,7 +8512,31 @@ ${sizeMarkup()}
       startChallenge,
       randomChallenge,
       setSize,
-      scheduleSave
+      scheduleSave,
+      packsFor: (rows, cols) => packUI.packsFor(rows, cols),
+      addPackToBook: (id) => packUI.addPackById(id),
+      addingPack: () => packUI.isAdding()
+    });
+    packUI = createPackUI({
+      getState: () => state,
+      render,
+      renderPanel,
+      renderBoard,
+      setStatus,
+      confirmDialog,
+      saveFile,
+      copyText,
+      startChallenge,
+      randomChallenge,
+      scheduleSave,
+      paletteMarkup,
+      // eslint-disable-next-line no-undef
+      workerSource: true ? '(() => {\n  // src/geometry.js\n  var N = 0;\n  var E = 1;\n  var S = 2;\n  var W = 3;\n  var SIDE_NAMES = ["N", "E", "S", "W"];\n  var opposite = (side) => (side + 2) % 4;\n  var HALVES = [\n    "U_NW",\n    "U_NE",\n    "U_SE",\n    "U_SW",\n    "R_N",\n    "R_E",\n    "R_S",\n    "R_W",\n    "O_N",\n    "O_E",\n    "O_S",\n    "O_W"\n  ];\n  var HALF = Object.freeze(Object.fromEntries(HALVES.map((name, i) => [name, i])));\n  var COMPLEMENT = Object.freeze([2, 3, 0, 1, 10, 11, 8, 9, 6, 7, 4, 5]);\n  var PAIRS = Object.freeze([\n    [0, 2],\n    // upright, split along "/" (NW + SE)\n    [1, 3],\n    // upright, split along "\\" (NE + SW)\n    [4, 10],\n    // lying, ramp high at N + overhang thick at S\n    [5, 11],\n    [6, 8],\n    [7, 9]\n  ]);\n  var isUpright = (h) => h < 4;\n  var isRamp = (h) => h >= 4 && h < 8;\n  var isCap = (h) => h >= 8;\n  var SOURCE_SIDES = Object.freeze([\n    [N, W],\n    [N, E],\n    [S, E],\n    [S, W],\n    [N],\n    [E],\n    [S],\n    [W],\n    [N],\n    [E],\n    [S],\n    [W]\n  ]);\n  var HALVES_FROM_SIDE = Object.freeze(\n    [0, 1, 2, 3].map((side) => HALVES.map((_, h) => h).filter((h) => SOURCE_SIDES[h].includes(side)))\n  );\n  function cornerOf(a, b) {\n    const has = (s) => a === s || b === s;\n    if (has(N) && has(W)) return 0;\n    if (has(N) && has(E)) return 1;\n    if (has(S) && has(E)) return 2;\n    return 3;\n  }\n  function mixWedgeHalf(dir, pose) {\n    const shared = opposite(dir);\n    if (pose === 2) return 4 + shared;\n    if (pose === 3) return 8 + shared;\n    const side = pose === 0 ? (dir + 3) % 4 : (dir + 1) % 4;\n    return cornerOf(shared, side);\n  }\n  var MIX_ORIENTS = Object.freeze(\n    Array.from({ length: 16 }, (_, o) => {\n      const dir = o >> 2;\n      const pose = o & 3;\n      return Object.freeze({ o, dir, pose, half: mixWedgeHalf(dir, pose) });\n    })\n  );\n  function mixOrientFor(dir, half) {\n    const found = MIX_ORIENTS.find((m) => m.dir === dir && m.half === half);\n    if (!found) throw new Error(`No cube+prism orientation puts half ${HALVES[half]} towards ${SIDE_NAMES[dir]}`);\n    return found.o;\n  }\n  var LOOK = Object.freeze({\n    ANY: 0,\n    WHITE: 1,\n    BLACK: 2,\n    SLASH_WB: 3,\n    // split along "/" : white top-left, black bottom-right\n    SLASH_BW: 4,\n    // split along "/" : black top-left, white bottom-right\n    BACK_WB: 5,\n    // split along "\\" : white top-right, black bottom-left\n    BACK_BW: 6\n    // split along "\\" : black top-right, white bottom-left\n  });\n  var isDiagonalLook = (look) => look >= 3;\n  var solidLook = (color) => color === 0 ? LOOK.WHITE : LOOK.BLACK;\n  function splitLook(h1, c1, h2, c2) {\n    if (COMPLEMENT[h1] !== h2) throw new Error(`${HALVES[h1]} and ${HALVES[h2]} do not fill a square`);\n    if (isUpright(h1)) {\n      if (h1 === 0 || h1 === 2) {\n        const nw = h1 === 0 ? c1 : c2;\n        const se = h1 === 0 ? c2 : c1;\n        if (nw === se) return solidLook(nw);\n        return nw === 0 ? LOOK.SLASH_WB : LOOK.SLASH_BW;\n      }\n      const ne = h1 === 1 ? c1 : c2;\n      const sw = h1 === 1 ? c2 : c1;\n      if (ne === sw) return solidLook(ne);\n      return ne === 0 ? LOOK.BACK_WB : LOOK.BACK_BW;\n    }\n    return solidLook(isCap(h1) ? c1 : c2);\n  }\n  function diagonalHalfColor(look, h) {\n    switch (look) {\n      case LOOK.SLASH_WB:\n        return h === 0 ? 0 : h === 2 ? 1 : -1;\n      case LOOK.SLASH_BW:\n        return h === 0 ? 1 : h === 2 ? 0 : -1;\n      case LOOK.BACK_WB:\n        return h === 1 ? 0 : h === 3 ? 1 : -1;\n      case LOOK.BACK_BW:\n        return h === 1 ? 1 : h === 3 ? 0 : -1;\n      default:\n        return -1;\n    }\n  }\n  function halfFitsLook(look, h, color) {\n    if (look === LOOK.ANY) return true;\n    if (isUpright(h)) {\n      if (look === LOOK.WHITE || look === LOOK.BLACK) return solidLook(color) === look;\n      return diagonalHalfColor(look, h) === color;\n    }\n    if (isRamp(h)) return look === LOOK.WHITE || look === LOOK.BLACK;\n    return solidLook(color) === look;\n  }\n  var cubeFitsLook = (look, color) => look === LOOK.ANY || look === solidLook(color);\n  var FULL = [[0, 0], [1, 0], [1, 1], [0, 1]];\n  var HALF_OUTLINE = Object.freeze([\n    [[0, 0], [1, 0], [0, 1]],\n    // U_NW\n    [[0, 0], [1, 0], [1, 1]],\n    // U_NE\n    [[1, 0], [1, 1], [0, 1]],\n    // U_SE\n    [[0, 0], [1, 1], [0, 1]],\n    // U_SW\n    FULL,\n    FULL,\n    FULL,\n    FULL,\n    FULL,\n    FULL,\n    FULL,\n    FULL\n  ]);\n\n  // src/board.js\n  var KINDS = Object.freeze(["mixW", "mixB", "triW", "triB"]);\n  var colorOf = (bit) => bit === 0 ? "W" : "B";\n  var MIN_SIZE = 1;\n  var MAX_SIZE = 12;\n  function sizeProblem(rows, cols) {\n    if (!Number.isInteger(rows) || !Number.isInteger(cols)) return "Rows and columns must be whole numbers.";\n    if (rows < MIN_SIZE || cols < MIN_SIZE || rows > MAX_SIZE || cols > MAX_SIZE) {\n      return `Rows and columns must be between ${MIN_SIZE} and ${MAX_SIZE}.`;\n    }\n    if (rows * cols % 4 !== 0) {\n      return "The number of squares must be a multiple of 4: every 2 squares take one cube + prism and one loose prism, and white and black get the same number of each.";\n    }\n    return null;\n  }\n\n  // src/solver.js\n  var WEDGE = 1;\n  var WANT = 2;\n  var message = (type, h, color) => type << 5 | h << 1 | color;\n  var msgType = (m) => m >> 5;\n  var msgHalf = (m) => m >> 1 & 15;\n  var msgColor = (m) => m & 1;\n  var BudgetExceeded = class extends Error {\n  };\n  function patternStats(looks) {\n    const stats = { white: 0, black: 0, diagonal: 0, any: 0 };\n    for (const t of looks) {\n      if (t === LOOK.WHITE) stats.white += 1;\n      else if (t === LOOK.BLACK) stats.black += 1;\n      else if (isDiagonalLook(t)) stats.diagonal += 1;\n      else stats.any += 1;\n    }\n    return stats;\n  }\n  function quickCheck(rows, cols, looks, inventory) {\n    const problem = sizeProblem(rows, cols);\n    if (problem) return { ok: false, code: "size", reason: problem };\n    if (looks.length !== rows * cols) return { ok: false, code: "size", reason: "The pattern does not match the board size." };\n    const { mixW, mixB, triW, triB } = inventory;\n    const cubes = mixW + mixB;\n    const st = patternStats(looks);\n    const maxDiagonal = rows * cols - cubes;\n    if (st.diagonal > maxDiagonal) {\n      return {\n        ok: false,\n        code: "too-many-diagonals",\n        reason: `This pattern has ${st.diagonal} split squares, but at most ${maxDiagonal} are possible. Each of the ${cubes} cube + prism pieces always shows its cube as a full square, so ${cubes} squares can never be split.`\n      };\n    }\n    if (mixW > st.white + st.any) {\n      return {\n        ok: false,\n        code: "white-cubes",\n        reason: `The ${mixW} white cubes always show as full white squares, but the pattern only has ${st.white + st.any} squares that can be fully white.`\n      };\n    }\n    if (mixB > st.black + st.any) {\n      return {\n        ok: false,\n        code: "black-cubes",\n        reason: `The ${mixB} black cubes always show as full black squares, but the pattern only has ${st.black + st.any} squares that can be fully black.`\n      };\n    }\n    const needWhite = Math.max(0, st.white - mixW) + st.diagonal;\n    if (needWhite > mixW + triW) {\n      return {\n        ok: false,\n        code: "white-halves",\n        reason: `Not enough white: the pattern needs at least ${needWhite} white prism halves on top, but there are only ${mixW + triW} white prisms (loose or attached to a cube).`\n      };\n    }\n    const needBlack = Math.max(0, st.black - mixB) + st.diagonal;\n    if (needBlack > mixB + triB) {\n      return {\n        ok: false,\n        code: "black-halves",\n        reason: `Not enough black: the pattern needs at least ${needBlack} black prism halves on top, but there are only ${mixB + triB} black prisms (loose or attached to a cube).`\n      };\n    }\n    return { ok: true };\n  }\n  function weightedShuffle(list, rng, weight) {\n    const keyed = list.map((item) => ({ item, key: Math.pow(rng(), 1 / Math.max(1e-6, weight(item))) }));\n    keyed.sort((a, b) => b.key - a.key);\n    return keyed.map((x) => x.item);\n  }\n  function solvePattern(rows, cols, looks, inventory, options = {}) {\n    const quick = quickCheck(rows, cols, looks, inventory);\n    if (!quick.ok) return { status: "impossible", code: quick.code, reason: quick.reason, nodes: 0 };\n    const budget = options.maxNodes ?? 15e5;\n    const frames = [\n      { tr: false, fv: false },\n      { tr: false, fv: true },\n      { tr: true, fv: false },\n      { tr: true, fv: true }\n    ].map((f) => ({ ...f, width: f.tr ? rows : cols }));\n    frames.sort((a, b) => a.width - b.width);\n    const plan = [\n      ...frames.map((frame) => ({ frame, nodes: 6e4, seed: 0 })),\n      ...Array.from({ length: 16 }, (_, k) => ({ frame: frames[k % 4], nodes: 3e4, seed: 101 + k * 37 }))\n    ];\n    let used = 0;\n    for (const step of plan) {\n      if (used >= budget) break;\n      const run = solveInFrame(rows, cols, looks, inventory, step.frame, Math.min(step.nodes, budget - used), step.seed);\n      used += run.nodes;\n      if (run.status !== "unknown") return { ...run, nodes: used };\n    }\n    if (used < budget) {\n      const run = solveInFrame(rows, cols, looks, inventory, frames[0], budget - used, 0);\n      used += run.nodes;\n      if (run.status !== "unknown") return { ...run, nodes: used };\n    }\n    return {\n      status: "unknown",\n      reason: "This picture is too complex to decide in the time allowed. Try a smaller board, or fix more squares.",\n      nodes: used\n    };\n  }\n  var T_DIR = [W, S, E, N];\n  var T_HALF = [0, 3, 2, 1, 7, 6, 5, 4, 11, 10, 9, 8];\n  var T_LOOK = [LOOK.ANY, LOOK.WHITE, LOOK.BLACK, LOOK.SLASH_WB, LOOK.SLASH_BW, LOOK.BACK_BW, LOOK.BACK_WB];\n  var V_DIR = [S, E, N, W];\n  var V_HALF = [3, 2, 1, 0, 6, 5, 4, 7, 10, 9, 8, 11];\n  var V_LOOK = [LOOK.ANY, LOOK.WHITE, LOOK.BLACK, LOOK.BACK_BW, LOOK.BACK_WB, LOOK.SLASH_BW, LOOK.SLASH_WB];\n  function mapPiece(p, dirMap, halfMap, r, c) {\n    if (p.type === "tri") return { ...p, r, c, o: halfMap[p.o] };\n    const m = MIX_ORIENTS[p.o];\n    return { ...p, r, c, o: mixOrientFor(dirMap[m.dir], halfMap[m.half]) };\n  }\n  function solveInFrame(rows, cols, looks, inventory, frame, maxNodes, seed) {\n    let R = rows;\n    let C = cols;\n    let L = looks;\n    if (frame.tr) {\n      const next = [];\n      for (let c = 0; c < C; c += 1) for (let r = 0; r < R; r += 1) next.push(T_LOOK[L[r * C + c]]);\n      L = next;\n      [R, C] = [C, R];\n    }\n    if (frame.fv) {\n      const next = [];\n      for (let r = R - 1; r >= 0; r -= 1) for (let c = 0; c < C; c += 1) next.push(V_LOOK[L[r * C + c]]);\n      L = next;\n    }\n    const run = searchOnce(R, C, L, inventory, maxNodes, seed ? makeRng(seed) : null);\n    if (run.pieces) {\n      let pieces = run.pieces;\n      if (frame.fv) pieces = pieces.map((p) => mapPiece(p, V_DIR, V_HALF, R - 1 - p.r, p.c));\n      if (frame.tr) pieces = pieces.map((p) => mapPiece(p, T_DIR, T_HALF, p.c, p.r));\n      run.pieces = pieces;\n    }\n    return run;\n  }\n  function searchOnce(rows, cols, looks, inventory, maxNodes, rng) {\n    const total = rows * cols;\n    const res = [inventory.mixW, inventory.mixB, inventory.triW, inventory.triB, 0];\n    const down = new Uint8Array(cols);\n    let right = 0;\n    const chosen = new Array(total);\n    const deadEnds = /* @__PURE__ */ new Set();\n    let nodes = 0;\n    const sufWhite = new Int32Array(total + 1);\n    const sufBlack = new Int32Array(total + 1);\n    const sufAny = new Int32Array(total + 1);\n    const sufDiag = new Int32Array(total + 1);\n    for (let i = total - 1; i >= 0; i -= 1) {\n      const t = looks[i];\n      sufWhite[i] = sufWhite[i + 1] + (t === LOOK.WHITE ? 1 : 0);\n      sufBlack[i] = sufBlack[i + 1] + (t === LOOK.BLACK ? 1 : 0);\n      sufAny[i] = sufAny[i + 1] + (t === LOOK.ANY ? 1 : 0);\n      sufDiag[i] = sufDiag[i + 1] + (isDiagonalLook(t) ? 1 : 0);\n    }\n    const fits = (uses) => res[0] >= uses[0] && res[1] >= uses[1] && res[2] >= uses[2] && res[3] >= uses[3] && res[4] + uses[4] <= res[2] - uses[2] + res[3] - uses[3];\n    function fillersFor(h, r, c) {\n      const out = [];\n      if (isRamp(h)) out.push({ src: "tri", color: -1 });\n      else {\n        out.push({ src: "tri", color: 0 });\n        out.push({ src: "tri", color: 1 });\n      }\n      const sides = SOURCE_SIDES[h];\n      if (c + 1 < cols && sides.includes(E)) {\n        const t = looks[r * cols + c + 1];\n        for (const color of [0, 1]) if (res[color] > 0 && cubeFitsLook(t, color)) out.push({ src: "E", color });\n      }\n      if (r + 1 < rows && sides.includes(S)) {\n        const t = looks[(r + 1) * cols + c];\n        for (const color of [0, 1]) if (res[color] > 0 && cubeFitsLook(t, color)) out.push({ src: "S", color });\n      }\n      return out;\n    }\n    function splitOption(t, a, b) {\n      if (a.src === b.src && (a.src === "E" || a.src === "S")) return null;\n      const look = splitLook(a.h, Math.max(0, a.color), b.h, Math.max(0, b.color));\n      if (t !== LOOK.ANY && look !== t) return null;\n      const uses = [0, 0, 0, 0, 0];\n      let outRight = 0;\n      let outDown = 0;\n      for (const p of [a, b]) {\n        if (p.src === "tri") {\n          if (p.color < 0) uses[4] += 1;\n          else uses[2 + p.color] += 1;\n        } else if (p.src === "E") outRight = message(WANT, p.h, p.color);\n        else if (p.src === "S") outDown = message(WANT, p.h, p.color);\n      }\n      if (!fits(uses)) return null;\n      const fromCubes = (a.src === "tri" ? 0 : 1) + (b.src === "tri" ? 0 : 1);\n      const score = fromCubes === 1 ? a.src === "in" || b.src === "in" ? 0 : 1 : fromCubes === 2 && a.src === "in" && b.src === "in" ? 0 : 3;\n      return { kind: "split", parts: [a, b], uses, outRight, outDown, score };\n    }\n    function optionsAt(r, c) {\n      const i = r * cols + c;\n      const t = looks[i];\n      const up = r > 0 ? down[c] : 0;\n      const left = c > 0 ? right : 0;\n      const upType = msgType(up);\n      const leftType = msgType(left);\n      const out = [];\n      if (upType !== WANT && leftType !== WANT) {\n        const incoming = [];\n        if (upType === WEDGE) incoming.push({ h: msgHalf(up), src: "in", color: msgColor(up) });\n        if (leftType === WEDGE) incoming.push({ h: msgHalf(left), src: "in", color: msgColor(left) });\n        if (incoming.length === 2) {\n          if (COMPLEMENT[incoming[0].h] === incoming[1].h) {\n            const op = splitOption(t, incoming[0], incoming[1]);\n            if (op) out.push(op);\n          }\n        } else if (incoming.length === 1) {\n          const h1 = COMPLEMENT[incoming[0].h];\n          for (const f of fillersFor(h1, r, c)) {\n            const op = splitOption(t, incoming[0], { h: h1, ...f });\n            if (op) out.push(op);\n          }\n        } else {\n          for (const [ha, hb] of PAIRS) {\n            const fb = fillersFor(hb, r, c);\n            for (const fa of fillersFor(ha, r, c)) {\n              for (const f2 of fb) {\n                const op = splitOption(t, { h: ha, ...fa }, { h: hb, ...f2 });\n                if (op) out.push(op);\n              }\n            }\n          }\n        }\n      }\n      if (upType !== WEDGE && leftType !== WEDGE && !(upType === WANT && leftType === WANT)) {\n        if (upType === WANT || leftType === WANT) {\n          const m = upType === WANT ? up : left;\n          const color = msgColor(m);\n          if (res[color] > 0 && cubeFitsLook(t, color)) {\n            const uses = [0, 0, 0, 0, 0];\n            uses[color] = 1;\n            out.push({ kind: "cube", color, dir: upType === WANT ? N : W, h: msgHalf(m), uses, outRight: 0, outDown: 0, score: 0 });\n          }\n        } else {\n          for (const color of [0, 1]) {\n            if (res[color] === 0 || !cubeFitsLook(t, color)) continue;\n            const uses = [0, 0, 0, 0, 0];\n            uses[color] = 1;\n            if (c + 1 < cols) {\n              const tr = looks[i + 1];\n              for (const h of HALVES_FROM_SIDE[W]) {\n                if (halfFitsLook(tr, h, color)) out.push({ kind: "cube", color, dir: E, h, uses, outRight: message(WEDGE, h, color), outDown: 0, score: 1 });\n              }\n            }\n            if (r + 1 < rows) {\n              const td = looks[i + cols];\n              for (const h of HALVES_FROM_SIDE[N]) {\n                if (halfFitsLook(td, h, color)) out.push({ kind: "cube", color, dir: S, h, uses, outRight: 0, outDown: message(WEDGE, h, color), score: 1 });\n              }\n            }\n          }\n        }\n      }\n      return out;\n    }\n    function hopeful(i, c) {\n      const left = total - i;\n      const cw = res[0];\n      const cb = res[1];\n      if (cw + cb > left) return false;\n      if (cw > sufWhite[i] + sufAny[i] || cb > sufBlack[i] + sufAny[i]) return false;\n      if (sufDiag[i] > left - cw - cb) return false;\n      let inW = 0;\n      let inB = 0;\n      let wantW = 0;\n      let wantB = 0;\n      const tally = (m) => {\n        const type = msgType(m);\n        if (type === WEDGE) {\n          if (msgColor(m)) inB += 1;\n          else inW += 1;\n        } else if (type === WANT) {\n          if (msgColor(m)) wantB += 1;\n          else wantW += 1;\n        }\n      };\n      for (let k = 0; k < cols; k += 1) tally(down[k]);\n      if (c > 0) tally(right);\n      if (wantW > cw || wantB > cb) return false;\n      const needW = Math.max(0, sufWhite[i] - cw) + sufDiag[i];\n      if (needW > res[2] + cw - wantW + inW) return false;\n      const needB = Math.max(0, sufBlack[i] - cb) + sufDiag[i];\n      if (needB > res[3] + cb - wantB + inB) return false;\n      return true;\n    }\n    function dfs(i) {\n      if (i === total) return true;\n      nodes += 1;\n      if (nodes > maxNodes) throw new BudgetExceeded();\n      const r = Math.floor(i / cols);\n      const c = i - r * cols;\n      if (!hopeful(i, c)) return false;\n      const key = `${i}|${c > 0 ? right : 0}|${down.join(",")}|${res.join(",")}`;\n      if (deadEnds.has(key)) return false;\n      let opts = optionsAt(r, c);\n      const t = looks[i];\n      let lean = 0;\n      if (t === LOOK.WHITE) lean = res[0] / Math.max(1, sufWhite[i] + sufAny[i]) - 0.5;\n      else if (t === LOOK.BLACK) lean = res[1] / Math.max(1, sufBlack[i] + sufAny[i]) - 0.5;\n      else if (t === LOOK.ANY) lean = (res[0] + res[1]) / Math.max(1, total - i) - 0.5;\n      for (const op of opts) op.rank = op.score + (op.kind === "cube" ? -4 : 4) * lean;\n      if (rng) opts = weightedShuffle(opts, rng, (op) => 1 / (1 + Math.max(0, 3 * op.rank + 6)));\n      else opts.sort((a, b) => a.rank - b.rank);\n      const savedDown = down[c];\n      const savedRight = right;\n      for (const op of opts) {\n        for (let k = 0; k < 5; k += 1) res[k] -= k < 4 ? op.uses[k] : -op.uses[k];\n        down[c] = op.outDown;\n        right = op.outRight;\n        chosen[i] = op;\n        if (dfs(i + 1)) return true;\n        for (let k = 0; k < 5; k += 1) res[k] += k < 4 ? op.uses[k] : -op.uses[k];\n      }\n      down[c] = savedDown;\n      right = savedRight;\n      deadEnds.add(key);\n      return false;\n    }\n    try {\n      if (!dfs(0)) {\n        return {\n          status: "impossible",\n          code: "search",\n          reason: "No arrangement of the pieces gives this picture (every possibility was checked).",\n          nodes\n        };\n      }\n    } catch (err) {\n      if (err instanceof BudgetExceeded) return { status: "unknown", nodes };\n      throw err;\n    }\n    let whiteLeft = res[2];\n    const pieces = [];\n    chosen.forEach((op, i) => {\n      const r = Math.floor(i / cols);\n      const c = i % cols;\n      if (op.kind === "cube") {\n        pieces.push({ type: "mix", color: colorOf(op.color), r, c, o: mixOrientFor(op.dir, op.h) });\n        return;\n      }\n      for (const p of op.parts) {\n        if (p.src !== "tri") continue;\n        let color = p.color;\n        if (color < 0) {\n          color = whiteLeft > 0 ? 0 : 1;\n          if (color === 0) whiteLeft -= 1;\n        }\n        pieces.push({ type: "tri", color: colorOf(color), r, c, o: p.h });\n      }\n    });\n    const rank = (p) => p.type === "mix" ? 0 : isCap(p.o) ? 2 : 1;\n    pieces.sort((a, b) => rank(a) - rank(b));\n    return { status: "possible", pieces, nodes };\n  }\n  function makeRng(seed = Date.now()) {\n    let a = seed >>> 0;\n    return () => {\n      a = a + 1831565813 >>> 0;\n      let t = a;\n      t = Math.imul(t ^ t >>> 15, t | 1);\n      t ^= t + Math.imul(t ^ t >>> 7, t | 61);\n      return ((t ^ t >>> 14) >>> 0) / 4294967296;\n    };\n  }\n\n  // src/worker.js\n  self.onmessage = (event) => {\n    const { id, rows, cols, looks, inventory, maxNodes } = event.data;\n    let result;\n    try {\n      result = solvePattern(rows, cols, looks, inventory, { maxNodes });\n    } catch (err) {\n      result = { status: "unknown", reason: `The check stopped with an error: ${err.message}` };\n    }\n    self.postMessage({ id, result });\n  };\n})();\n' : null,
+      currentBook: () => bookUI.currentBook(),
+      bookFor: (shape, n) => bookUI.bookFor(shape, n),
+      bookChanged: () => bookUI.invalidate(),
+      buildFits: (rows, cols) => state.rows === rows && state.cols === cols && state.build.isComplete(),
+      buildLooks: () => state.build.looks()
     });
     window.claude?.hot?.snapshot?.(() => snapshot());
     downloadsCapability();
@@ -6534,6 +8575,7 @@ ${sizeMarkup()}
       if (evt.key === "Enter" && evt.target.id === "codeIn") loadCode();
     });
     bookUI.attach();
+    packUI.attach();
     if (state.mode === "check") scheduleCheck(0);
     render();
   }

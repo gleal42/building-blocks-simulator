@@ -25,8 +25,9 @@
     </div>
     <nav class="tabs" role="tablist" aria-label="Mode">
       <button type="button" role="tab" data-tab="build" aria-selected="true">Build</button>
-      <button type="button" role="tab" data-tab="check" aria-selected="false" tabindex="-1">Check a picture</button>
-      <button type="button" role="tab" data-tab="book" aria-selected="false" tabindex="-1">Challenge book</button>
+      <button type="button" role="tab" data-tab="check" aria-selected="false" tabindex="-1"><span class="tab-long">Check a picture</span><span class="tab-short">Check</span></button>
+      <button type="button" role="tab" data-tab="packs" aria-selected="false" tabindex="-1">Packs</button>
+      <button type="button" role="tab" data-tab="book" aria-selected="false" tabindex="-1"><span class="tab-long">Challenge book</span><span class="tab-short">Book</span></button>
     </nav>
   </header>
   <main class="layout">
@@ -42,6 +43,7 @@
         <svg id="board" role="application" tabindex="0" aria-label="Tray" xmlns="http://www.w3.org/2000/svg"></svg>
       </div>
       <div class="book-stage" id="bookStage" hidden></div>
+      <div class="photo-stage" id="photoStage" hidden></div>
       <p class="status" id="status" aria-live="polite"></p>
       <div class="stage-bar" id="stageBar"></div>
     </section>

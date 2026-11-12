@@ -1,8 +1,10 @@
-// The app: Build (with challenges), Check a picture, and Challenge book.
+// The app: Build (with challenges), Check a picture, Packs of designs, and Challenge book.
 
 import { Board, KINDS, MAX_SIZE, decodeBoard, encodeBoard, kindOf, occupancy, pieceCovers, pieceName, sizeProblem } from './board.js';
 import { DIFFICULTY } from './book.js';
 import { createBookUI } from './bookui.js';
+import { createPackUI, revivePacks } from './packui.js';
+import { normalizePack } from './packs.js';
 import { LOOK, MIX_ORIENTS, flipMix, flipTri, isRamp, rotateMix, rotateTri, thickSide, tipMix, tipTri } from './geometry.js';
 import { ICONS } from './icons.js';
 import { PRESETS } from './presets.js';
@@ -70,6 +72,7 @@ class History {
 
 let state;
 let bookUI;
+let packUI;
 // The press in progress on the board: where it started, whether it has moved, and whether it
 // grabbed the selected piece (grab: offset from the piece's square to the square grabbed).
 const pointer = { down: false, id: null, type: 'mouse', erase: false, x: 0, y: 0, moved: false, dragging: false, grab: null };
@@ -111,6 +114,12 @@ function defaultState() {
     bookKey: 'square-4',
     bookView: '3d',
     bookLeaf: 0,
+    // Packs tab: your packs, the pack and design shown, the design being painted.
+    packs: [],
+    packId: '',
+    packIndex: 0,
+    packDraft: null,
+    packView: 'design',
   };
 }
 
@@ -130,6 +139,10 @@ function snapshot() {
     books: state.books,
     bookKey: state.bookKey,
     bookView: state.bookView,
+    packs: state.packs.map((p) => ({ id: p.id, name: p.name, rows: p.rows, cols: p.cols, designs: p.designs })),
+    packId: state.packId,
+    packIndex: state.packIndex,
+    packDraft: state.packDraft,
   };
 }
 
@@ -146,7 +159,7 @@ function restore(data) {
     const challenge = ch && Array.isArray(ch.target) && ch.target.length === rows * cols ? ch : null;
     return {
       ...base,
-      mode: ['build', 'check', 'book'].includes(data.mode) ? data.mode : 'build',
+      mode: ['build', 'check', 'packs', 'book'].includes(data.mode) ? data.mode : 'build',
       rows,
       cols,
       sizeDraft: { rows, cols },
@@ -163,6 +176,11 @@ function restore(data) {
       books: data.books && typeof data.books === 'object' ? data.books : {},
       bookKey: typeof data.bookKey === 'string' ? data.bookKey : base.bookKey,
       bookView: ['3d', 'spreads', 'sheets', 'cards'].includes(data.bookView) ? data.bookView : '3d',
+      packs: revivePacks(data.packs, normalizePack),
+      packId: typeof data.packId === 'string' ? data.packId : '',
+      packIndex: Number.isInteger(data.packIndex) ? data.packIndex : 0,
+      packDraft: data.packDraft && typeof data.packDraft.packId === 'string' && Number.isInteger(data.packDraft.index) && Array.isArray(data.packDraft.looks)
+        && data.packDraft.looks.every((l) => Number.isInteger(l) && l >= 0 && l <= 6) ? data.packDraft : null,
     };
   } catch {
     return base;
@@ -259,8 +277,17 @@ function renderTabs() {
 
 function renderStage() {
   const book = state.mode === 'book';
-  $('#boardWrap').hidden = book;
+  const photo = state.mode === 'packs' && packUI.showingPhoto();
+  $('#boardWrap').hidden = book || photo;
   $('#bookStage').hidden = !book;
+  $('#photoStage').hidden = !photo;
+  if (photo) {
+    packUI.renderPhotoStage($('#photoStage'));
+    $('#stageTop').innerHTML = '';
+    $('#status').hidden = false;
+    renderStageBar();
+    return;
+  }
   if (book) {
     bookUI.renderStage($('#bookStage'));
     $('#stageTop').innerHTML = '';
@@ -276,6 +303,10 @@ function renderStage() {
 
 function renderStageTop() {
   const top = $('#stageTop');
+  if (state.mode === 'packs') {
+    top.innerHTML = packUI.stageTopMarkup();
+    return;
+  }
   const ch = state.challenge;
   if (state.mode !== 'build' || !ch) {
     top.innerHTML = '';
@@ -299,6 +330,10 @@ function renderBoard() {
   if (state.mode === 'check') {
     view = pictureMarkup(state.rows, state.cols, state.pattern, { hoverCell: state.hoverCell });
     svg.setAttribute('aria-label', `Picture to check, ${state.rows} by ${state.cols}.`);
+  } else if (state.mode === 'packs') {
+    const grid = packUI.paintGrid();
+    view = pictureMarkup(grid.rows, grid.cols, grid.looks, { hoverCell: grid.editable ? state.hoverCell : -1 });
+    svg.setAttribute('aria-label', `Design, ${grid.rows} by ${grid.cols}${grid.editable ? ', to paint' : ''}.`);
   } else {
     const board = state.build;
     if (state.sel?.src === 'tray' && !board.pieces.has(state.sel.id)) state.sel = null;
@@ -316,6 +351,7 @@ function renderBoard() {
   svg.setAttribute('viewBox', view.viewBox);
   svg.innerHTML = view.markup;
   svg.classList.toggle('is-3d', state.mode === 'build' && state.view === '3d');
+  svg.classList.toggle('is-locked', state.mode === 'packs' && !packUI.paintGrid()?.editable);
   svg.classList.toggle('is-holding', state.mode === 'build' && state.sel?.src === 'new');
   $('#viewTurn').hidden = !(state.mode === 'build' && state.view === '3d');
   state.fresh = new Set();
@@ -357,12 +393,13 @@ function toolButton(action, icon, label, { pressed = null, disabled = false, hin
 
 function renderStageBar() {
   const bar = $('#stageBar');
+  if (state.mode === 'packs') {
+    bar.innerHTML = packUI.stageBarMarkup();
+    return;
+  }
   if (state.mode === 'check') {
     bar.innerHTML = `<div class="check-result" id="checkResult" aria-live="polite">${checkResultMarkup()}</div>
-<div class="palette" role="group" aria-label="Paint">${PALETTE.map(({ look, label }) => {
-      const on = state.paint === look;
-      return `<button type="button" class="swatch-btn${on ? ' is-on' : ''}" data-action="paint" data-look="${look}" aria-pressed="${on}" title="${label}">${flatPicture(1, 1, [look], { cell: 26, gap: 0 })}<span>${label}</span></button>`;
-    }).join('')}</div>
+${paletteMarkup()}
 <p class="hint">${finePointer() ? '<b>Left-click</b> paints a square, <b>right-click</b> erases it. Drag to paint several.' : 'Tap or drag to paint. Choose <b>Erase</b> to clear squares.'}</p>`;
     return;
   }
@@ -406,6 +443,13 @@ ${toolButton('view', state.view === '3d' ? ICONS.board : ICONS.cube, state.view 
 <p class="hint">${fine
     ? '<b>Drag</b> a piece onto the tray, turn it if you like, then press <b>Place</b>. <b>Click</b> a piece in the tray to select it (click again for the one underneath). Right-click removes a piece at once.'
     : '<b>Drag</b> a piece onto the tray, turn it if you like, then tap <b>Place</b>. <b>Tap</b> a piece in the tray to select it (tap again for the one underneath).'}</p>`;
+}
+
+function paletteMarkup() {
+  return `<div class="palette" role="group" aria-label="Paint">${PALETTE.map(({ look, label }) => {
+    const on = state.paint === look;
+    return `<button type="button" class="swatch-btn${on ? ' is-on' : ''}" data-action="paint" data-look="${look}" aria-pressed="${on}" title="${label}">${flatPicture(1, 1, [look], { cell: 26, gap: 0 })}<span>${label}</span></button>`;
+  }).join('')}</div>`;
 }
 
 function orientMarkup() {
@@ -513,6 +557,7 @@ function renderPanel() {
   const focused = document.activeElement && panel.contains(document.activeElement) ? focusKey(document.activeElement) : null;
   const openDetails = panel.querySelector('details[open]') !== null;
   if (state.mode === 'book') panel.innerHTML = bookUI.panelMarkup();
+  else if (state.mode === 'packs') panel.innerHTML = packUI.panelMarkup();
   else panel.innerHTML = state.mode === 'check' ? checkPanel() : buildPanel();
   if (openDetails) panel.querySelector('details')?.setAttribute('open', '');
   if (focused) panel.querySelector(focused)?.focus({ preventScroll: true });
@@ -528,7 +573,7 @@ function focusKey(el) {
 
 /** The status line when nothing else is being said: { text, tone }. */
 function defaultStatus() {
-  if (state.mode === 'check') return { text: '', tone: '' };
+  if (state.mode === 'check' || state.mode === 'packs') return { text: '', tone: '' };
   const sel = state.sel;
   const fine = finePointer();
   const prog = progressText();
@@ -1273,6 +1318,22 @@ function confirmDialog(message, okLabel) {
 
 // ---- Board events ------------------------------------------------------------------------
 
+/** The picture painted on the tray (Check a picture, Packs): { rows, cols, paint(i, look) } or null. */
+function paintTarget() {
+  if (state.mode === 'check') return { rows: state.rows, cols: state.cols, paint: paintCell };
+  if (state.mode === 'packs') {
+    const grid = packUI.paintGrid();
+    return grid?.editable ? grid : null;
+  }
+  return null;
+}
+
+/** Rows and columns of what the tray shows. */
+function boardSize() {
+  const grid = state.mode === 'packs' ? packUI.paintGrid() : null;
+  return grid ?? { rows: state.rows, cols: state.cols };
+}
+
 function svgPoint(evt) {
   const m = $('#board').getScreenCTM();
   if (!m) return null;
@@ -1288,7 +1349,8 @@ function pointerTarget(evt) {
   const p = svgPoint(evt);
   if (!p) return null;
   if (state.mode === 'build' && state.view === '3d') return hitTest3d(hits3d, p.x, p.y);
-  return cellFromPoint(state.rows, state.cols, p.x, p.y);
+  const { rows, cols } = boardSize();
+  return cellFromPoint(rows, cols, p.x, p.y);
 }
 
 /**
@@ -1338,9 +1400,11 @@ function onSelection(h, evt) {
 function onPointerMove(evt) {
   if (!pointer.down) pointer.type = evt.pointerType;
   const h = pointerTarget(evt);
-  if (state.mode === 'check') {
-    const index = h ? h.r * state.cols + h.c : -1;
-    if (pointer.down && index >= 0) paintCell(index, pointer.erase ? LOOK.ANY : state.paint);
+  if (state.mode !== 'build') {
+    const t = paintTarget();
+    if (!t) return;
+    const index = h ? h.r * t.cols + h.c : -1;
+    if (pointer.down && index >= 0) t.paint(index, pointer.erase ? LOOK.ANY : state.paint);
     if (index !== state.hoverCell) {
       state.hoverCell = index;
       renderBoard();
@@ -1377,12 +1441,14 @@ function onPointerDown(evt) {
   if (evt.pointerType !== 'mouse' && offTray3d(evt)) return;
   pointer.type = evt.pointerType;
   const h = pointerTarget(evt);
-  if (state.mode === 'check') {
+  if (state.mode !== 'build') {
+    const t = paintTarget();
+    if (!t) return;
     $('#board').setPointerCapture?.(evt.pointerId);
     pointer.down = true;
     pointer.id = evt.pointerId;
     pointer.erase = right;
-    if (h) paintCell(h.r * state.cols + h.c, right ? LOOK.ANY : state.paint);
+    if (h) t.paint(h.r * t.cols + h.c, right ? LOOK.ANY : state.paint);
     evt.preventDefault();
     return;
   }
@@ -1420,7 +1486,7 @@ function onPointerDown(evt) {
 function onPointerUp(evt) {
   if (!pointer.down || evt.pointerId !== pointer.id) return;
   pointer.down = false;
-  if (state.mode === 'check') return;
+  if (state.mode !== 'build') return;
   const h = pointerTarget(evt);
   if (pointer.dragging) {
     pointer.dragging = false;
@@ -1457,11 +1523,12 @@ function onPointerLeave() {
 }
 
 function moveCursor(dr, dc) {
+  const { rows, cols } = boardSize();
   const h = state.hover ?? { r: 0, c: 0 };
-  const r = Math.max(0, Math.min(state.rows - 1, h.r + dr));
-  const c = Math.max(0, Math.min(state.cols - 1, h.c + dc));
+  const r = Math.max(0, Math.min(rows - 1, h.r + dr));
+  const c = Math.max(0, Math.min(cols - 1, h.c + dc));
   state.hover = { r, c, fx: 0.5, fy: 0.5 };
-  if (state.mode === 'check') state.hoverCell = r * state.cols + c;
+  if (state.mode !== 'build') state.hoverCell = r * cols + c;
   renderBoard();
   if (state.mode === 'build' && !statusTimer) {
     const id = pickAt(state.hover);
@@ -1488,9 +1555,11 @@ function onBoardKey(evt) {
   }
   if (evt.key === 'Enter' || evt.key === ' ') {
     evt.preventDefault();
-    if (state.mode === 'check') {
+    if (state.mode !== 'build') {
+      const t = paintTarget();
+      if (!t) return;
       if (!state.hover) moveCursor(0, 0);
-      else paintCell(state.hover.r * state.cols + state.hover.c, state.paint);
+      else t.paint(state.hover.r * t.cols + state.hover.c, state.paint);
       return;
     }
     if (sel?.src === 'new' && sel.r === null) {
@@ -1507,8 +1576,9 @@ function onBoardKey(evt) {
     }
   } else if (evt.key === 'Delete' || evt.key === 'Backspace') {
     evt.preventDefault();
-    if (state.mode === 'check') {
-      if (state.hover) paintCell(state.hover.r * state.cols + state.hover.c, LOOK.ANY);
+    if (state.mode !== 'build') {
+      const t = paintTarget();
+      if (t && state.hover) t.paint(state.hover.r * t.cols + state.hover.c, LOOK.ANY);
     } else if (sel?.src === 'tray') {
       removeSelection();
     } else if (state.hover) {
@@ -1527,6 +1597,7 @@ function onGlobalKey(evt) {
     bookUI.onKey(evt);
     return;
   }
+  if (state.mode === 'packs') return;
   const key = evt.key.toLowerCase();
   if ((evt.ctrlKey || evt.metaKey) && key === 'z') {
     evt.preventDefault();
@@ -1718,7 +1789,7 @@ function onClick(evt) {
   }
   const el = evt.target.closest('[data-action]');
   if (!el || el.disabled) return;
-  const action = ACTIONS[el.dataset.action] ?? bookUI.actions[el.dataset.action];
+  const action = ACTIONS[el.dataset.action] ?? bookUI.actions[el.dataset.action] ?? packUI.actions[el.dataset.action];
   if (action) action(el, evt);
 }
 
@@ -1761,6 +1832,30 @@ export function start(hotData) {
     randomChallenge,
     setSize,
     scheduleSave,
+    packsFor: (rows, cols) => packUI.packsFor(rows, cols),
+    addPackToBook: (id) => packUI.addPackById(id),
+    addingPack: () => packUI.isAdding(),
+  });
+  packUI = createPackUI({
+    getState: () => state,
+    render,
+    renderPanel,
+    renderBoard,
+    setStatus,
+    confirmDialog,
+    saveFile,
+    copyText,
+    startChallenge,
+    randomChallenge,
+    scheduleSave,
+    paletteMarkup,
+    // eslint-disable-next-line no-undef
+    workerSource: typeof __WORKER_SOURCE__ === 'string' ? __WORKER_SOURCE__ : null,
+    currentBook: () => bookUI.currentBook(),
+    bookFor: (shape, n) => bookUI.bookFor(shape, n),
+    bookChanged: () => bookUI.invalidate(),
+    buildFits: (rows, cols) => state.rows === rows && state.cols === cols && state.build.isComplete(),
+    buildLooks: () => state.build.looks(),
   });
   window.claude?.hot?.snapshot?.(() => snapshot());
   downloadsCapability();
@@ -1800,6 +1895,7 @@ export function start(hotData) {
     if (evt.key === 'Enter' && evt.target.id === 'codeIn') loadCode();
   });
   bookUI.attach();
+  packUI.attach();
   if (state.mode === 'check') scheduleCheck(0);
   render();
 }
