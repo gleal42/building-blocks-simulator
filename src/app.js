@@ -1,10 +1,13 @@
-// The app: Build (with challenges), Check a picture, Packs of designs, and Challenge book.
+// The app: Build (with challenges, alone), Check a picture, Packs of designs, Play (games for
+// several players around real trays), and Challenge book.
 
 import { Board, KINDS, MAX_SIZE, decodeBoard, encodeBoard, kindOf, occupancy, pieceCovers, pieceName, sizeProblem } from './board.js';
 import { DIFFICULTY } from './book.js';
 import { createBookUI } from './bookui.js';
 import { createPackUI, revivePacks } from './packui.js';
 import { normalizePack } from './packs.js';
+import { createPlayUI } from './playui.js';
+import { normalizeSetup, reviveGame, soloDeck, soloNext } from './game.js';
 import { LOOK, MIX_ORIENTS, flipMix, flipTri, isRamp, rotateMix, rotateTri, thickSide, tipMix, tipTri } from './geometry.js';
 import { ICONS } from './icons.js';
 import { PRESETS } from './presets.js';
@@ -73,6 +76,7 @@ class History {
 let state;
 let bookUI;
 let packUI;
+let playUI;
 // The press in progress on the board: where it started, whether it has moved, and whether it
 // grabbed the selected piece (grab: offset from the piece's square to the square grabbed).
 const pointer = { down: false, id: null, type: 'mouse', erase: false, x: 0, y: 0, moved: false, dragging: false, grab: null };
@@ -120,6 +124,12 @@ function defaultState() {
     packIndex: 0,
     packDraft: null,
     packView: 'design',
+    // Play tab: the game's setup and the game in progress (or just over).
+    gameSetup: normalizeSetup(null),
+    game: null,
+    // Build challenges drawn from packs: the packs chosen and the shuffled deck.
+    soloPackIds: [],
+    soloDeck: null,
   };
 }
 
@@ -143,6 +153,10 @@ function snapshot() {
     packId: state.packId,
     packIndex: state.packIndex,
     packDraft: state.packDraft,
+    gameSetup: state.gameSetup,
+    game: state.game,
+    soloPackIds: state.soloPackIds,
+    soloDeck: state.soloDeck,
   };
 }
 
@@ -159,7 +173,7 @@ function restore(data) {
     const challenge = ch && Array.isArray(ch.target) && ch.target.length === rows * cols ? ch : null;
     return {
       ...base,
-      mode: ['build', 'check', 'packs', 'book'].includes(data.mode) ? data.mode : 'build',
+      mode: ['build', 'check', 'packs', 'play', 'book'].includes(data.mode) ? data.mode : 'build',
       rows,
       cols,
       sizeDraft: { rows, cols },
@@ -181,6 +195,10 @@ function restore(data) {
       packIndex: Number.isInteger(data.packIndex) ? data.packIndex : 0,
       packDraft: data.packDraft && typeof data.packDraft.packId === 'string' && Number.isInteger(data.packDraft.index) && Array.isArray(data.packDraft.looks)
         && data.packDraft.looks.every((l) => Number.isInteger(l) && l >= 0 && l <= 6) ? data.packDraft : null,
+      gameSetup: normalizeSetup(data.gameSetup),
+      game: reviveGame(data.game),
+      soloPackIds: Array.isArray(data.soloPackIds) ? data.soloPackIds.filter((x) => typeof x === 'string') : [],
+      soloDeck: data.soloDeck && Array.isArray(data.soloDeck.cards) && data.soloDeck.cards.length && Number.isInteger(data.soloDeck.used) ? data.soloDeck : null,
     };
   } catch {
     return base;
@@ -278,9 +296,19 @@ function renderTabs() {
 function renderStage() {
   const book = state.mode === 'book';
   const photo = state.mode === 'packs' && packUI.showingPhoto();
-  $('#boardWrap').hidden = book || photo;
+  const play = state.mode === 'play';
+  $('#boardWrap').hidden = book || photo || play;
   $('#bookStage').hidden = !book;
   $('#photoStage').hidden = !photo;
+  $('#playStage').hidden = !play;
+  if (play) {
+    playUI.renderStage($('#playStage'));
+    $('#stageTop').innerHTML = '';
+    $('#stageBar').innerHTML = '';
+    $('#status').hidden = false;
+    return;
+  }
+  playUI.stop();
   if (photo) {
     packUI.renderPhotoStage($('#photoStage'));
     $('#stageTop').innerHTML = '';
@@ -316,11 +344,12 @@ function renderStageTop() {
   const status = ch.solved
     ? `<p class="win">${ch.revealed ? 'Answer shown.' : `Solved in ${ch.moves} moves!`}</p>`
     : `<p><b>${prog.match}</b> of ${prog.total} squares match · ${ch.moves} moves</p>`;
+  const deckNote = ch.fromDeck && state.soloDeck ? ` <small class="muted">· card ${state.soloDeck.used} of ${state.soloDeck.cards.length} drawn</small>` : '';
   top.innerHTML = `<div class="challenge-bar" id="challengeBar">
 <div class="challenge-pic">${flatPicture(state.rows, state.cols, ch.target, { cell: 32, gap: 2.5, mismatches: prog.mismatch })}</div>
-<div class="challenge-info"><p class="challenge-title">${ch.label ?? 'Challenge'} ${starsHtml(ch.difficulty)}</p>
+<div class="challenge-info"><p class="challenge-title">${escapeHtml(ch.label ?? 'Challenge')} ${starsHtml(ch.difficulty)}${deckNote}</p>
 ${ch.solved ? '' : '<p class="challenge-goal">Make this picture: put all the pieces in the tray so that, seen from above, it looks like this.</p>'}${status}
-<div class="row-buttons">${ch.solved ? `<button type="button" class="btn small primary" data-action="next-challenge">${ICONS.dice}Next challenge</button>` : ch.answer ? `<button type="button" class="btn small" data-action="reveal">Show answer</button>` : ''}<button type="button" class="btn small" data-action="stop-challenge">End challenge</button></div></div>
+<div class="row-buttons">${ch.solved ? `<button type="button" class="btn small primary" data-action="next-challenge">${ICONS.dice}${ch.fromDeck ? 'Next card' : 'Next challenge'}</button>` : `${ch.fromDeck ? `<button type="button" class="btn small" data-action="next-challenge">Skip this card</button>` : ''}${ch.answer ? `<button type="button" class="btn small" data-action="reveal">Show answer</button>` : ''}`}<button type="button" class="btn small" data-action="stop-challenge">End challenge</button></div></div>
 </div>`;
 }
 
@@ -501,12 +530,22 @@ function buildPanel() {
   const levels = [1, 2, 3]
     .map((level) => `<button type="button" class="btn level level-${level}" data-action="new-challenge" data-level="${level}">${starsHtml(level)}</button>`)
     .join('');
+  const soloPacks = packUI.allPacks().filter((p) => p.designs.length);
+  const soloChips = soloPacks.map((p) => {
+    const on = state.soloPackIds.includes(p.id);
+    return `<button type="button" class="chip${on ? ' is-on' : ''}" data-action="solo-pack" data-id="${escapeHtml(p.id)}" aria-pressed="${on}">${escapeHtml(p.name)} <small>${p.rows}×${p.cols} · ${p.designs.length}</small></button>`;
+  }).join('');
+  const soloCount = soloPacks.filter((p) => state.soloPackIds.includes(p.id)).reduce((n, p) => n + p.designs.length, 0);
   const challengeCard = ch
     ? ''
     : `<section class="card" aria-labelledby="ch-h">
 <h2 id="ch-h">Play a challenge</h2>
-<p class="muted">Get a picture made from a real arrangement of the pieces and rebuild it in the tray.</p>
+<p class="muted">Draw a card from your packs and rebuild its picture in the tray, card after card.</p>
+${soloChips ? `<div class="chips tight" role="group" aria-label="Packs to draw from">${soloChips}</div>
+<div class="row-buttons"><button type="button" class="btn primary" data-action="solo-draw" ${soloCount ? '' : 'disabled'}>${ICONS.dice}Draw a card${soloCount ? ` <small>(${soloCount} in the deck)</small>` : ''}</button></div>` : '<p class="hint">No packs yet: make one in the Packs tab.</p>'}
+<p class="field-label">Or a random picture</p>
 <div class="row-buttons">${levels}</div>
+<p class="hint">Playing with friends? The Play tab deals cards to several players, with a timer and scores.</p>
 </section>`;
   const presets = PRESETS.map((p) => `<button type="button" class="chip" data-action="preset" data-id="${p.id}">${p.name}</button>`).join('');
   return `${challengeCard}
@@ -558,6 +597,7 @@ function renderPanel() {
   const openDetails = panel.querySelector('details[open]') !== null;
   if (state.mode === 'book') panel.innerHTML = bookUI.panelMarkup();
   else if (state.mode === 'packs') panel.innerHTML = packUI.panelMarkup();
+  else if (state.mode === 'play') panel.innerHTML = playUI.panelMarkup();
   else panel.innerHTML = state.mode === 'check' ? checkPanel() : buildPanel();
   if (openDetails) panel.querySelector('details')?.setAttribute('open', '');
   if (focused) panel.querySelector(focused)?.focus({ preventScroll: true });
@@ -573,7 +613,7 @@ function focusKey(el) {
 
 /** The status line when nothing else is being said: { text, tone }. */
 function defaultStatus() {
-  if (state.mode === 'check' || state.mode === 'packs') return { text: '', tone: '' };
+  if (state.mode !== 'build') return { text: '', tone: '' };
   const sel = state.sel;
   const fine = finePointer();
   const prog = progressText();
@@ -1002,7 +1042,7 @@ function randomChallenge(rows, cols, level, rng = makeRng((Date.now() ^ (Math.ra
 }
 
 /** Start a challenge in the Build tray. */
-async function startChallenge({ target, answer, difficulty, label, rows = state.rows, cols = state.cols }) {
+async function startChallenge({ target, answer, difficulty, label, rows = state.rows, cols = state.cols, fromDeck = false }) {
   if (rows !== state.rows || cols !== state.cols) {
     if (!(await setSize(rows, cols))) return false;
   } else if (state.build.pieces.size && !state.challenge) {
@@ -1010,7 +1050,7 @@ async function startChallenge({ target, answer, difficulty, label, rows = state.
   }
   state.history.record(state.build);
   state.build = new Board(rows, cols);
-  state.challenge = { target, answer, difficulty, label, moves: 0, solved: false, revealed: false };
+  state.challenge = { target, answer, difficulty, label, fromDeck, moves: 0, solved: false, revealed: false };
   state.mode = 'build';
   state.sel = null;
   render();
@@ -1022,6 +1062,49 @@ async function startChallenge({ target, answer, difficulty, label, rows = state.
     bar.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
   }
   return true;
+}
+
+const freshRng = () => makeRng((Date.now() ^ (Math.random() * 1e9)) >>> 0);
+
+/** Choose the packs the Build challenge draws from (all of one tray size). */
+function toggleSoloPack(id) {
+  const packs = packUI.allPacks();
+  const pack = packs.find((p) => p.id === id);
+  if (!pack) return;
+  const chosen = packs.filter((p) => state.soloPackIds.includes(p.id));
+  if (state.soloPackIds.includes(id)) state.soloPackIds = state.soloPackIds.filter((x) => x !== id);
+  else if (chosen.some((p) => p.rows !== pack.rows || p.cols !== pack.cols)) {
+    state.soloPackIds = [id];
+    setStatus(`Packs of one tray size at a time: now drawing from ${pack.name} (${pack.rows}×${pack.cols}).`);
+  } else state.soloPackIds = [...state.soloPackIds, id];
+  state.soloDeck = null;
+  render();
+}
+
+/** Draw the next card from the chosen packs and play it as a challenge. */
+async function drawSoloCard() {
+  const packs = packUI.allPacks();
+  const chosen = packs.filter((p) => state.soloPackIds.includes(p.id));
+  if (!chosen.length) return;
+  const { rows, cols } = chosen[0];
+  const same = state.soloDeck && state.soloDeck.rows === rows && state.soloDeck.cols === cols
+    && state.soloDeck.packIds.join() === state.soloPackIds.join();
+  if (!same) state.soloDeck = soloDeck(packs, state.soloPackIds, rows, cols, freshRng());
+  if (!state.soloDeck) {
+    setStatus('Those packs have no designs yet.', true, 'bad');
+    return;
+  }
+  const card = soloNext(state.soloDeck, freshRng());
+  const started = await startChallenge({ target: card.looks.slice(), answer: null, difficulty: card.stars, label: card.label, rows, cols, fromDeck: true });
+  if (!started) return;
+  // A solution for "Show answer", worked out in the background.
+  const ch = state.challenge;
+  packUI.solve(rows, cols, card.looks).then((res) => {
+    if (res?.status === 'possible' && state.challenge === ch && !ch.answer) {
+      ch.answer = res.pieces;
+      if (state.mode === 'build') renderStageTop();
+    }
+  });
 }
 
 function newChallenge(level) {
@@ -1597,7 +1680,7 @@ function onGlobalKey(evt) {
     bookUI.onKey(evt);
     return;
   }
-  if (state.mode === 'packs') return;
+  if (state.mode === 'packs' || state.mode === 'play') return;
   const key = evt.key.toLowerCase();
   if ((evt.ctrlKey || evt.metaKey) && key === 'z') {
     evt.preventDefault();
@@ -1773,7 +1856,9 @@ const ACTIONS = {
   'show-solution': showSolution,
   'add-picture-to-book': () => bookUI.addFromCheck(),
   'new-challenge': (el) => newChallenge(Number(el.dataset.level)),
-  'next-challenge': () => newChallenge(state.challenge?.difficulty ?? 2),
+  'next-challenge': () => (state.challenge?.fromDeck && state.soloPackIds.length ? drawSoloCard() : newChallenge(state.challenge?.difficulty ?? 2)),
+  'solo-pack': (el) => toggleSoloPack(el.dataset.id),
+  'solo-draw': drawSoloCard,
   'stop-challenge': () => {
     state.challenge = null;
     render();
@@ -1789,7 +1874,7 @@ function onClick(evt) {
   }
   const el = evt.target.closest('[data-action]');
   if (!el || el.disabled) return;
-  const action = ACTIONS[el.dataset.action] ?? bookUI.actions[el.dataset.action] ?? packUI.actions[el.dataset.action];
+  const action = ACTIONS[el.dataset.action] ?? bookUI.actions[el.dataset.action] ?? packUI.actions[el.dataset.action] ?? playUI.actions[el.dataset.action];
   if (action) action(el, evt);
 }
 
@@ -1894,8 +1979,20 @@ export function start(hotData) {
   $('#panel').addEventListener('keydown', (evt) => {
     if (evt.key === 'Enter' && evt.target.id === 'codeIn') loadCode();
   });
+  playUI = createPlayUI({
+    getState: () => state,
+    render,
+    renderPanel,
+    setStatus,
+    confirmDialog,
+    scheduleSave,
+    randomChallenge,
+    packs: () => packUI.allPacks(),
+    solve: (rows, cols, looks) => packUI.solve(rows, cols, looks),
+  });
   bookUI.attach();
   packUI.attach();
+  playUI.attach();
   if (state.mode === 'check') scheduleCheck(0);
   render();
 }

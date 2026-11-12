@@ -44,8 +44,10 @@ a diagonal split**. A picture made only of triangles can never be built.
   one that starts on the tray stays with the tray.
 - *X-ray* shows ramps hidden under roofs. Undo/redo, the two photo layouts, random fill,
   tray sizes from 1 to 12 rows and columns (a multiple of 4 squares), and board codes.
-- **Challenges** (easy ★, medium ★★, hard ★★★): rebuild a picture made from a random real
-  arrangement. The picture stays above the tray; wrong squares are outlined in red.
+- **Challenges** (the solo game): pick one or more packs and **draw a card**: its picture
+  stays above the tray and wrong squares are outlined in red. *Next card* draws the next one
+  from the shuffled deck; *Show answer* builds one solution. Random pictures (easy ★, medium
+  ★★, hard ★★★) made from a real arrangement of the pieces are there too.
 
 ![The same tray in 3D, turned 45°](docs/screenshots/build-3d.jpg)
 
@@ -82,6 +84,23 @@ A pack is a named set of designs for one tray size (the book sizes: 2×2, 4×4, 
 ![A pack of designs read from a photo](docs/screenshots/packs.jpg)
 
 ![Designs found on a photo of a book page](docs/screenshots/packs-photo.jpg)
+
+### Play (games for several players)
+
+The app is the game master while everyone builds on real trays: it shuffles a deck from the
+chosen packs (and/or random designs), deals the cards, times each turn and keeps the score.
+
+- **Time trial:** players take turns drawing a card and building it before the clock runs out;
+  a card built in time scores its stars.
+- **Memory:** the card is shown for a few seconds, then hidden; build it from memory, then
+  compare with the card.
+- **Race:** one card for everyone, each on their own tray; the first to finish scores it.
+
+Choose the players (up to 8), the tray size, the packs, the number of rounds and the time per
+card. The game keeps the screen awake, beeps when time runs out, shows a solution after each
+card, and survives a page reload.
+
+<img src="docs/screenshots/play-race.jpg" alt="A race: one card for everyone, then tap who finished first" width="280">
 
 ### Challenge book
 
@@ -123,7 +142,7 @@ the book.
 
 ```sh
 npm install
-npm test          # model, solver, book, pack and photo tests, including exhaustive cross-checks
+npm test          # model, solver, book, pack, photo and game tests, including exhaustive cross-checks
 npm run build     # bundles src/ into index.html
 npm run dev       # rebuilds index.html whenever src/ changes
 ```
@@ -143,6 +162,7 @@ fails if `index.html` is out of date.
 | `src/packs.js`, `src/builtinpacks.js` | Packs of designs: text format, checks, and the packs that come with the app. |
 | `src/packui.js`, `src/packcheck.js` | The Packs tab, and checking designs in a background worker. |
 | `src/photo.js` | Finding and reading designs in a photo. |
+| `src/game.js`, `src/playui.js` | Games: the deck, turns, timing and scores (also the solo deck for Build challenges), and the Play tab. |
 | `src/render2d.js`, `src/render3d.js` | Photo-style top view; 3D icons and the clickable 3D tray. |
 | `src/app.js`, `src/bookui.js`, `src/styles.css`, `src/index.html` | The app. |
 | `src/worker.js` | Runs the solver in a Web Worker. |

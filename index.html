@@ -1860,6 +1860,333 @@ body[data-mode="packs"] .board-wrap > svg {
   }
 }
 
+/* ---- Play (games for several players) ---------------------------------------------------- */
+
+.play-stage[hidden] {
+  display: none;
+}
+
+.pl-title {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.pl-lobby > p,
+.pl-over > p {
+  margin: 0 0 10px;
+}
+
+.pl-modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+
+.pl-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  text-align: left;
+}
+
+.pl-mode.is-on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+}
+
+.pl-mode-name {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.pl-mode-text {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.pl-summary {
+  font-weight: 600;
+}
+
+.btn.pl-big {
+  min-height: 50px;
+  padding: 0 22px;
+  font-size: 16px;
+}
+
+.pl-game {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pl-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.pl-head p {
+  margin: 0;
+}
+
+.pl-round {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.pl-who {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.pl-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pl-scores li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 14px;
+}
+
+.pl-scores li.is-turn {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.pl-score {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.pl-table {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+}
+
+.pl-card {
+  flex: 1 1 260px;
+  max-width: 440px;
+}
+
+.pl-card.is-rect {
+  max-width: 620px;
+  flex-basis: 100%;
+}
+
+.pl-card svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
+}
+
+.pl-clock-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 150px;
+}
+
+.pl-clock-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pl-clock {
+  font-family: var(--font-display);
+  font-size: 54px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.pl-bar {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--table-deep);
+  overflow: hidden;
+}
+
+.pl-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.2s linear;
+}
+
+.pl-bar span.is-low {
+  background: var(--bad);
+}
+
+.pl-actions .row-buttons {
+  margin-top: 0;
+}
+
+.pl-ask {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.pl-result {
+  margin: 0 0 10px;
+  font-size: 17px;
+}
+
+.pl-result.ok b {
+  color: var(--ok);
+}
+
+.pl-result.bad {
+  color: var(--muted);
+}
+
+.pl-solution-wrap {
+  max-width: 440px;
+}
+
+.pl-solution {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pl-podium {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pl-podium li {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  font-size: 16px;
+}
+
+.pl-podium li.place-1 {
+  border-color: #e0aa0b;
+  background: color-mix(in srgb, #e0aa0b 14%, var(--panel));
+  font-weight: 700;
+}
+
+.pl-place {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-align: center;
+}
+
+.pl-players {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pl-player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pl-rules {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.pl-rules li + li {
+  margin-top: 6px;
+}
+
+.pl-log {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.pl-log li {
+  display: grid;
+  grid-template-columns: 30px minmax(60px, auto) 1fr auto;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.pl-log-pts {
+  font-weight: 700;
+}
+
+@media (max-width: 520px) {
+  .pl-clock {
+    font-size: 44px;
+  }
+
+  .pl-clock-box {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 12px;
+    width: 100%;
+  }
+
+  .pl-bar {
+    flex-basis: 100%;
+  }
+
+  .pl-card {
+    flex-basis: 100%;
+    max-width: none;
+  }
+}
+
 /* ---- Footer and dialog ----------------------------------------------------------------- */
 
 .foot {
@@ -2053,6 +2380,7 @@ body[data-mode="packs"] .board-wrap > svg {
       <button type="button" role="tab" data-tab="build" aria-selected="true">Build</button>
       <button type="button" role="tab" data-tab="check" aria-selected="false" tabindex="-1"><span class="tab-long">Check a picture</span><span class="tab-short">Check</span></button>
       <button type="button" role="tab" data-tab="packs" aria-selected="false" tabindex="-1">Packs</button>
+      <button type="button" role="tab" data-tab="play" aria-selected="false" tabindex="-1">Play</button>
       <button type="button" role="tab" data-tab="book" aria-selected="false" tabindex="-1"><span class="tab-long">Challenge book</span><span class="tab-short">Book</span></button>
     </nav>
   </header>
@@ -2070,6 +2398,7 @@ body[data-mode="packs"] .board-wrap > svg {
       </div>
       <div class="book-stage" id="bookStage" hidden></div>
       <div class="photo-stage" id="photoStage" hidden></div>
+      <div class="play-stage" id="playStage" hidden></div>
       <p class="status" id="status" aria-live="polite"></p>
       <div class="stage-bar" id="stageBar"></div>
     </section>
@@ -3008,12 +3337,12 @@ body[data-mode="packs"] .board-wrap > svg {
     const lines = [];
     let line = "";
     for (const word of words) {
-      const next = line ? `${line} ${word}` : word;
-      if (line && textWidth(next, size, bold) > maxWidth) {
+      const next2 = line ? `${line} ${word}` : word;
+      if (line && textWidth(next2, size, bold) > maxWidth) {
         lines.push(line);
         line = word;
       } else {
-        line = next;
+        line = next2;
       }
     }
     if (line) lines.push(line);
@@ -3194,11 +3523,11 @@ stream
       };
       write("%PDF-1.4\n%âãÏÓ\n");
       const imageObj = /* @__PURE__ */ new Map();
-      let next = 5;
-      for (const img of this.images) imageObj.set(img.name, next++);
+      let next2 = 5;
+      for (const img of this.images) imageObj.set(img.name, next2++);
       const pageObjs = this.pages.map(() => {
-        const ids = [next, next + 1];
-        next += 2;
+        const ids = [next2, next2 + 1];
+        next2 += 2;
         return ids;
       });
       object(1, "<< /Type /Catalog /Pages 2 0 R >>");
@@ -3222,7 +3551,7 @@ stream
         stream(contentId, "", latin1(page.ops.join("\n")));
       });
       const xrefAt = offset;
-      const count = next;
+      const count = next2;
       let xref = `xref
 0 ${count}
 0000000000 65535 f 
@@ -4185,13 +4514,13 @@ ${xrefAt}
     for (let i = 0; i < n; i += 1) {
       const prev = points[(i - 1 + n) % n];
       const cur = points[i];
-      const next = points[(i + 1) % n];
+      const next2 = points[(i + 1) % n];
       const l1 = Math.hypot(prev[0] - cur[0], prev[1] - cur[1]);
-      const l2 = Math.hypot(next[0] - cur[0], next[1] - cur[1]);
+      const l2 = Math.hypot(next2[0] - cur[0], next2[1] - cur[1]);
       const t1 = Math.min(radius / l1, 0.45);
       const t2 = Math.min(radius / l2, 0.45);
       const a = [cur[0] + (prev[0] - cur[0]) * t1, cur[1] + (prev[1] - cur[1]) * t1];
-      const b = [cur[0] + (next[0] - cur[0]) * t2, cur[1] + (next[1] - cur[1]) * t2];
+      const b = [cur[0] + (next2[0] - cur[0]) * t2, cur[1] + (next2[1] - cur[1]) * t2];
       d += `${i === 0 ? "M" : "L"}${f1(a[0])} ${f1(a[1])}Q${f1(cur[0])} ${f1(cur[1])} ${f1(b[0])} ${f1(b[1])}`;
     }
     return `${d}Z`;
@@ -4598,9 +4927,9 @@ ${n ? `<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book,
     }
     function turnPage(step) {
       const st = state2();
-      const next = Math.max(0, Math.min(leafCount, st.bookLeaf + step));
-      if (next === st.bookLeaf) return;
-      const moving = document.querySelector(`.leaf[data-leaf="${step > 0 ? st.bookLeaf : next}"]`);
+      const next2 = Math.max(0, Math.min(leafCount, st.bookLeaf + step));
+      if (next2 === st.bookLeaf) return;
+      const moving = document.querySelector(`.leaf[data-leaf="${step > 0 ? st.bookLeaf : next2}"]`);
       if (moving) {
         moving.dataset.moving = "1";
         moving.style.zIndex = String(leafCount + 2);
@@ -4609,7 +4938,7 @@ ${n ? `<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book,
           updateFlip(false);
         }, 800);
       }
-      st.bookLeaf = next;
+      st.bookLeaf = next2;
       updateFlip(true);
     }
     function goTo(leaf) {
@@ -5156,15 +5485,15 @@ ${lines.join(",\n")}
     let C = cols;
     let L = looks;
     if (frame.tr) {
-      const next = [];
-      for (let c = 0; c < C; c += 1) for (let r = 0; r < R; r += 1) next.push(T_LOOK[L[r * C + c]]);
-      L = next;
+      const next2 = [];
+      for (let c = 0; c < C; c += 1) for (let r = 0; r < R; r += 1) next2.push(T_LOOK[L[r * C + c]]);
+      L = next2;
       [R, C] = [C, R];
     }
     if (frame.fv) {
-      const next = [];
-      for (let r = R - 1; r >= 0; r -= 1) for (let c = 0; c < C; c += 1) next.push(V_LOOK[L[r * C + c]]);
-      L = next;
+      const next2 = [];
+      for (let r = R - 1; r >= 0; r -= 1) for (let c = 0; c < C; c += 1) next2.push(V_LOOK[L[r * C + c]]);
+      L = next2;
     }
     const run = searchOnce(R, C, L, inventory, maxNodes, seed ? makeRng(seed) : null);
     if (run.pieces) {
@@ -6881,7 +7210,10 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
       showingPhoto,
       packsFor,
       addPackById: (id) => addPackToBook(allPacks().find((p) => p.id === id), { show: false }),
-      isAdding: () => addingToBook
+      isAdding: () => addingToBook,
+      allPacks,
+      /** Check a design (in the background worker): a promise of { status, pieces?, reason? }. */
+      solve: (rows, cols, looks) => checker.check(rows, cols, looks)
     };
   }
   function revivePacks(list, normalize) {
@@ -6896,6 +7228,662 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
       }
     }
     return out;
+  }
+
+  // src/game.js
+  var MODES = Object.freeze({
+    trial: { name: "Time trial", short: "Take turns: draw a card and build it before the time runs out.", minPlayers: 1, maxPlayers: 8 },
+    memory: { name: "Memory", short: "Look at the card for a few seconds, then build it from memory.", minPlayers: 1, maxPlayers: 8 },
+    race: { name: "Race", short: "Everyone builds the same card on their own tray. First to finish wins it.", minPlayers: 2, maxPlayers: 8 }
+  });
+  var MAX_PLAYERS = 8;
+  var MAX_NAME = 20;
+  var TIMES = [0, 30, 60, 90, 120, 180];
+  var LOOK_TIMES = [5, 10, 15, 20];
+  var ROUNDS = [3, 5, 8, 10, 15];
+  function newSetup() {
+    return {
+      rows: 4,
+      cols: 4,
+      packIds: [],
+      random: [],
+      // star levels of random designs to add to the deck
+      mode: "trial",
+      players: ["Player 1", "Player 2"],
+      rounds: 5,
+      seconds: 90,
+      lookSeconds: 10
+    };
+  }
+  function normalizeSetup(raw) {
+    const s = { ...newSetup(), ...raw && typeof raw === "object" ? raw : {} };
+    if (!MODES[s.mode]) s.mode = "trial";
+    s.rows = Number.isInteger(s.rows) ? s.rows : 4;
+    s.cols = Number.isInteger(s.cols) ? s.cols : 4;
+    s.packIds = Array.isArray(s.packIds) ? s.packIds.filter((x) => typeof x === "string") : [];
+    s.random = Array.isArray(s.random) ? [...new Set(s.random.filter((x) => [1, 2, 3].includes(x)))].sort() : [];
+    s.players = Array.isArray(s.players) ? s.players.map((p) => String(p ?? "").slice(0, MAX_NAME)).slice(0, MAX_PLAYERS) : [];
+    if (!s.players.length) s.players = ["Player 1"];
+    s.rounds = ROUNDS.includes(s.rounds) ? s.rounds : 5;
+    s.seconds = TIMES.includes(s.seconds) ? s.seconds : 90;
+    s.lookSeconds = LOOK_TIMES.includes(s.lookSeconds) ? s.lookSeconds : 10;
+    return s;
+  }
+  function playersOf(setup) {
+    return setup.players.map((name, i) => name.trim() ? name.trim() : `Player ${i + 1}`);
+  }
+  function setupProblem(setup, deckSize) {
+    const m = MODES[setup.mode];
+    const n = playersOf(setup).length;
+    if (n < m.minPlayers) return `${m.name} needs at least ${m.minPlayers} players.`;
+    if (n > m.maxPlayers) return `${m.name} is for at most ${m.maxPlayers} player${m.maxPlayers === 1 ? "" : "s"}.`;
+    if (!deckSize) return "Choose at least one pack (or random designs) for the deck.";
+    return null;
+  }
+  function cardsNeeded(setup) {
+    return setup.mode === "race" ? setup.rounds : setup.rounds * playersOf(setup).length;
+  }
+  function shuffle2(list, rng) {
+    const out = list.slice();
+    for (let i = out.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(rng() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  }
+  function buildDeck(setup, packs, random, rng) {
+    const cards = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const pack of packs) {
+      if (!setup.packIds.includes(pack.id) || pack.rows !== setup.rows || pack.cols !== setup.cols) continue;
+      pack.designs.forEach((d, i) => {
+        const key = d.looks.join("");
+        if (seen.has(key)) return;
+        seen.add(key);
+        cards.push({ looks: d.looks.slice(), stars: d.stars, label: `${pack.name}, card ${i + 1}`, number: i + 1, answer: null });
+      });
+    }
+    for (const d of random) {
+      const key = d.looks.join("");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cards.push({ looks: d.looks.slice(), stars: d.stars, label: "Random design", number: 0, answer: d.answer ?? null });
+    }
+    return shuffle2(cards, rng);
+  }
+  function startGame(setup, deck) {
+    const players = playersOf(setup);
+    return {
+      setup: { ...setup, players },
+      deck,
+      used: 0,
+      reshuffles: 0,
+      round: 1,
+      turn: 0,
+      phase: "ready",
+      // ready → (look →) build → (check →) scored → ready … → over
+      current: null,
+      startedAt: 0,
+      // when the card was dealt (build or look)
+      endsAt: 0,
+      // when the time for the current phase runs out (0 = no limit)
+      scores: players.map(() => 0),
+      log: [],
+      result: null
+    };
+  }
+  var builders = (game) => game.setup.mode === "race" ? game.setup.players.map((_, i) => i) : [game.turn];
+  var turnsPerRound = (game) => game.setup.mode === "race" ? 1 : game.setup.players.length;
+  var currentPlayer = (game) => game.setup.players[game.turn];
+  function draw(game, now, rng) {
+    if (game.phase !== "ready") return game;
+    if (game.used >= game.deck.length) {
+      game.deck = shuffle2(game.deck, rng);
+      game.used = 0;
+      game.reshuffles += 1;
+    }
+    game.current = game.deck[game.used];
+    game.used += 1;
+    game.startedAt = now;
+    game.result = null;
+    if (game.setup.mode === "memory") {
+      game.phase = "look";
+      game.endsAt = now + game.setup.lookSeconds * 1e3;
+    } else {
+      game.phase = "build";
+      game.endsAt = game.setup.seconds ? now + game.setup.seconds * 1e3 : 0;
+    }
+    return game;
+  }
+  function hideCard(game, now) {
+    if (game.phase !== "look") return game;
+    game.phase = "build";
+    game.startedAt = now;
+    game.endsAt = game.setup.seconds ? now + game.setup.seconds * 1e3 : 0;
+    return game;
+  }
+  var timeUp = (game, now) => !!game.endsAt && now >= game.endsAt && (game.phase === "look" || game.phase === "build");
+  function record(game, winners, outcome, now) {
+    const points = game.current.stars;
+    for (const i of winners) game.scores[i] += points;
+    game.result = { outcome, winners, points: winners.length ? points : 0, ms: Math.max(0, now - game.startedAt) };
+    game.log.push({ round: game.round, players: builders(game), card: game.current.label, stars: points, outcome, winners, ms: game.result.ms });
+    game.phase = "scored";
+    return game;
+  }
+  function done(game, now) {
+    if (game.phase !== "build" || game.setup.mode === "race") return game;
+    if (game.setup.mode === "memory") {
+      game.phase = "check";
+      game.result = { ms: Math.max(0, now - game.startedAt) };
+      return game;
+    }
+    return record(game, [game.turn], "built", now);
+  }
+  function checked(game, correct, now) {
+    if (game.phase !== "check") return game;
+    const ms = game.result?.ms ?? 0;
+    record(game, correct ? [game.turn] : [], correct ? "built" : "wrong", now);
+    game.result.ms = ms;
+    game.log.at(-1).ms = ms;
+    return game;
+  }
+  function raceWinner(game, i, now) {
+    if (game.phase !== "build" || game.setup.mode !== "race") return game;
+    return record(game, i >= 0 ? [i] : [], i >= 0 ? "won" : "nobody", now);
+  }
+  function fail(game, outcome, now) {
+    if (game.phase !== "build" && game.phase !== "look") return game;
+    return record(game, [], outcome, now);
+  }
+  function next(game) {
+    if (game.phase !== "scored") return game;
+    game.current = null;
+    game.endsAt = 0;
+    game.result = null;
+    game.turn += 1;
+    if (game.turn >= turnsPerRound(game)) {
+      game.turn = 0;
+      game.round += 1;
+    }
+    game.phase = game.round > game.setup.rounds ? "over" : "ready";
+    return game;
+  }
+  function ranking(game) {
+    const rows = game.setup.players.map((name, i) => ({ name, score: game.scores[i], index: i })).sort((a, b) => b.score - a.score || a.index - b.index);
+    rows.forEach((r, k) => {
+      r.place = k > 0 && rows[k - 1].score === r.score ? rows[k - 1].place : k + 1;
+    });
+    return rows;
+  }
+  function reviveGame(raw) {
+    if (!raw || typeof raw !== "object" || !Array.isArray(raw.deck) || !raw.setup) return null;
+    const phases = ["ready", "look", "build", "check", "scored", "over"];
+    if (!phases.includes(raw.phase) || !Array.isArray(raw.scores)) return null;
+    const okCard = (c) => c && Array.isArray(c.looks) && c.looks.every((l) => Number.isInteger(l) && l >= 1 && l <= 6) && [1, 2, 3].includes(c.stars);
+    if (!raw.deck.length || !raw.deck.every(okCard)) return null;
+    if (raw.current && !okCard(raw.current)) return null;
+    if (!Array.isArray(raw.setup.players) || raw.scores.length !== raw.setup.players.length) return null;
+    return raw;
+  }
+  function formatTime(ms) {
+    const s = Math.max(0, Math.ceil(ms / 1e3));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }
+  function soloDeck(packs, packIds, rows, cols, rng) {
+    const deck = buildDeck({ packIds, rows, cols }, packs, [], rng);
+    return deck.length ? { rows, cols, packIds: packIds.slice(), cards: deck, used: 0, reshuffles: 0 } : null;
+  }
+  function soloNext(deck, rng) {
+    if (deck.used >= deck.cards.length) {
+      deck.cards = shuffle2(deck.cards, rng);
+      deck.used = 0;
+      deck.reshuffles += 1;
+    }
+    const card = deck.cards[deck.used];
+    deck.used += 1;
+    return card;
+  }
+
+  // src/playui.js
+  var esc4 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  var plural2 = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  var starsText = (n) => "★".repeat(n);
+  var RULES = {
+    trial: [
+      "Each player has a tray with all its pieces, or the players share one tray and empty it between turns.",
+      "On your turn, draw a card: the clock starts. Build the picture so that, seen from above, the tray looks like the card.",
+      "Finished in time? Press “Built it” and score the card’s stars. Out of time, or stuck? No points.",
+      "After the last round, the most stars wins."
+    ],
+    memory: [
+      "On your turn, draw a card and study it until it is hidden.",
+      "Build it from memory against the clock, then press “Built it”.",
+      "The card is shown again: if your tray matches it exactly, score its stars.",
+      "After the last round, the most stars wins."
+    ],
+    race: [
+      "Every player needs their own tray and set of pieces.",
+      "One card is drawn for everyone. Build it as fast as you can.",
+      "The first to finish shouts; check their tray against the card. If it matches, tap their name: they score the card’s stars.",
+      "After the last card, the most stars wins."
+    ]
+  };
+  function createPlayUI(ctx) {
+    const state2 = () => ctx.getState();
+    let ticker = 0;
+    let wakeLock = null;
+    let showSolution2 = false;
+    const rng = () => makeRng((Date.now() ^ Math.random() * 1e9) >>> 0);
+    const packsForSize = (s) => ctx.packs().filter((p) => p.rows === s.rows && p.cols === s.cols && p.designs.length);
+    function setup() {
+      const st = state2();
+      const s = normalizeSetup(st.gameSetup);
+      const sized = packsForSize(s);
+      if (!s.random.length && !sized.some((p) => s.packIds.includes(p.id))) s.packIds = sized.map((p) => p.id);
+      st.gameSetup = s;
+      return s;
+    }
+    function packCards(s) {
+      const seen = /* @__PURE__ */ new Set();
+      for (const p of packsForSize(s)) if (s.packIds.includes(p.id)) for (const d of p.designs) seen.add(d.looks.join(""));
+      return seen.size;
+    }
+    function changed() {
+      ctx.scheduleSave();
+      ctx.render();
+    }
+    function beep() {
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        const audio = new Ctx();
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+        osc.frequency.value = 660;
+        gain.gain.setValueAtTime(0.18, audio.currentTime);
+        gain.gain.exponentialRampToValueAtTime(1e-3, audio.currentTime + 0.5);
+        osc.connect(gain).connect(audio.destination);
+        osc.start();
+        osc.stop(audio.currentTime + 0.5);
+        osc.onended = () => audio.close();
+      } catch {
+      }
+      try {
+        navigator.vibrate?.(200);
+      } catch {
+      }
+    }
+    async function keepAwake(on) {
+      try {
+        if (on && !wakeLock && navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen");
+        if (!on && wakeLock) {
+          await wakeLock.release();
+          wakeLock = null;
+        }
+      } catch {
+        wakeLock = null;
+      }
+    }
+    function clockText(game, now) {
+      if (game.phase === "look" || game.phase === "build" && game.endsAt) return formatTime(game.endsAt - now);
+      if (game.phase === "build") return formatTime(now - game.startedAt);
+      if (game.result?.ms !== void 0) return formatTime(game.result.ms);
+      return formatTime(game.phase === "ready" && game.setup.seconds ? game.setup.seconds * 1e3 : 0);
+    }
+    function tick() {
+      const game = state2().game;
+      if (!game || game.phase !== "look" && game.phase !== "build") {
+        stopTicker();
+        return;
+      }
+      const now = Date.now();
+      if (timeUp(game, now)) {
+        if (game.phase === "look") hideCard(game, now);
+        else if (game.setup.mode === "race") raceWinner(game, -1, now);
+        else fail(game, "time", now);
+        if (game.phase === "scored") beep();
+        changed();
+        return;
+      }
+      const clock = document.getElementById("gameClock");
+      if (clock) clock.textContent = clockText(game, now);
+      const bar = document.getElementById("gameBar");
+      if (bar && game.endsAt) {
+        const total = game.endsAt - game.startedAt;
+        bar.style.width = `${Math.max(0, Math.min(100, (game.endsAt - now) / total * 100))}%`;
+        bar.classList.toggle("is-low", game.endsAt - now < 1e4);
+      }
+    }
+    function startTicker() {
+      if (!ticker) ticker = setInterval(tick, 200);
+    }
+    function stopTicker() {
+      clearInterval(ticker);
+      ticker = 0;
+    }
+    function cardFace(game, card) {
+      const shape = bookShapeFor(game.setup.rows, game.setup.cols);
+      const challenges = [];
+      const number = card.number || game.used;
+      challenges[number - 1] = { looks: card.looks, difficulty: card.stars };
+      return cardSvg({ shape: shape.shape, n: shape.n, title: "", challenges }, number - 1);
+    }
+    function cardBackFace(game, title) {
+      const shape = bookShapeFor(game.setup.rows, game.setup.cols);
+      return cardSvg({ shape: shape.shape, n: shape.n, title, challenges: [] }, null);
+    }
+    function solutionMarkup(card, rows, cols) {
+      if (!card.answer) return '<p class="muted">Working out a solution…</p>';
+      try {
+        const view = boardMarkup(Board.fromJSON({ rows, cols, pieces: card.answer }), { xray: true });
+        const markup = view.markup.replace(/(?<![-\w])id="([^"]+)"/g, 'id="sol-$1"').replace(/url\(#([^)]+)\)/g, "url(#sol-$1)");
+        return `<svg viewBox="${view.viewBox}" class="pl-solution" role="img" aria-label="One way to build it, with x-ray">${markup}</svg><p class="hint">One way to build it. X-ray shows the ramps under the roofs.</p>`;
+      } catch {
+        return '<p class="muted">No solution to show.</p>';
+      }
+    }
+    function scoreStrip(game) {
+      const turnOf = game.setup.mode === "race" ? -1 : game.turn;
+      return `<ol class="pl-scores">${game.setup.players.map((name, i) => `<li class="${i === turnOf && game.phase !== "over" ? "is-turn" : ""}"><span class="pl-name">${esc4(name)}</span><span class="pl-score">${game.scores[i]}</span></li>`).join("")}</ol>`;
+    }
+    function resultLine(game) {
+      const r = game.result;
+      if (!r) return "";
+      const who = r.winners?.length ? game.setup.players[r.winners[0]] : currentPlayer(game);
+      const time = r.ms ? ` in ${formatTime(r.ms)}` : "";
+      switch (r.outcome) {
+        case "built":
+          return `<p class="pl-result ok"><b>${esc4(who)}</b> scores ${starsText(r.points)} (+${r.points})${time}.</p>`;
+        case "won":
+          return `<p class="pl-result ok"><b>${esc4(who)}</b> was first and scores ${starsText(r.points)} (+${r.points})${time}.</p>`;
+        case "wrong":
+          return `<p class="pl-result bad">Not quite: no points for <b>${esc4(who)}</b>.</p>`;
+        case "time":
+          return `<p class="pl-result bad">Time's up: no points for <b>${esc4(who)}</b>.</p>`;
+        case "gave-up":
+          return `<p class="pl-result bad"><b>${esc4(who)}</b> passed: no points.</p>`;
+        case "nobody":
+          return '<p class="pl-result bad">Nobody finished it: no points.</p>';
+        default:
+          return "";
+      }
+    }
+    function actionsMarkup(game) {
+      const mode = game.setup.mode;
+      const nextName = () => {
+        const turns = mode === "race" ? 1 : game.setup.players.length;
+        const lastTurn = game.turn + 1 >= turns;
+        if (lastTurn && game.round >= game.setup.rounds) return "See the scores";
+        if (mode === "race") return "Next card";
+        return `Next: ${esc4(game.setup.players[lastTurn ? 0 : game.turn + 1])}`;
+      };
+      switch (game.phase) {
+        case "ready":
+          return `<button type="button" class="btn primary pl-big" data-action="game-draw">${ICONS.dice}Draw a card</button>`;
+        case "look":
+          return `<button type="button" class="btn pl-big" data-action="game-hide">${ICONS.eyeOff}Hide it now</button>`;
+        case "build":
+          if (mode === "race") {
+            return `<p class="pl-ask">Who finished first?</p><div class="row-buttons pl-winners">${game.setup.players.map((name, i) => `<button type="button" class="btn primary" data-action="game-winner" data-index="${i}">${esc4(name)}</button>`).join("")}<button type="button" class="btn" data-action="game-winner" data-index="-1">Nobody</button></div>`;
+          }
+          return `<div class="row-buttons"><button type="button" class="btn primary pl-big" data-action="game-done">${ICONS.check}Built it</button><button type="button" class="btn" data-action="game-pass">Pass</button></div>`;
+        case "check":
+          return `<p class="pl-ask">Does ${esc4(currentPlayer(game))}'s tray match the card exactly?</p><div class="row-buttons"><button type="button" class="btn primary" data-action="game-check" data-ok="1">${ICONS.check}Yes, it matches</button><button type="button" class="btn" data-action="game-check" data-ok="0">${ICONS.close}No</button></div>`;
+        case "scored":
+          return `${resultLine(game)}<div class="row-buttons"><button type="button" class="btn primary pl-big" data-action="game-next">${nextName()}${ICONS.next}</button><button type="button" class="btn" data-action="game-solution" aria-pressed="${showSolution2}">${showSolution2 ? "Hide the solution" : "Show a solution"}</button></div>`;
+        default:
+          return "";
+      }
+    }
+    function gameMarkup(game) {
+      const mode = game.setup.mode;
+      const now = Date.now();
+      if (game.phase === "over") {
+        const rank = ranking(game);
+        return `<div class="pl-over"><h2 class="pl-title">${rank[0].place === 1 && rank.filter((r) => r.place === 1).length > 1 ? "A draw!" : `${esc4(rank[0].name)} wins!`}</h2>
+<ol class="pl-podium">${rank.map((r) => `<li class="place-${r.place}"><span class="pl-place">${r.place}</span><span class="pl-name">${esc4(r.name)}</span><span class="pl-score">${plural2(r.score, "star")}</span></li>`).join("")}</ol>
+<div class="row-buttons"><button type="button" class="btn primary pl-big" data-action="game-again">${ICONS.dice}Play again</button><button type="button" class="btn" data-action="game-new">New game</button></div></div>`;
+      }
+      const who = mode === "race" ? "Everyone builds" : `${esc4(currentPlayer(game))}'s turn`;
+      const showFace = game.current && (game.phase === "build" ? mode !== "memory" : game.phase !== "ready");
+      const backTitle = game.phase === "ready" ? mode === "race" ? "Ready?" : `${currentPlayer(game)}, ready?` : "Build it from memory";
+      const card = showFace ? cardFace(game, game.current) : cardBackFace(game, backTitle);
+      const timed = game.phase === "look" || game.phase === "build" && game.endsAt;
+      const clockLabel = game.phase === "look" ? "Memorise" : game.phase === "build" ? game.endsAt ? "Time left" : "Time" : "Time";
+      const solution = game.phase === "scored" && showSolution2 ? `<div class="pl-solution-wrap">${solutionMarkup(game.current, game.setup.rows, game.setup.cols)}</div>` : "";
+      return `<div class="pl-game is-${game.phase}">
+<div class="pl-head"><p class="pl-round">Round ${game.round} of ${game.setup.rounds} · ${MODES[mode].name}</p><p class="pl-who">${who}</p></div>
+${scoreStrip(game)}
+<div class="pl-table">
+<div class="pl-card is-${game.setup.rows === game.setup.cols ? "square" : "rect"}">${card}</div>
+<div class="pl-clock-box"><span class="pl-clock-label">${clockLabel}</span><span class="pl-clock" id="gameClock">${clockText(game, now)}</span>
+${timed ? `<span class="pl-bar"><span id="gameBar" style="width:${Math.max(0, Math.min(100, (game.endsAt - now) / (game.endsAt - game.startedAt) * 100))}%"></span></span>` : ""}</div>
+</div>
+<div class="pl-actions">${actionsMarkup(game)}</div>
+${solution}
+</div>`;
+    }
+    function lobbyMarkup() {
+      const s = setup();
+      const deck = packCards(s) + (s.random.length ? s.random.length * Math.min(30, cardsNeeded(s)) : 0);
+      const problem = setupProblem(s, deck);
+      const tiles = Object.entries(MODES).map(([id, m]) => `<button type="button" class="pl-mode${s.mode === id ? " is-on" : ""}" data-action="game-mode" data-id="${id}" aria-pressed="${s.mode === id}"><span class="pl-mode-name">${m.name}</span><span class="pl-mode-text">${m.short}</span></button>`).join("");
+      const players = playersOf(s);
+      return `<div class="pl-lobby">
+<h2 class="pl-title">Play together</h2>
+<p class="muted">The app deals the cards, keeps time and counts the stars. Everyone builds on a real tray.</p>
+<div class="pl-modes" role="group" aria-label="Game">${tiles}</div>
+<p class="pl-summary">${esc4(players.join(", "))} · ${plural2(s.rounds, "round")} · ${s.seconds ? `${formatTime(s.seconds * 1e3)} per card` : "no time limit"} · ${sizeLabel(s.rows, s.cols)} · deck of ${deck} card${deck === 1 ? "" : "s"}</p>
+${problem ? `<p class="hint is-bad">${esc4(problem)}</p>` : ""}
+<div class="row-buttons"><button type="button" class="btn primary pl-big" data-action="game-start" ${problem ? "disabled" : ""}>${ICONS.play}Start the game</button></div>
+<p class="hint">Change the players, the packs in the deck and the timer below.</p>
+</div>`;
+    }
+    function renderStage2(container) {
+      const game = state2().game;
+      container.innerHTML = game ? gameMarkup(game) : lobbyMarkup();
+      if (game && (game.phase === "look" || game.phase === "build")) startTicker();
+      else stopTicker();
+      keepAwake(!!game && game.phase !== "over");
+    }
+    function setupCards() {
+      const s = setup();
+      const chip = (action, value, label, on, extra = "") => `<button type="button" class="chip${on ? " is-on" : ""}" data-action="${action}" data-value="${value}" aria-pressed="${on}"${extra}>${label}</button>`;
+      const players = s.players.map((name, i) => `<div class="pl-player"><label class="sr-only" for="player-${i}">Player ${i + 1}</label><input class="text-input" id="player-${i}" data-player="${i}" maxlength="${MAX_NAME}" value="${esc4(name)}" placeholder="Player ${i + 1}" autocomplete="off">
+<button type="button" class="icon-btn" data-action="game-remove-player" data-index="${i}" ${s.players.length <= 1 ? "disabled" : ""} title="Remove">${ICONS.close}<span class="sr-only">Remove player ${i + 1}</span></button></div>`).join("");
+      const packs = packsForSize(s);
+      const packChips = packs.map((p) => chip("game-pack", esc4(p.id), `${esc4(p.name)} <small>${p.designs.length}</small>`, s.packIds.includes(p.id))).join("");
+      const randomChips = [1, 2, 3].map((level) => chip("game-random", level, `Random <span class="stars level-${level}"><span aria-hidden="true">${starsText(level)}</span><span class="sr-only">${DIFFICULTY[level].name}</span></span>`, s.random.includes(level))).join("");
+      const sizes = PACK_SIZES.map((x) => chip("game-size", `${x.rows}x${x.cols}`, sizeLabel(x.rows, x.cols), x.rows === s.rows && x.cols === s.cols)).join("");
+      const rounds = ROUNDS.map((n) => chip("game-rounds", n, n, s.rounds === n)).join("");
+      const times = TIMES.map((t) => chip("game-seconds", t, t ? formatTime(t * 1e3) : "No limit", s.seconds === t)).join("");
+      const looks = LOOK_TIMES.map((t) => chip("game-look", t, `${t} s`, s.lookSeconds === t)).join("");
+      const need = cardsNeeded(s);
+      const inDeck = packCards(s);
+      return `<section class="card" aria-labelledby="pl-players-h">
+<h2 id="pl-players-h">Players <small>${s.players.length}</small></h2>
+<div class="pl-players">${players}</div>
+<div class="row-buttons"><button type="button" class="btn small" data-action="game-add-player" ${s.players.length >= MAX_PLAYERS ? "disabled" : ""}>+ Add a player</button></div>
+</section>
+<section class="card" aria-labelledby="pl-deck-h">
+<h2 id="pl-deck-h">Deck</h2>
+<p class="field-label">Tray</p>
+<div class="chips tight" role="group" aria-label="Tray size">${sizes}</div>
+<p class="field-label">Packs to shuffle in</p>
+${packChips ? `<div class="chips tight" role="group" aria-label="Packs">${packChips}</div>` : `<p class="muted">No ${sizeLabel(s.rows, s.cols)} packs yet. Make one in the Packs tab, or add random designs.</p>`}
+<p class="field-label">Random designs (always buildable)</p>
+<div class="chips tight" role="group" aria-label="Random designs">${randomChips}</div>
+<p class="hint">${inDeck ? `${plural2(inDeck, "card")} from packs` : "No pack cards"}${s.random.length ? " + random designs" : ""}. This game deals ${need}; ${inDeck && !s.random.length && inDeck < need ? "the deck is shuffled again when it runs out." : "every card is dealt once."}</p>
+</section>
+<section class="card" aria-labelledby="pl-rules-h">
+<h2 id="pl-rules-h">Rounds and time</h2>
+<p class="field-label">Rounds${s.mode === "race" ? " (one card each)" : " (one turn per player each)"}</p>
+<div class="chips tight" role="group" aria-label="Rounds">${rounds}</div>
+<p class="field-label">Time to build a card</p>
+<div class="chips tight" role="group" aria-label="Time per card">${times}</div>
+${s.mode === "memory" ? `<p class="field-label">Time to look at the card</p><div class="chips tight" role="group" aria-label="Time to look">${looks}</div>` : ""}
+</section>`;
+    }
+    function rulesCard(mode) {
+      return `<section class="card" aria-labelledby="pl-how-h">
+<h2 id="pl-how-h">How to play: ${MODES[mode].name}</h2>
+<ol class="pl-rules">${RULES[mode].map((r) => `<li>${esc4(r)}</li>`).join("")}</ol>
+</section>`;
+    }
+    function gameCards(game) {
+      const rows = game.log.slice(-8).reverse().map((e) => {
+        const who = e.winners.length ? game.setup.players[e.winners[0]] : e.players.length === 1 ? game.setup.players[e.players[0]] : "Nobody";
+        const what = e.outcome === "built" || e.outcome === "won" ? `+${e.stars}` : e.outcome === "time" ? "time" : e.outcome === "wrong" ? "wrong" : e.outcome === "nobody" ? "—" : "pass";
+        return `<li><span>R${e.round}</span><span>${esc4(who)}</span><span>${esc4(e.card)}</span><span class="pl-log-pts">${what}</span></li>`;
+      }).join("");
+      return `<section class="card" aria-labelledby="pl-game-h">
+<h2 id="pl-game-h">This game</h2>
+<p class="muted">${MODES[game.setup.mode].name} · ${plural2(game.setup.players.length, "player")} · ${plural2(game.setup.rounds, "round")} · ${game.setup.seconds ? `${formatTime(game.setup.seconds * 1e3)} per card` : "no time limit"} · deck of ${game.deck.length}${game.reshuffles ? ` (shuffled again ${game.reshuffles}×)` : ""}</p>
+${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
+<div class="row-buttons"><button type="button" class="btn small" data-action="game-end">${ICONS.close}End the game</button></div>
+</section>`;
+    }
+    function panelMarkup() {
+      const game = state2().game;
+      if (game && game.phase !== "over") return `${gameCards(game)}${rulesCard(game.setup.mode)}`;
+      return `${setupCards()}${rulesCard(setup().mode)}${game ? gameCards(game) : ""}`;
+    }
+    async function start2() {
+      const s = setup();
+      const random = [];
+      for (const level of s.random) {
+        const count = Math.min(30, cardsNeeded(s));
+        for (let k = 0; k < count; k += 1) {
+          const { target, answer } = ctx.randomChallenge(s.rows, s.cols, level);
+          random.push({ looks: target, stars: level, answer });
+        }
+      }
+      const deck = buildDeck(s, ctx.packs(), random, rng());
+      const problem = setupProblem(s, deck.length);
+      if (problem) {
+        ctx.setStatus(problem, true, "bad");
+        return;
+      }
+      state2().game = startGame(s, deck);
+      showSolution2 = false;
+      changed();
+      document.getElementById("playStage")?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+    function fetchSolution(game) {
+      const card = game.current;
+      if (!card || card.answer) return;
+      ctx.solve(game.setup.rows, game.setup.cols, card.looks).then((res) => {
+        if (res?.status === "possible" && state2().game?.current === card) {
+          card.answer = res.pieces;
+          if (showSolution2) changed();
+        }
+      });
+    }
+    function act(fn) {
+      const game = state2().game;
+      if (!game) return;
+      fn(game, Date.now());
+      if (game.phase === "scored") fetchSolution(game);
+      changed();
+    }
+    function editSetup(fn) {
+      if (state2().game && state2().game.phase !== "over") return;
+      fn(setup());
+      changed();
+    }
+    const actions = {
+      "game-mode": (el) => editSetup((s) => {
+        s.mode = el.dataset.id;
+        if (s.mode === "race" && s.players.length < 2) s.players.push(`Player ${s.players.length + 1}`);
+      }),
+      "game-add-player": () => editSetup((s) => {
+        if (s.players.length < MAX_PLAYERS) s.players.push("");
+      }),
+      "game-remove-player": (el) => editSetup((s) => {
+        if (s.players.length > 1) s.players.splice(Number(el.dataset.index), 1);
+      }),
+      "game-size": (el) => editSetup((s) => {
+        const [rows, cols] = el.dataset.value.split("x").map(Number);
+        s.rows = rows;
+        s.cols = cols;
+        s.packIds = packsForSize(s).map((p) => p.id);
+      }),
+      "game-pack": (el) => editSetup((s) => {
+        const id = el.dataset.value;
+        s.packIds = s.packIds.includes(id) ? s.packIds.filter((x) => x !== id) : [...s.packIds, id];
+      }),
+      "game-random": (el) => editSetup((s) => {
+        const level = Number(el.dataset.value);
+        s.random = s.random.includes(level) ? s.random.filter((x) => x !== level) : [...s.random, level].sort();
+      }),
+      "game-rounds": (el) => editSetup((s) => {
+        s.rounds = Number(el.dataset.value);
+      }),
+      "game-seconds": (el) => editSetup((s) => {
+        s.seconds = Number(el.dataset.value);
+      }),
+      "game-look": (el) => editSetup((s) => {
+        s.lookSeconds = Number(el.dataset.value);
+      }),
+      "game-start": start2,
+      "game-draw": () => {
+        showSolution2 = false;
+        act((g, now) => draw(g, now, rng()));
+      },
+      "game-hide": () => act((g, now) => hideCard(g, now)),
+      "game-done": () => act((g, now) => done(g, now)),
+      "game-pass": () => act((g, now) => fail(g, "gave-up", now)),
+      "game-check": (el) => act((g, now) => checked(g, el.dataset.ok === "1", now)),
+      "game-winner": (el) => act((g, now) => raceWinner(g, Number(el.dataset.index), now)),
+      "game-next": () => {
+        showSolution2 = false;
+        act((g) => next(g));
+      },
+      "game-solution": () => {
+        showSolution2 = !showSolution2;
+        const game = state2().game;
+        if (game) fetchSolution(game);
+        changed();
+      },
+      "game-again": () => {
+        state2().game = null;
+        start2();
+      },
+      "game-new": () => {
+        state2().game = null;
+        changed();
+      },
+      "game-end": async () => {
+        if (!await ctx.confirmDialog("End this game? The scores so far are shown, then you can start a new one.", "End the game")) return;
+        const game = state2().game;
+        if (game) {
+          game.phase = "over";
+          game.current = null;
+        }
+        changed();
+      }
+    };
+    function attach() {
+      const panel = document.getElementById("panel");
+      panel.addEventListener("input", (evt) => {
+        const i = evt.target.dataset?.player;
+        if (i === void 0 || state2().game && state2().game.phase !== "over") return;
+        setup().players[Number(i)] = evt.target.value.slice(0, MAX_NAME);
+        ctx.scheduleSave();
+      });
+      panel.addEventListener("change", (evt) => {
+        const stage = document.getElementById("playStage");
+        if (evt.target.dataset?.player !== void 0 && stage && !stage.hidden) renderStage2(stage);
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible" && state2().mode === "play" && state2().game && state2().game.phase !== "over") keepAwake(true);
+      });
+    }
+    return { renderStage: renderStage2, panelMarkup, actions, attach, stop: () => {
+      stopTicker();
+      keepAwake(false);
+    } };
   }
 
   // src/presets.js
@@ -6988,6 +7976,7 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
   var state;
   var bookUI;
   var packUI;
+  var playUI;
   var pointer = { down: false, id: null, type: "mouse", erase: false, x: 0, y: 0, moved: false, dragging: false, grab: null };
   var hits3d = [];
   var outline3d = [];
@@ -7029,7 +8018,13 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
       packId: "",
       packIndex: 0,
       packDraft: null,
-      packView: "design"
+      packView: "design",
+      // Play tab: the game's setup and the game in progress (or just over).
+      gameSetup: normalizeSetup(null),
+      game: null,
+      // Build challenges drawn from packs: the packs chosen and the shuffled deck.
+      soloPackIds: [],
+      soloDeck: null
     };
   }
   function snapshot() {
@@ -7051,7 +8046,11 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
       packs: state.packs.map((p) => ({ id: p.id, name: p.name, rows: p.rows, cols: p.cols, designs: p.designs })),
       packId: state.packId,
       packIndex: state.packIndex,
-      packDraft: state.packDraft
+      packDraft: state.packDraft,
+      gameSetup: state.gameSetup,
+      game: state.game,
+      soloPackIds: state.soloPackIds,
+      soloDeck: state.soloDeck
     };
   }
   function restore(data) {
@@ -7067,7 +8066,7 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
       const challenge = ch && Array.isArray(ch.target) && ch.target.length === rows * cols ? ch : null;
       return {
         ...base,
-        mode: ["build", "check", "packs", "book"].includes(data.mode) ? data.mode : "build",
+        mode: ["build", "check", "packs", "play", "book"].includes(data.mode) ? data.mode : "build",
         rows,
         cols,
         sizeDraft: { rows, cols },
@@ -7087,7 +8086,11 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
         packs: revivePacks(data.packs, normalizePack),
         packId: typeof data.packId === "string" ? data.packId : "",
         packIndex: Number.isInteger(data.packIndex) ? data.packIndex : 0,
-        packDraft: data.packDraft && typeof data.packDraft.packId === "string" && Number.isInteger(data.packDraft.index) && Array.isArray(data.packDraft.looks) && data.packDraft.looks.every((l) => Number.isInteger(l) && l >= 0 && l <= 6) ? data.packDraft : null
+        packDraft: data.packDraft && typeof data.packDraft.packId === "string" && Number.isInteger(data.packDraft.index) && Array.isArray(data.packDraft.looks) && data.packDraft.looks.every((l) => Number.isInteger(l) && l >= 0 && l <= 6) ? data.packDraft : null,
+        gameSetup: normalizeSetup(data.gameSetup),
+        game: reviveGame(data.game),
+        soloPackIds: Array.isArray(data.soloPackIds) ? data.soloPackIds.filter((x) => typeof x === "string") : [],
+        soloDeck: data.soloDeck && Array.isArray(data.soloDeck.cards) && data.soloDeck.cards.length && Number.isInteger(data.soloDeck.used) ? data.soloDeck : null
       };
     } catch {
       return base;
@@ -7170,9 +8173,19 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
   function renderStage() {
     const book = state.mode === "book";
     const photo = state.mode === "packs" && packUI.showingPhoto();
-    $("#boardWrap").hidden = book || photo;
+    const play = state.mode === "play";
+    $("#boardWrap").hidden = book || photo || play;
     $("#bookStage").hidden = !book;
     $("#photoStage").hidden = !photo;
+    $("#playStage").hidden = !play;
+    if (play) {
+      playUI.renderStage($("#playStage"));
+      $("#stageTop").innerHTML = "";
+      $("#stageBar").innerHTML = "";
+      $("#status").hidden = false;
+      return;
+    }
+    playUI.stop();
     if (photo) {
       packUI.renderPhotoStage($("#photoStage"));
       $("#stageTop").innerHTML = "";
@@ -7205,11 +8218,12 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
     }
     const prog = challengeProgress();
     const status = ch.solved ? `<p class="win">${ch.revealed ? "Answer shown." : `Solved in ${ch.moves} moves!`}</p>` : `<p><b>${prog.match}</b> of ${prog.total} squares match · ${ch.moves} moves</p>`;
+    const deckNote = ch.fromDeck && state.soloDeck ? ` <small class="muted">· card ${state.soloDeck.used} of ${state.soloDeck.cards.length} drawn</small>` : "";
     top.innerHTML = `<div class="challenge-bar" id="challengeBar">
 <div class="challenge-pic">${flatPicture(state.rows, state.cols, ch.target, { cell: 32, gap: 2.5, mismatches: prog.mismatch })}</div>
-<div class="challenge-info"><p class="challenge-title">${ch.label ?? "Challenge"} ${starsHtml(ch.difficulty)}</p>
+<div class="challenge-info"><p class="challenge-title">${escapeHtml(ch.label ?? "Challenge")} ${starsHtml(ch.difficulty)}${deckNote}</p>
 ${ch.solved ? "" : '<p class="challenge-goal">Make this picture: put all the pieces in the tray so that, seen from above, it looks like this.</p>'}${status}
-<div class="row-buttons">${ch.solved ? `<button type="button" class="btn small primary" data-action="next-challenge">${ICONS.dice}Next challenge</button>` : ch.answer ? `<button type="button" class="btn small" data-action="reveal">Show answer</button>` : ""}<button type="button" class="btn small" data-action="stop-challenge">End challenge</button></div></div>
+<div class="row-buttons">${ch.solved ? `<button type="button" class="btn small primary" data-action="next-challenge">${ICONS.dice}${ch.fromDeck ? "Next card" : "Next challenge"}</button>` : `${ch.fromDeck ? `<button type="button" class="btn small" data-action="next-challenge">Skip this card</button>` : ""}${ch.answer ? `<button type="button" class="btn small" data-action="reveal">Show answer</button>` : ""}`}<button type="button" class="btn small" data-action="stop-challenge">End challenge</button></div></div>
 </div>`;
   }
   function renderBoard() {
@@ -7369,10 +8383,20 @@ ${note}<div class="chips" role="group" aria-label="Common sizes">${quick}</div>`
   function buildPanel() {
     const ch = state.challenge;
     const levels = [1, 2, 3].map((level) => `<button type="button" class="btn level level-${level}" data-action="new-challenge" data-level="${level}">${starsHtml(level)}</button>`).join("");
+    const soloPacks = packUI.allPacks().filter((p) => p.designs.length);
+    const soloChips = soloPacks.map((p) => {
+      const on = state.soloPackIds.includes(p.id);
+      return `<button type="button" class="chip${on ? " is-on" : ""}" data-action="solo-pack" data-id="${escapeHtml(p.id)}" aria-pressed="${on}">${escapeHtml(p.name)} <small>${p.rows}×${p.cols} · ${p.designs.length}</small></button>`;
+    }).join("");
+    const soloCount = soloPacks.filter((p) => state.soloPackIds.includes(p.id)).reduce((n, p) => n + p.designs.length, 0);
     const challengeCard = ch ? "" : `<section class="card" aria-labelledby="ch-h">
 <h2 id="ch-h">Play a challenge</h2>
-<p class="muted">Get a picture made from a real arrangement of the pieces and rebuild it in the tray.</p>
+<p class="muted">Draw a card from your packs and rebuild its picture in the tray, card after card.</p>
+${soloChips ? `<div class="chips tight" role="group" aria-label="Packs to draw from">${soloChips}</div>
+<div class="row-buttons"><button type="button" class="btn primary" data-action="solo-draw" ${soloCount ? "" : "disabled"}>${ICONS.dice}Draw a card${soloCount ? ` <small>(${soloCount} in the deck)</small>` : ""}</button></div>` : '<p class="hint">No packs yet: make one in the Packs tab.</p>'}
+<p class="field-label">Or a random picture</p>
 <div class="row-buttons">${levels}</div>
+<p class="hint">Playing with friends? The Play tab deals cards to several players, with a timer and scores.</p>
 </section>`;
     const presets = PRESETS.map((p) => `<button type="button" class="chip" data-action="preset" data-id="${p.id}">${p.name}</button>`).join("");
     return `${challengeCard}
@@ -7420,6 +8444,7 @@ ${sizeMarkup()}
     const openDetails = panel.querySelector("details[open]") !== null;
     if (state.mode === "book") panel.innerHTML = bookUI.panelMarkup();
     else if (state.mode === "packs") panel.innerHTML = packUI.panelMarkup();
+    else if (state.mode === "play") panel.innerHTML = playUI.panelMarkup();
     else panel.innerHTML = state.mode === "check" ? checkPanel() : buildPanel();
     if (openDetails) panel.querySelector("details")?.setAttribute("open", "");
     if (focused) panel.querySelector(focused)?.focus({ preventScroll: true });
@@ -7432,7 +8457,7 @@ ${sizeMarkup()}
     return `[data-action="${action}"]${extra}`;
   }
   function defaultStatus() {
-    if (state.mode === "check" || state.mode === "packs") return { text: "", tone: "" };
+    if (state.mode !== "build") return { text: "", tone: "" };
     const sel = state.sel;
     const fine = finePointer();
     const prog = progressText();
@@ -7792,7 +8817,7 @@ ${sizeMarkup()}
     }
     return { target: best.looks, answer: best.pieces };
   }
-  async function startChallenge({ target, answer, difficulty, label, rows = state.rows, cols = state.cols }) {
+  async function startChallenge({ target, answer, difficulty, label, rows = state.rows, cols = state.cols, fromDeck = false }) {
     if (rows !== state.rows || cols !== state.cols) {
       if (!await setSize(rows, cols)) return false;
     } else if (state.build.pieces.size && !state.challenge) {
@@ -7800,7 +8825,7 @@ ${sizeMarkup()}
     }
     state.history.record(state.build);
     state.build = new Board(rows, cols);
-    state.challenge = { target, answer, difficulty, label, moves: 0, solved: false, revealed: false };
+    state.challenge = { target, answer, difficulty, label, fromDeck, moves: 0, solved: false, revealed: false };
     state.mode = "build";
     state.sel = null;
     render();
@@ -7811,6 +8836,42 @@ ${sizeMarkup()}
       bar.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
     }
     return true;
+  }
+  var freshRng = () => makeRng((Date.now() ^ Math.random() * 1e9) >>> 0);
+  function toggleSoloPack(id) {
+    const packs = packUI.allPacks();
+    const pack = packs.find((p) => p.id === id);
+    if (!pack) return;
+    const chosen = packs.filter((p) => state.soloPackIds.includes(p.id));
+    if (state.soloPackIds.includes(id)) state.soloPackIds = state.soloPackIds.filter((x) => x !== id);
+    else if (chosen.some((p) => p.rows !== pack.rows || p.cols !== pack.cols)) {
+      state.soloPackIds = [id];
+      setStatus(`Packs of one tray size at a time: now drawing from ${pack.name} (${pack.rows}×${pack.cols}).`);
+    } else state.soloPackIds = [...state.soloPackIds, id];
+    state.soloDeck = null;
+    render();
+  }
+  async function drawSoloCard() {
+    const packs = packUI.allPacks();
+    const chosen = packs.filter((p) => state.soloPackIds.includes(p.id));
+    if (!chosen.length) return;
+    const { rows, cols } = chosen[0];
+    const same = state.soloDeck && state.soloDeck.rows === rows && state.soloDeck.cols === cols && state.soloDeck.packIds.join() === state.soloPackIds.join();
+    if (!same) state.soloDeck = soloDeck(packs, state.soloPackIds, rows, cols, freshRng());
+    if (!state.soloDeck) {
+      setStatus("Those packs have no designs yet.", true, "bad");
+      return;
+    }
+    const card = soloNext(state.soloDeck, freshRng());
+    const started = await startChallenge({ target: card.looks.slice(), answer: null, difficulty: card.stars, label: card.label, rows, cols, fromDeck: true });
+    if (!started) return;
+    const ch = state.challenge;
+    packUI.solve(rows, cols, card.looks).then((res) => {
+      if (res?.status === "possible" && state.challenge === ch && !ch.answer) {
+        ch.answer = res.pieces;
+        if (state.mode === "build") renderStageTop();
+      }
+    });
   }
   function newChallenge(level) {
     const { target, answer } = randomChallenge(state.rows, state.cols, level);
@@ -7970,9 +9031,9 @@ ${sizeMarkup()}
   }
   function paintCell(index, look) {
     if (index < 0 || state.pattern[index] === look) return;
-    const next = state.pattern.slice();
-    next[index] = look;
-    setPattern(next);
+    const next2 = state.pattern.slice();
+    next2[index] = look;
+    setPattern(next2);
     renderBoard();
   }
   function showSolution() {
@@ -8300,7 +9361,7 @@ ${sizeMarkup()}
       bookUI.onKey(evt);
       return;
     }
-    if (state.mode === "packs") return;
+    if (state.mode === "packs" || state.mode === "play") return;
     const key = evt.key.toLowerCase();
     if ((evt.ctrlKey || evt.metaKey) && key === "z") {
       evt.preventDefault();
@@ -8459,7 +9520,9 @@ ${sizeMarkup()}
     "show-solution": showSolution,
     "add-picture-to-book": () => bookUI.addFromCheck(),
     "new-challenge": (el) => newChallenge(Number(el.dataset.level)),
-    "next-challenge": () => newChallenge(state.challenge?.difficulty ?? 2),
+    "next-challenge": () => state.challenge?.fromDeck && state.soloPackIds.length ? drawSoloCard() : newChallenge(state.challenge?.difficulty ?? 2),
+    "solo-pack": (el) => toggleSoloPack(el.dataset.id),
+    "solo-draw": drawSoloCard,
     "stop-challenge": () => {
       state.challenge = null;
       render();
@@ -8474,20 +9537,20 @@ ${sizeMarkup()}
     }
     const el = evt.target.closest("[data-action]");
     if (!el || el.disabled) return;
-    const action = ACTIONS[el.dataset.action] ?? bookUI.actions[el.dataset.action] ?? packUI.actions[el.dataset.action];
+    const action = ACTIONS[el.dataset.action] ?? bookUI.actions[el.dataset.action] ?? packUI.actions[el.dataset.action] ?? playUI.actions[el.dataset.action];
     if (action) action(el, evt);
   }
   function onTabKey(evt) {
     const tabs = [...document.querySelectorAll("[data-tab]")];
     const i = tabs.indexOf(evt.target);
     if (i < 0) return;
-    let next = -1;
-    if (evt.key === "ArrowRight") next = (i + 1) % tabs.length;
-    if (evt.key === "ArrowLeft") next = (i - 1 + tabs.length) % tabs.length;
-    if (next >= 0) {
+    let next2 = -1;
+    if (evt.key === "ArrowRight") next2 = (i + 1) % tabs.length;
+    if (evt.key === "ArrowLeft") next2 = (i - 1 + tabs.length) % tabs.length;
+    if (next2 >= 0) {
       evt.preventDefault();
-      setMode(tabs[next].dataset.tab);
-      tabs[next].focus();
+      setMode(tabs[next2].dataset.tab);
+      tabs[next2].focus();
     }
   }
   function start(hotData) {
@@ -8574,8 +9637,20 @@ ${sizeMarkup()}
     $("#panel").addEventListener("keydown", (evt) => {
       if (evt.key === "Enter" && evt.target.id === "codeIn") loadCode();
     });
+    playUI = createPlayUI({
+      getState: () => state,
+      render,
+      renderPanel,
+      setStatus,
+      confirmDialog,
+      scheduleSave,
+      randomChallenge,
+      packs: () => packUI.allPacks(),
+      solve: (rows, cols, looks) => packUI.solve(rows, cols, looks)
+    });
     bookUI.attach();
     packUI.attach();
+    playUI.attach();
     if (state.mode === "check") scheduleCheck(0);
     render();
   }

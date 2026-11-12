@@ -1045,6 +1045,9 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
     packsFor,
     addPackById: (id) => addPackToBook(allPacks().find((p) => p.id === id), { show: false }),
     isAdding: () => addingToBook,
+    allPacks,
+    /** Check a design (in the background worker): a promise of { status, pieces?, reason? }. */
+    solve: (rows, cols, looks) => checker.check(rows, cols, looks),
   };
 }
 
