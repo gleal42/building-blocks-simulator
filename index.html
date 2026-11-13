@@ -6317,11 +6317,13 @@ ${lines.join(",\n")}
         refreshTimer = setTimeout(refreshAfterCheck, 120);
       }
     });
-    const allPacks = () => [...BUILT_IN, ...state2().packs];
+    const hidden = () => state2().hiddenPacks ?? [];
+    const allPacks = () => [...BUILT_IN.filter((p) => !hidden().includes(p.id)), ...state2().packs];
     function currentPack() {
       const st = state2();
       let pack = allPacks().find((p) => p.id === st.packId);
       if (!pack) {
+        if (!allPacks().length) st.packs.push(newPack({ name: "My pack 1", rows: 4, cols: 4 }));
         pack = allPacks()[0];
         st.packId = pack.id;
         st.packIndex = pack.designs.length ? 0 : -1;
@@ -6500,8 +6502,9 @@ ${paint}`;
 <h2 id="packs-h">Packs</h2>
 <p class="field-label">Yours</p>
 ${mine ? `<div class="chips tight" role="group" aria-label="Your packs">${mine}</div>` : '<p class="muted">None yet. Start one below, copy one that comes with the app, or read one from a photo.</p>'}
-<p class="field-label">Come with the app</p>
-<div class="chips tight" role="group" aria-label="Packs that come with the app">${BUILT_IN.map(chip).join("")}</div>
+${BUILT_IN.length > hidden().length ? `<p class="field-label">Come with the app</p>
+<div class="chips tight" role="group" aria-label="Packs that come with the app">${BUILT_IN.filter((p) => !hidden().includes(p.id)).map(chip).join("")}</div>` : ""}
+${hidden().length ? `<div class="row-buttons"><button type="button" class="btn small" data-action="pack-unhide">Show ${plural(hidden().length, "hidden pack")} again</button></div>` : ""}
 <p class="field-label">Start a new pack (tray size)</p>
 <div class="chips tight" role="group" aria-label="New pack">${sizes}</div>
 <div class="row-buttons"><button type="button" class="btn small" data-action="pack-from-book" ${book.challenges.length ? "" : "disabled"}>${ICONS.book}New pack from the book “${esc3(book.title)}”</button></div>
@@ -6546,7 +6549,7 @@ ${selTools}
 ${add}
 <div class="row-buttons pk-pack-actions">
 <button type="button" class="btn small" data-action="pack-copy">${ICONS.copy}Duplicate pack</button>
-${canEdit ? `<button type="button" class="btn small" data-action="pack-delete">${ICONS.trash}Delete pack</button>` : ""}
+${canEdit ? `<button type="button" class="btn small" data-action="pack-delete">${ICONS.trash}Delete pack</button>` : `<button type="button" class="btn small" data-action="pack-hide">${ICONS.trash}Hide pack</button>`}
 </div>
 </section>`;
     }
@@ -6984,6 +6987,23 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
         currentPack();
         changed();
         ctx.setStatus(`Deleted “${pack.name}”.`);
+      },
+      "pack-hide": async () => {
+        const st = state2();
+        const pack = currentPack();
+        if (!pack.builtIn) return;
+        if (!await ctx.confirmDialog(`Hide “${pack.name}”? It comes with the app, so it cannot be deleted, but it will no longer show here, in the book or in games. You can show it again under Packs.`, "Hide pack")) return;
+        st.hiddenPacks = [...hidden(), pack.id];
+        st.packId = "";
+        st.packDraft = null;
+        currentPack();
+        changed();
+        ctx.setStatus(`Hid “${pack.name}”.`);
+      },
+      "pack-unhide": () => {
+        state2().hiddenPacks = [];
+        changed();
+        ctx.setStatus("The packs that come with the app are back.");
       },
       "pack-from-book": async () => {
         if (!await leaveDraft()) return;
@@ -8019,6 +8039,8 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
       packIndex: 0,
       packDraft: null,
       packView: "design",
+      hiddenPacks: [],
+      // packs that come with the app, hidden by the user
       // Play tab: the game's setup and the game in progress (or just over).
       gameSetup: normalizeSetup(null),
       game: null,
@@ -8047,6 +8069,7 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
       packId: state.packId,
       packIndex: state.packIndex,
       packDraft: state.packDraft,
+      hiddenPacks: state.hiddenPacks,
       gameSetup: state.gameSetup,
       game: state.game,
       soloPackIds: state.soloPackIds,
@@ -8087,6 +8110,7 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
         packId: typeof data.packId === "string" ? data.packId : "",
         packIndex: Number.isInteger(data.packIndex) ? data.packIndex : 0,
         packDraft: data.packDraft && typeof data.packDraft.packId === "string" && Number.isInteger(data.packDraft.index) && Array.isArray(data.packDraft.looks) && data.packDraft.looks.every((l) => Number.isInteger(l) && l >= 0 && l <= 6) ? data.packDraft : null,
+        hiddenPacks: Array.isArray(data.hiddenPacks) ? data.hiddenPacks.filter((x) => typeof x === "string") : [],
         gameSetup: normalizeSetup(data.gameSetup),
         game: reviveGame(data.game),
         soloPackIds: Array.isArray(data.soloPackIds) ? data.soloPackIds.filter((x) => typeof x === "string") : [],

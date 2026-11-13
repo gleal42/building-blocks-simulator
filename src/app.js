@@ -124,6 +124,7 @@ function defaultState() {
     packIndex: 0,
     packDraft: null,
     packView: 'design',
+    hiddenPacks: [], // packs that come with the app, hidden by the user
     // Play tab: the game's setup and the game in progress (or just over).
     gameSetup: normalizeSetup(null),
     game: null,
@@ -153,6 +154,7 @@ function snapshot() {
     packId: state.packId,
     packIndex: state.packIndex,
     packDraft: state.packDraft,
+    hiddenPacks: state.hiddenPacks,
     gameSetup: state.gameSetup,
     game: state.game,
     soloPackIds: state.soloPackIds,
@@ -195,6 +197,7 @@ function restore(data) {
       packIndex: Number.isInteger(data.packIndex) ? data.packIndex : 0,
       packDraft: data.packDraft && typeof data.packDraft.packId === 'string' && Number.isInteger(data.packDraft.index) && Array.isArray(data.packDraft.looks)
         && data.packDraft.looks.every((l) => Number.isInteger(l) && l >= 0 && l <= 6) ? data.packDraft : null,
+      hiddenPacks: Array.isArray(data.hiddenPacks) ? data.hiddenPacks.filter((x) => typeof x === 'string') : [],
       gameSetup: normalizeSetup(data.gameSetup),
       game: reviveGame(data.game),
       soloPackIds: Array.isArray(data.soloPackIds) ? data.soloPackIds.filter((x) => typeof x === 'string') : [],
