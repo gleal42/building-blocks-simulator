@@ -76,12 +76,15 @@ export function createPackUI(ctx) {
 
   // ---- Packs and the design being painted ----------------------------------------------
 
-  const allPacks = () => [...BUILT_IN, ...state().packs];
+  const hidden = () => state().hiddenPacks ?? [];
+  /** Packs on show: the app's (unless hidden) and the user's. */
+  const allPacks = () => [...BUILT_IN.filter((p) => !hidden().includes(p.id)), ...state().packs];
 
   function currentPack() {
     const st = state();
     let pack = allPacks().find((p) => p.id === st.packId);
     if (!pack) {
+      if (!allPacks().length) st.packs.push(newPack({ name: 'My pack 1', rows: 4, cols: 4 }));
       pack = allPacks()[0];
       st.packId = pack.id;
       st.packIndex = pack.designs.length ? 0 : -1;
@@ -281,8 +284,9 @@ ${paint}`;
 <h2 id="packs-h">Packs</h2>
 <p class="field-label">Yours</p>
 ${mine ? `<div class="chips tight" role="group" aria-label="Your packs">${mine}</div>` : '<p class="muted">None yet. Start one below, copy one that comes with the app, or read one from a photo.</p>'}
-<p class="field-label">Come with the app</p>
-<div class="chips tight" role="group" aria-label="Packs that come with the app">${BUILT_IN.map(chip).join('')}</div>
+${BUILT_IN.length > hidden().length ? `<p class="field-label">Come with the app</p>
+<div class="chips tight" role="group" aria-label="Packs that come with the app">${BUILT_IN.filter((p) => !hidden().includes(p.id)).map(chip).join('')}</div>` : ''}
+${hidden().length ? `<div class="row-buttons"><button type="button" class="btn small" data-action="pack-unhide">Show ${plural(hidden().length, 'hidden pack')} again</button></div>` : ''}
 <p class="field-label">Start a new pack (tray size)</p>
 <div class="chips tight" role="group" aria-label="New pack">${sizes}</div>
 <div class="row-buttons"><button type="button" class="btn small" data-action="pack-from-book" ${book.challenges.length ? '' : 'disabled'}>${ICONS.book}New pack from the book “${esc(book.title)}”</button></div>
@@ -328,7 +332,7 @@ ${selTools}
 ${add}
 <div class="row-buttons pk-pack-actions">
 <button type="button" class="btn small" data-action="pack-copy">${ICONS.copy}Duplicate pack</button>
-${canEdit ? `<button type="button" class="btn small" data-action="pack-delete">${ICONS.trash}Delete pack</button>` : ''}
+${canEdit ? `<button type="button" class="btn small" data-action="pack-delete">${ICONS.trash}Delete pack</button>` : `<button type="button" class="btn small" data-action="pack-hide">${ICONS.trash}Hide pack</button>`}
 </div>
 </section>`;
   }
@@ -812,6 +816,23 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
       changed();
       ctx.setStatus(`Deleted “${pack.name}”.`);
     },
+    'pack-hide': async () => {
+      const st = state();
+      const pack = currentPack();
+      if (!pack.builtIn) return;
+      if (!(await ctx.confirmDialog(`Hide “${pack.name}”? It comes with the app, so it cannot be deleted, but it will no longer show here, in the book or in games. You can show it again under Packs.`, 'Hide pack'))) return;
+      st.hiddenPacks = [...hidden(), pack.id];
+      st.packId = '';
+      st.packDraft = null;
+      currentPack();
+      changed();
+      ctx.setStatus(`Hid “${pack.name}”.`);
+    },
+    'pack-unhide': () => {
+      state().hiddenPacks = [];
+      changed();
+      ctx.setStatus('The packs that come with the app are back.');
+    },
     'pack-from-book': async () => {
       if (!(await leaveDraft())) return;
       const st = state();
@@ -1045,6 +1066,9 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
     packsFor,
     addPackById: (id) => addPackToBook(allPacks().find((p) => p.id === id), { show: false }),
     isAdding: () => addingToBook,
+    allPacks,
+    /** Check a design (in the background worker): a promise of { status, pieces?, reason? }. */
+    solve: (rows, cols, looks) => checker.check(rows, cols, looks),
   };
 }
 
