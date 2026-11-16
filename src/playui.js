@@ -74,6 +74,7 @@ export function createPlayUI(ctx) {
   function setup() {
     const st = state();
     const s = normalizeSetup(st.gameSetup);
+    if (!ctx.allowRandom()) s.random = [];
     // An empty deck cannot be played: start from every pack of the tray size.
     const sized = packsForSize(s);
     if (!s.random.length && !sized.some((p) => s.packIds.includes(p.id))) s.packIds = sized.map((p) => p.id);
@@ -327,9 +328,9 @@ ${problem ? `<p class="hint is-bad">${esc(problem)}</p>` : ''}
 <p class="field-label">Tray</p>
 <div class="chips tight" role="group" aria-label="Tray size">${sizes}</div>
 <p class="field-label">Packs to shuffle in</p>
-${packChips ? `<div class="chips tight" role="group" aria-label="Packs">${packChips}</div>` : `<p class="muted">No ${sizeLabel(s.rows, s.cols)} packs yet. Make one in the Packs tab, or add random designs.</p>`}
-<p class="field-label">Random designs (always buildable)</p>
-<div class="chips tight" role="group" aria-label="Random designs">${randomChips}</div>
+${packChips ? `<div class="chips tight" role="group" aria-label="Packs">${packChips}</div>` : `<p class="muted">No ${sizeLabel(s.rows, s.cols)} packs yet. ${ctx.allowRandom() ? 'Make one in the Packs tab, or add random designs.' : 'Unlock yours in My packs.'}</p>`}
+${ctx.allowRandom() ? `<p class="field-label">Random designs (always buildable)</p>
+<div class="chips tight" role="group" aria-label="Random designs">${randomChips}</div>` : ''}
 <p class="hint">${inDeck ? `${plural(inDeck, 'card')} from packs` : 'No pack cards'}${s.random.length ? ' + random designs' : ''}. This game deals ${need}; ${inDeck && !s.random.length && inDeck < need ? 'the deck is shuffled again when it runs out.' : 'every card is dealt once.'}</p>
 </section>
 <section class="card" aria-labelledby="pl-rules-h">

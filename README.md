@@ -85,6 +85,43 @@ A pack is a named set of designs for one tray size (the book sizes: 2×2, 4×4, 
 
 ![Designs found on a photo of a book page](docs/screenshots/packs-photo.jpg)
 
+### Selling packs: unlock codes and QR codes
+
+In the Packs tab, **Sell this pack**:
+
+- **Where buyers open the app:** the address the QR codes point to.
+- **Unlock codes**, one per box (10 to 100 at a time, more can be added later). The pack is
+  *locked*: its designs are encrypted, and each code opens it (see [`src/lock.js`](src/lock.js)).
+  No server is needed, and nobody can read the designs without a code. The codes are kept only
+  in the maker's browser and in copies: **Copy the codes** and keep them safe.
+- **QR codes and unlock cards:** every card's QR code (it opens that design as a challenge),
+  and a card for each box with its unlock code and QR code (**PDF of the unlock cards**).
+- **Copy locked pack as code:** paste it into `LOCKED_PACKS` in
+  [`src/builtinpacks.js`](src/builtinpacks.js) to build the pack into the buyer's app.
+- **Preview as a customer:** see the app as a buyer does.
+
+In Challenge book › Cards, **QR codes on the card backs** gives each card's back the QR code
+of its design.
+
+### What a buyer gets (customer mode)
+
+`npm run build` also writes **`customer.html`**: the app as a buyer gets it, with three tabs:
+**My packs** (unlock the pack from the box by scanning its QR code or typing the code), **Build**
+(play alone, card after card) and **Play** (play together). Only unlocked packs are there, and
+it keeps its own storage. The maker's app shows the same thing in **customer preview**
+(*Preview as a customer*, or open an unlock link), with a bar to go back to maker mode.
+
+Links the QR codes use (after `#`): `#d-4x4-1121…` opens a design, `#u-K7QM-3XTP-ZR8D` unlocks a pack.
+
+### Box
+
+Challenge book › **Box**: a base and a full-depth lid that hold the tray with its pieces, the
+deck and the rules booklet, sized from the measured trays (4×4: 112 × 112 mm, 4×8: 205 × 112 mm,
+25 mm high with the pieces in). Choose the cards beside the tray or on top, and folding carton
+or rigid board. It shows what goes where and the flat shapes to cut (red: cut, blue dashed:
+fold); the lid's top carries the book's front cover as cover art. **PDF of the box** is full
+size: print at 100%.
+
 ### Play (games for several players)
 
 The app is the game master while everyone builds on real trays: it shuffles a deck from the
@@ -142,8 +179,8 @@ the book.
 
 ```sh
 npm install
-npm test          # model, solver, book, pack, photo and game tests, including exhaustive cross-checks
-npm run build     # bundles src/ into index.html
+npm test          # model, solver, book, pack, photo, game, box and selling tests (QR codes are read back with a QR reader)
+npm run build     # bundles src/ into index.html (maker) and customer.html (buyer)
 npm run dev       # rebuilds index.html whenever src/ changes
 ```
 
@@ -163,6 +200,9 @@ fails if `index.html` is out of date.
 | `src/packui.js`, `src/packcheck.js` | The Packs tab, and checking designs in a background worker. |
 | `src/photo.js` | Finding and reading designs in a photo. |
 | `src/game.js`, `src/playui.js` | Games: the deck, turns, timing and scores (also the solo deck for Build challenges), and the Play tab. |
+| `src/lock.js`, `src/links.js`, `src/qr.js` | Locked packs and unlock codes, the links in QR codes, and QR codes as drawings. |
+| `src/customerui.js` | My packs: what a buyer sees (also the maker's customer preview). |
+| `src/box.js` | The game box: sizes, flat shapes to cut, PDF. |
 | `src/render2d.js`, `src/render3d.js` | Photo-style top view; 3D icons and the clickable 3D tray. |
 | `src/app.js`, `src/bookui.js`, `src/styles.css`, `src/index.html` | The app. |
 | `src/worker.js` | Runs the solver in a Web Worker. |
@@ -190,3 +230,10 @@ follows a frame even in a slanted photo), and the corners are mapped onto the tr
 columns. Both diagonals cut each square into four triangles; how dark each triangle is tells
 white, black, or which of the four splits it shows. Squares that fit no look well are marked
 as unsure.
+
+## Third-party code
+
+QR codes are made with [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator)
+by Kazuhiko Arase (MIT license; its notice is kept in the built pages). "QR Code" is a
+registered trademark of DENSO WAVE INCORPORATED. The tests read QR codes back with
+[jsQR](https://github.com/cozmo/jsQR) (Apache-2.0, tests only).

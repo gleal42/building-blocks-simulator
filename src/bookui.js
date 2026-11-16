@@ -17,8 +17,9 @@ import {
   reviveBook,
   spreads,
 } from './book.js';
-import { bookPdf, pageSvg } from './bookpages.js';
+import { bookPdf, itemsSvg, pageSvg } from './bookpages.js';
 import { CARD, cardSheet, cardSvg, cardsPdf } from './cards.js';
+import { LAYOUTS, MATERIALS, boxPdf, boxPlan, contentsDrawing, dieline, drawingSvg } from './box.js';
 import { ICONS } from './icons.js';
 import { flatPicture } from './render2d.js';
 
@@ -108,6 +109,8 @@ export function createBookUI(ctx) {
       book.challenges.map((c) => `${c.looks.join('')}:${c.difficulty}`),
       book.cover.front?.src.length ?? 0,
       book.cover.back?.src.length ?? 0,
+      ctx.cardQrBase(),
+      state().box,
     ]);
   }
 
@@ -158,8 +161,43 @@ export function createBookUI(ctx) {
     return `<div class="deck is-${book.shape}">
 <p class="muted">${n} card${n === 1 ? '' : 's'} of ${layout.w} × ${layout.h} mm: ${layout.perSheet} fit on a sheet of ${PAPER[book.paper].name}, so ${sheets} sheet${sheets === 1 ? '' : 's'}, printed on both sides.</p>
 ${n ? `<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book, i), '')).join('')}</div>` : '<p class="muted">No challenges yet: each challenge you add becomes a card.</p>'}
-<h3 class="deck-h">The back of every card</h3>
-<div class="deck-grid">${face(cardSvg(book, null), '')}</div>
+${ctx.cardQrBase() && n
+    ? `<h3 class="deck-h">The backs, each with the QR code of its card</h3>
+<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book, i, { back: true, qrBase: ctx.cardQrBase() }), `Back of ${i + 1}`)).join('')}</div>`
+    : `<h3 class="deck-h">The back of every card</h3>
+<div class="deck-grid">${face(cardSvg(book, null), '')}</div>`}
+</div>`;
+  }
+
+  // ---- Box ---------------------------------------------------------------------------
+
+  function boxFor(book) {
+    const { rows, cols } = bookTray(book);
+    const bx = state().box;
+    const cards = book.challenges.length || 24;
+    const plan = boxPlan({ rows, cols, cards, layout: bx.layout, material: bx.material });
+    const opts = {
+      title: book.title || 'Block Challenges',
+      subtitle: `${rows * cols} pieces · ${cards} cards · 14+`,
+      cover: book.cover.front,
+      contents: [`Inside: 1 tray (${rows}×${cols}), ${rows * cols} pieces, ${cards} cards, rules`],
+      maker: bx.maker.split('\n').map((l) => l.trim()).filter(Boolean),
+    };
+    return { plan, opts, cards };
+  }
+
+  function boxMarkup(book) {
+    const { plan, opts } = boxFor(book);
+    const row = (label, d) => `<tr><th>${label}</th><td>${d.l} × ${d.w} × ${d.h} mm</td></tr>`;
+    return `<div class="box-view">
+<table class="box-sizes"><tbody>
+${row('Space inside', plan.inner)}${row('Base, outside', plan.base)}${row('Lid, outside', plan.lid)}
+<tr><th>Tray with pieces</th><td>${plan.tray.w} × ${plan.tray.d} × ${plan.tray.h} mm${plan.tray.measured ? ' (measured)' : ' (estimate: measure yours)'}</td></tr>
+<tr><th>Deck</th><td>${plan.cards} cards, ${plan.deck.w} × ${plan.deck.d} × ${plan.deck.h} mm (card thickness guessed: measure a proof deck)</td></tr>
+</tbody></table>
+<figure class="box-fig">${drawingSvg(contentsDrawing(plan), itemsSvg, 'What goes where in the box')}<figcaption>What goes where</figcaption></figure>
+<figure class="box-fig">${drawingSvg(dieline('lid', plan, opts), itemsSvg, 'The lid, flat')}<figcaption>The lid, flat${book.cover.front ? '' : ': the cover art goes on the top (add a front cover to the book)'}</figcaption></figure>
+<figure class="box-fig">${drawingSvg(dieline('base', plan, opts), itemsSvg, 'The base, flat')}<figcaption>The base, flat</figcaption></figure>
 </div>`;
   }
 
@@ -171,11 +209,13 @@ ${n ? `<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book,
       const pages = bookPages(book);
       const view = st.bookView;
       st.bookLeaf = Math.min(st.bookLeaf ?? 0, pages.length / 2);
-      const views = [['3d', 'Book (3D)'], ['spreads', 'Spreads'], ['sheets', 'Print sheets'], ['cards', 'Cards']]
+      const views = [['3d', 'Book (3D)'], ['spreads', 'Spreads'], ['sheets', 'Print sheets'], ['cards', 'Cards'], ['box', 'Box']]
         .map(([id, label]) => `<button type="button" class="chip${view === id ? ' is-on' : ''}" data-action="book-view" data-id="${id}" aria-pressed="${view === id}">${label}</button>`)
         .join('');
-      const body = view === 'spreads' ? spreadsMarkup(book, pages) : view === 'sheets' ? sheetsMarkup(book, pages) : view === 'cards' ? cardsMarkup(book) : flipbookMarkup(book, pages);
-      const about = view === 'cards'
+      const body = view === 'spreads' ? spreadsMarkup(book, pages) : view === 'sheets' ? sheetsMarkup(book, pages) : view === 'cards' ? cardsMarkup(book) : view === 'box' ? boxMarkup(book) : flipbookMarkup(book, pages);
+      const about = view === 'box'
+        ? `A base and a lid for the ${bookTray(book).rows}×${bookTray(book).cols} tray and ${book.challenges.length || 24} cards`
+        : view === 'cards'
         ? `${book.challenges.length} card${book.challenges.length === 1 ? '' : 's'}`
         : `${pages.length} pages · ${pages.length / 4} sheet${pages.length > 4 ? 's' : ''} of ${PAPER[book.paper].name}`;
       container.innerHTML = `<div class="book-head"><div class="chips" role="group" aria-label="Preview">${views}</div>
@@ -346,7 +386,23 @@ ${coverRow('back', 'Back cover')}
 <button type="button" class="btn primary" data-action="book-cards-pdf">${ICONS.download}PDF of the cards</button>
 <button type="button" class="btn" data-action="book-view" data-id="cards"${st.bookView === 'cards' ? ' disabled' : ''}>Show the cards</button>
 </div>
-<p class="hint">Print it on ${PAPER[book.paper].name}, both sides, <b>flip on the long edge</b>, so each card gets the back. Then cut along the marks.</p>
+<button type="button" class="chip${st.cardQr ? ' is-on' : ''}" data-action="book-card-qr" aria-pressed="${!!st.cardQr}">QR codes on the card backs</button>
+<p class="hint">Print it on ${PAPER[book.paper].name}, both sides, <b>flip on the long edge</b>, so each card gets the back. Then cut along the marks.${st.cardQr ? ' Each back then has the QR code of its card: scanning it opens that picture in the app.' : ''}</p>
+</section>
+<section class="card" aria-labelledby="box-h">
+<h2 id="box-h">Box</h2>
+<p class="muted">A base and a lid that hold the tray with its pieces, the cards and the rules, sized from your measurements. Print the flat shapes, cut the red lines, fold the blue ones.</p>
+<p class="field-label">Inside</p>
+<div class="chips tight" role="group" aria-label="Box layout">${Object.entries(LAYOUTS).map(([id, label]) => `<button type="button" class="chip${st.box.layout === id ? ' is-on' : ''}" data-action="box-layout" data-id="${id}" aria-pressed="${st.box.layout === id}">${label}</button>`).join('')}</div>
+<p class="field-label">Material</p>
+<div class="chips tight" role="group" aria-label="Box material">${Object.entries(MATERIALS).map(([id, m]) => `<button type="button" class="chip${st.box.material === id ? ' is-on' : ''}" data-action="box-material" data-id="${id}" aria-pressed="${st.box.material === id}">${m.name}</button>`).join('')}</div>
+<label class="field-label" for="boxMaker">Your name and address, for the underside (product safety rules)</label>
+<textarea class="text-input pk-paste" id="boxMaker" rows="3" maxlength="400" placeholder="Name&#10;Street, town&#10;Batch 1">${esc(st.box.maker)}</textarea>
+<div class="row-buttons">
+<button type="button" class="btn primary" data-action="box-pdf">${ICONS.download}PDF of the box</button>
+<button type="button" class="btn" data-action="book-view" data-id="box"${st.bookView === 'box' ? ' disabled' : ''}>Show the box</button>
+</div>
+<p class="hint">The cover art for the lid is the book's front cover. The PDF is full size, one page each for the lid, the base and the layout.</p>
 </section>`;
   }
 
@@ -391,7 +447,11 @@ ${coverRow('back', 'Back cover')}
       ctx.setStatus('Add some challenges first: each one becomes a card.', true, 'bad');
       return;
     }
-    const bytes = cardsPdf(book);
+    if (state().cardQr && !ctx.cardQrBase()) {
+      ctx.setStatus('Fill in where buyers open the app (Packs › Sell this pack) for the QR codes, or turn them off.', true, 'bad');
+      return;
+    }
+    const bytes = cardsPdf(book, { qrBase: ctx.cardQrBase() });
     const name = `${slug(book.title)}-cards.pdf`;
     const res = await ctx.saveFile(name, new Blob([bytes], { type: 'application/pdf' }), 'application/pdf');
     if (res === 'saved') ctx.setStatus(`Saved ${name}.`);
@@ -523,10 +583,42 @@ ${coverRow('back', 'Back cover')}
     'book-export': exportJson,
     'book-import': () => pickFile('application/json,.json', importFile),
     'book-copy': () => ctx.copyText(exportBook(currentBook()), 'Book'),
+    'book-card-qr': () => {
+      const st = state();
+      st.cardQr = !st.cardQr;
+      if (st.cardQr && !ctx.cardQrBase()) ctx.setStatus('The QR codes need the address where buyers open the app: fill it in under Packs › Sell this pack.', true, 'bad');
+      changed();
+    },
+    'box-layout': (el) => {
+      state().box.layout = el.dataset.id;
+      changed();
+    },
+    'box-material': (el) => {
+      state().box.material = el.dataset.id;
+      changed();
+    },
+    'box-pdf': async () => {
+      const book = currentBook();
+      const { plan, opts } = boxFor(book);
+      const name = `${slug(book.title)}-box.pdf`;
+      const res = await ctx.saveFile(name, new Blob([boxPdf(plan, opts)], { type: 'application/pdf' }), 'application/pdf');
+      if (res === 'saved') ctx.setStatus(`Saved ${name}: print it at 100% (no scaling).`);
+      else if (res === 'failed') ctx.setStatus('The PDF could not be saved here.', true, 'bad');
+    },
   };
 
   function attach() {
     document.getElementById('panel').addEventListener('input', (evt) => {
+      if (evt.target.id === 'boxMaker') {
+        state().box.maker = evt.target.value.slice(0, 400);
+        clearTimeout(titleTimer);
+        titleTimer = setTimeout(() => {
+          builtFor = '';
+          ctx.scheduleSave();
+          if (state().bookView === 'box') renderStage(document.getElementById('bookStage'));
+        }, 350);
+        return;
+      }
       if (evt.target.id !== 'bookTitle') return;
       currentBook().title = evt.target.value.slice(0, MAX_TITLE);
       clearTimeout(titleTimer);

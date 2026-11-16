@@ -27,6 +27,10 @@ import {
 import { defaultQuad, findPatterns, insideQuad, otsu, readPattern, squareToQuad, toGray } from './photo.js';
 import { flatPicture } from './render2d.js';
 import { quickCheck } from './solver.js';
+import { lockPack, makeCodes } from './lock.js';
+import { unlockCardSvg, unlockCardsPdf } from './cards.js';
+import { designLink } from './links.js';
+import { qrSvg } from './qr.js';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -192,6 +196,7 @@ export function createPackUI(ctx) {
   // ---- The tray (stage) ----------------------------------------------------------------------
 
   const showingPhoto = () => state().packView === 'photo' && !!photo;
+  const showingQr = () => state().packView === 'qr';
 
   /** What the tray paints in this tab, or null when it cannot be painted. */
   function paintGrid() {
@@ -397,11 +402,87 @@ ${viewing ? '' : `<div class="row-buttons"><button type="button" class="btn prim
 </section>`;
   }
 
+  // ---- Selling: unlock codes and QR codes ------------------------------------------------
+
+  const packSig = (pack) => pack.designs.map((d) => `${d.looks.join('')}${d.stars}`).join('|');
+  const saleOf = (pack) => state().sale.locked[pack.id] ?? null;
+  const appBase = () => state().sale.appUrl.trim();
+  let locking = false;
+
+  function sellCard() {
+    const pack = currentPack();
+    const sale = saleOf(pack);
+    const stale = sale && sale.sig !== packSig(pack);
+    const countChips = (action, counts) => counts.map((n) => `<button type="button" class="chip" data-action="${action}" data-count="${n}" ${locking || !pack.designs.length ? 'disabled' : ''}>${n}</button>`).join('');
+    const codesPart = !sale
+      ? `<p class="field-label">Make unlock codes (one per box)</p>
+<div class="chips tight" role="group" aria-label="How many codes">${countChips('sale-lock', [10, 25, 50, 100])}</div>`
+      : `<p><b>${plural(sale.codes.length, 'code')}</b> made${sale.at ? ` on ${esc(sale.at)}` : ''}.</p>
+${stale ? `<p class="hint is-bad">The pack has changed since. Lock it again so buyers get the new designs; the codes stay the same.</p>
+<div class="row-buttons"><button type="button" class="btn small primary" data-action="sale-relock" ${locking ? 'disabled' : ''}>Lock it again</button></div>` : ''}
+<div class="row-buttons">
+<button type="button" class="btn small" data-action="sale-copy-codes">${ICONS.copy}Copy the codes</button>
+<button type="button" class="btn small" data-action="sale-copy-locked">${ICONS.copy}Copy locked pack as code</button>
+</div>
+<p class="field-label">More codes</p>
+<div class="chips tight" role="group" aria-label="More codes">${countChips('sale-more', [10, 25, 50])}<button type="button" class="chip" data-action="sale-forget">Forget the codes</button></div>`;
+    return `<section class="card" aria-labelledby="sell-h">
+<h2 id="sell-h">Sell this pack</h2>
+<p class="muted">Each box gets a card with its own code. The code unlocks this pack, and only this pack, in the buyer's app; nobody can read the designs without one.</p>
+<label class="field-label" for="appUrl">Where buyers open the app</label>
+<input class="text-input" id="appUrl" value="${esc(state().sale.appUrl)}" placeholder="https://your-site.com/blocks/" autocomplete="off" spellcheck="false">
+<p class="hint">The QR codes on the cards point to this address.${appBase() ? '' : ' Fill it in before printing anything with QR codes.'}</p>
+${codesPart}
+<div class="row-buttons">
+<button type="button" class="btn small" data-action="sale-qr">QR codes and unlock cards</button>
+<button type="button" class="btn small" data-action="sale-preview">${ICONS.play}Preview as a customer</button>
+</div>
+<p class="hint">The codes are kept only in this browser and in copies you make: copy them somewhere safe. They never go into the app. To build a sold pack into the app, paste “Copy locked pack as code” into the locked list in <code>src/builtinpacks.js</code>.</p>
+</section>`;
+  }
+
+  function renderQrStage(container) {
+    const pack = currentPack();
+    const sale = saleOf(pack);
+    const base = appBase() || 'https://example.com/';
+    const thumb = Math.max(4, Math.round(44 / Math.max(pack.rows, pack.cols)));
+    const cards = pack.designs.map((d, i) => `<figure class="qr-item"><div class="qr-pair"><span class="pk-thumb">${flatPicture(pack.rows, pack.cols, d.looks, { cell: thumb, gap: 1 })}</span>${qrSvg(designLink(base, pack.rows, pack.cols, d.looks), { label: `QR code for design ${i + 1}` })}</div><figcaption>Card ${i + 1} ${'★'.repeat(d.stars)}</figcaption></figure>`).join('');
+    const shown = sale ? sale.codes.slice(0, 6) : [];
+    container.innerHTML = `<div class="qr-sheet">
+<div class="qr-head"><h2 class="pl-title">QR codes: ${esc(pack.name)}</h2><button type="button" class="btn small" data-action="sale-qr-hide">${ICONS.prev}Back to the pack</button></div>
+${appBase() ? `<p class="muted">They open <b>${esc(base)}</b>.</p>` : '<p class="hint is-bad">No app address yet (Sell this pack): these point to example.com, just to show them.</p>'}
+<h3 class="deck-h">On the back of each card</h3>
+<p class="hint">Scanning one opens that design as a challenge. To print them, turn on “QR codes on the card backs” in Challenge book › Cards.</p>
+<div class="qr-grid">${cards || '<p class="muted">No designs yet.</p>'}</div>
+<h3 class="deck-h">Unlock cards, one in each box</h3>
+${sale ? `<div class="deck-grid qr-unlock">${shown.map((c) => `<figure class="deck-card"><div class="card-face">${unlockCardSvg(c, base, pack.name)}</div></figure>`).join('')}</div>
+${sale.codes.length > shown.length ? `<p class="hint">and ${sale.codes.length - shown.length} more in the PDF.</p>` : ''}
+<div class="row-buttons"><button type="button" class="btn primary" data-action="sale-unlock-pdf">${ICONS.download}PDF of the ${plural(sale.codes.length, 'unlock card')}</button></div>` : '<p class="muted">Make the codes first (Sell this pack, in the panel).</p>'}
+</div>`;
+  }
+
+  async function lockWith(pack, codes, done) {
+    if (locking) return;
+    locking = true;
+    ctx.renderPanel();
+    ctx.setStatus(`Locking “${pack.name}” with ${plural(codes.length, 'code')}…`, false);
+    try {
+      const locked = await lockPack(pack, codes);
+      state().sale.locked[pack.id] = { locked, codes, sig: packSig(pack), at: new Date().toISOString().slice(0, 10) };
+      ctx.setStatus(done, true, 'ok');
+    } catch (err) {
+      ctx.setStatus(`Could not lock the pack: ${err.message}`, true, 'bad');
+    } finally {
+      locking = false;
+      changed();
+    }
+  }
+
   function panelMarkup() {
     const showPhotoFirst = showingPhoto();
     return showPhotoFirst
       ? `${photoCard()}${designsCard()}${useCard()}${exportCard()}${packsCard()}`
-      : `${packsCard()}${designsCard()}${photoCard()}${useCard()}${exportCard()}`;
+      : `${packsCard()}${designsCard()}${photoCard()}${useCard()}${sellCard()}${exportCard()}`;
   }
 
   // ---- Photo stage -------------------------------------------------------------------------
@@ -1009,11 +1090,70 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
       renderPhotoBar();
     },
     'photo-add': addFromPhoto,
+    'sale-lock': (el) => {
+      const pack = currentPack();
+      const n = Number(el.dataset.count);
+      lockWith(pack, makeCodes(n), `Made ${plural(n, 'code')} for “${pack.name}”. Copy them somewhere safe.`);
+    },
+    'sale-relock': () => {
+      const pack = currentPack();
+      const sale = saleOf(pack);
+      if (sale) lockWith(pack, sale.codes, `Locked “${pack.name}” again with the same ${plural(sale.codes.length, 'code')}.`);
+    },
+    'sale-more': (el) => {
+      const pack = currentPack();
+      const sale = saleOf(pack);
+      if (!sale) return;
+      const more = makeCodes(Number(el.dataset.count) + 5).filter((c) => !sale.codes.includes(c)).slice(0, Number(el.dataset.count));
+      lockWith(pack, [...sale.codes, ...more], `Added ${plural(more.length, 'code')}: ${sale.codes.length + more.length} in all.`);
+    },
+    'sale-forget': async () => {
+      const pack = currentPack();
+      if (!saleOf(pack)) return;
+      if (!(await ctx.confirmDialog(`Forget the unlock codes of “${pack.name}”? Boxes already sold with them can no longer be unlocked unless you kept a copy.`, 'Forget the codes'))) return;
+      delete state().sale.locked[pack.id];
+      changed();
+    },
+    'sale-copy-codes': () => {
+      const sale = saleOf(currentPack());
+      if (sale) ctx.copyText(sale.codes.join('\n'), 'Unlock codes');
+    },
+    'sale-copy-locked': () => {
+      const sale = saleOf(currentPack());
+      if (sale) ctx.copyText(`${JSON.stringify(sale.locked, null, 2)},`, 'Locked pack');
+    },
+    'sale-qr': () => {
+      state().packView = 'qr';
+      changed();
+    },
+    'sale-qr-hide': () => {
+      state().packView = 'design';
+      changed();
+    },
+    'sale-preview': () => ctx.enterCustomerPreview(),
+    'sale-unlock-pdf': async () => {
+      const pack = currentPack();
+      const sale = saleOf(pack);
+      if (!sale) return;
+      if (!appBase()) {
+        ctx.setStatus('Fill in where buyers open the app first: the QR codes need it.', true, 'bad');
+        return;
+      }
+      const name = `${slugify(pack.name)}-unlock-cards.pdf`;
+      const res = await ctx.saveFile(name, new Blob([unlockCardsPdf(sale.codes, appBase(), pack.name)], { type: 'application/pdf' }), 'application/pdf');
+      if (res === 'saved') ctx.setStatus(`Saved ${name}.`);
+      else if (res === 'failed') ctx.setStatus('The PDF could not be saved here.', true, 'bad');
+    },
   };
 
   function attach() {
     const panel = document.getElementById('panel');
     panel.addEventListener('input', (evt) => {
+      if (evt.target.id === 'appUrl') {
+        state().sale.appUrl = evt.target.value.slice(0, 300);
+        ctx.scheduleSave();
+        return;
+      }
       if (evt.target.id === 'packName') {
         const pack = currentPack();
         if (!editable(pack)) return;
@@ -1035,7 +1175,7 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
     });
     // Renaming: redraw the pack list once the name is done.
     panel.addEventListener('change', (evt) => {
-      if (evt.target.id === 'packName') ctx.renderPanel();
+      if (evt.target.id === 'packName' || evt.target.id === 'appUrl') ctx.render();
     });
     document.getElementById('stageBar').addEventListener('change', (evt) => {
       const box = evt.target.closest?.('input[data-region]');
@@ -1063,6 +1203,8 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
     stageBarMarkup,
     renderPhotoStage,
     showingPhoto,
+    showingQr,
+    renderQrStage,
     packsFor,
     addPackById: (id) => addPackToBook(allPacks().find((p) => p.id === id), { show: false }),
     isAdding: () => addingToBook,

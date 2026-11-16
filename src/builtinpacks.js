@@ -27,3 +27,9 @@ export const BUILT_IN_PACKS = [
     ],
   },
 ];
+
+// Locked packs: packs sold with unlock codes (see src/lock.js). The designs inside are
+// encrypted; only a code printed in a box opens them. To add one: in the Packs tab, make the
+// codes for a pack, press "Copy locked pack as code" and paste it into this list. Keep the
+// codes themselves out of the app.
+export const LOCKED_PACKS = [];

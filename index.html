@@ -2187,6 +2187,196 @@ body[data-mode="packs"] .board-wrap > svg {
   }
 }
 
+/* ---- Customer mode, selling, QR codes, box ------------------------------------------------ */
+
+.preview-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--accent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 9%, var(--panel));
+}
+
+.preview-bar[hidden],
+.library-stage[hidden] {
+  display: none;
+}
+
+.preview-bar p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.preview-bar .row-buttons {
+  margin-top: 0;
+}
+
+.cu-unlock {
+  margin: 12px 0 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.cu-unlock-row {
+  display: flex;
+  gap: 8px;
+}
+
+.cu-code {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cu-msg {
+  margin: 8px 0 0;
+  font-weight: 600;
+}
+
+.cu-msg.is-ok {
+  color: var(--ok);
+}
+
+.cu-msg.is-bad {
+  color: var(--bad);
+}
+
+.cu-packs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cu-pack {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.cu-pack h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+
+.cu-pack-head p {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.cu-previews {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.cu-mini svg {
+  display: block;
+}
+
+.qr-sheet .deck-h {
+  margin-top: 18px;
+}
+
+.qr-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.qr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.qr-item {
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1d1c19;
+}
+
+.qr-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 6px;
+}
+
+.qr-pair svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.qr-item figcaption {
+  margin-top: 4px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.box-view {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.box-sizes {
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.box-sizes th,
+.box-sizes td {
+  padding: 5px 10px 5px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.box-sizes th {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.box-fig {
+  margin: 0;
+}
+
+.box-fig svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+
+.box-fig figcaption {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 /* ---- Footer and dialog ----------------------------------------------------------------- */
 
 .foot {
@@ -2384,6 +2574,7 @@ body[data-mode="packs"] .board-wrap > svg {
       <button type="button" role="tab" data-tab="book" aria-selected="false" tabindex="-1"><span class="tab-long">Challenge book</span><span class="tab-short">Book</span></button>
     </nav>
   </header>
+  <div class="preview-bar" id="previewBar" hidden></div>
   <main class="layout">
     <section class="stage" aria-label="Tray">
       <div id="stageTop"></div>
@@ -2399,6 +2590,7 @@ body[data-mode="packs"] .board-wrap > svg {
       <div class="book-stage" id="bookStage" hidden></div>
       <div class="photo-stage" id="photoStage" hidden></div>
       <div class="play-stage" id="playStage" hidden></div>
+      <div class="library-stage" id="libraryStage" hidden></div>
       <p class="status" id="status" aria-live="polite"></p>
       <div class="stage-bar" id="stageBar"></div>
     </section>
@@ -4294,14 +4486,1856 @@ ${xrefAt}
           canvas.line(x + sx * gap, y, x + sx * (gap + len), y, mark);
           canvas.line(x, y + sy * gap, x, y + sy * (gap + len), mark);
         }
-        const fold = { stroke: "#8a8473", sw: 0.5, dash: [2, 2] };
-        canvas.line(left + side, top - gap, left + side, top - gap - len, fold);
-        canvas.line(left + side, top + side + gap, left + side, top + side + gap + len, fold);
+        const fold2 = { stroke: "#8a8473", sw: 0.5, dash: [2, 2] };
+        canvas.line(left + side, top - gap, left + side, top - gap - len, fold2);
+        canvas.line(left + side, top + side + gap, left + side, top + side + gap + len, fold2);
         const label = `Sheet ${sheet.sheet} of ${sheets.length}, ${face === "outside" ? "outside (print first)" : "inside (back of the same sheet)"}: pages ${l} and ${r}`;
         canvas.text(W2 / 2, top + side + gap + len + 14, label, { size: 8, fill: "#8a8473", anchor: "middle" });
       }
     });
     return doc.toBytes();
+  }
+
+  // src/builtinpacks.js
+  var BUILT_IN_PACKS = [
+    {
+      id: "starter-4x4",
+      name: "Starter 4×4",
+      rows: 4,
+      cols: 4,
+      designs: [
+        { looks: "1121/1122/1122/1122", stars: 1 },
+        { looks: "5111/2121/2223/1122", stars: 1 },
+        { looks: "2411/2221/5122/1124", stars: 2 },
+        { looks: "2212/2432/2416/1111", stars: 2 },
+        { looks: "6512/1322/1132/2141", stars: 3 },
+        { looks: "6113/1322/2266/2411", stars: 3 }
+      ]
+    }
+  ];
+  var LOCKED_PACKS = [];
+
+  // src/packs.js
+  var PACK_FORMAT = "building-blocks-pack";
+  var PACK_VERSION = 1;
+  var MAX_PACK_NAME = 60;
+  var PACK_SIZES = Object.freeze([
+    ...BOOK_SIZES.square.map((n) => ({ shape: "square", n, rows: n, cols: n })),
+    ...BOOK_SIZES.rect.map((n) => ({ shape: "rect", n, rows: n, cols: 2 * n }))
+  ]);
+  var sizeLabel = (rows, cols) => `${rows}×${cols}`;
+  var isPackSize = (rows, cols) => PACK_SIZES.some((s) => s.rows === rows && s.cols === cols);
+  function bookShapeFor(rows, cols) {
+    const s = PACK_SIZES.find((x) => x.rows === rows && x.cols === cols);
+    return s ? { shape: s.shape, n: s.n } : null;
+  }
+  var designKey = (rows, cols, looks) => `${rows}x${cols}:${looks.join("")}`;
+  function slugify(s) {
+    return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "pack";
+  }
+  function looksToText(looks, cols) {
+    const rows = [];
+    for (let i = 0; i < looks.length; i += cols) rows.push(looks.slice(i, i + cols).join(""));
+    return rows.join("/");
+  }
+  function textToLooks(text3, rows, cols) {
+    const digits = String(text3).replace(/[\s/,|]+/g, "");
+    if (!/^[1-6]*$/.test(digits)) throw new Error("A design may only use the digits 1 to 6.");
+    if (digits.length !== rows * cols) throw new Error(`A ${sizeLabel(rows, cols)} design needs ${rows * cols} squares; this one has ${digits.length}.`);
+    return [...digits].map(Number);
+  }
+  function newPack({ id, name = "New pack", rows = 4, cols = 4 } = {}) {
+    if (!isPackSize(rows, cols)) throw new Error(`Packs can be ${PACK_SIZES.map((s) => sizeLabel(s.rows, s.cols)).join(", ")}.`);
+    return { id: id ?? `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, rows, cols, builtIn: false, designs: [] };
+  }
+  function normalizePack(raw, { builtIn = false } = {}) {
+    if (!raw || typeof raw !== "object") throw new Error("That is not a pack.");
+    const rows = Number(raw.rows);
+    const cols = Number(raw.cols);
+    if (!isPackSize(rows, cols)) {
+      throw new Error(`The pack is ${raw.rows}×${raw.cols}; packs can be ${PACK_SIZES.map((s) => sizeLabel(s.rows, s.cols)).join(", ")}.`);
+    }
+    if (!Array.isArray(raw.designs)) throw new Error("The pack has no list of designs.");
+    const designs = raw.designs.map((d, i) => {
+      let looks;
+      try {
+        looks = Array.isArray(d?.looks) ? d.looks.map(Number) : textToLooks(d?.looks ?? "", rows, cols);
+      } catch (err) {
+        throw new Error(`Design ${i + 1}: ${err.message}`);
+      }
+      if (looks.length !== rows * cols || !looks.every((l) => Number.isInteger(l) && l >= LOOK.WHITE && l <= LOOK.BACK_BW)) {
+        throw new Error(`Design ${i + 1} does not fit a ${sizeLabel(rows, cols)} tray.`);
+      }
+      const stars2 = [1, 2, 3].includes(Number(d.stars)) ? Number(d.stars) : suggestDifficulty(looks);
+      return { looks, stars: stars2 };
+    });
+    const name = typeof raw.name === "string" && raw.name.trim() ? raw.name.trim().slice(0, MAX_PACK_NAME) : "Pack";
+    const id = typeof raw.id === "string" && raw.id ? raw.id : slugify(name);
+    return { id: builtIn ? `builtin:${id}` : id, name, rows, cols, builtIn, designs };
+  }
+  var builtInPacks = () => BUILT_IN_PACKS.map((p) => normalizePack(p, { builtIn: true }));
+  function packToCode(pack) {
+    const id = pack.builtIn ? pack.id.replace(/^builtin:/, "") : slugify(pack.name);
+    const lines = pack.designs.map((d) => `    { "looks": ${JSON.stringify(looksToText(d.looks, pack.cols))}, "stars": ${d.stars} }`);
+    return `{
+  "format": "${PACK_FORMAT}",
+  "version": ${PACK_VERSION},
+  "id": ${JSON.stringify(id)},
+  "name": ${JSON.stringify(pack.name)},
+  "rows": ${pack.rows},
+  "cols": ${pack.cols},
+  "designs": [
+${lines.join(",\n")}
+  ]
+}`;
+  }
+  function parsePacks(text3) {
+    const cleaned = String(text3).replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*export\s+const\s+\w+\s*=\s*/m, "").replace(/;\s*$/, "").replace(/,\s*([\]}])/g, "$1").replace(/,\s*$/, "").trim();
+    if (!cleaned) throw new Error("There is nothing to read.");
+    let data;
+    try {
+      data = JSON.parse(cleaned);
+    } catch {
+      try {
+        data = JSON.parse(cleaned.replace(/([{,]\s*)([A-Za-z_]\w*)\s*:/g, '$1"$2":').replace(/'([^'\\]*)'/g, '"$1"'));
+      } catch {
+        throw new Error("That text is not a pack (it should look like what “Copy as code” gives).");
+      }
+    }
+    if (data && data.format && data.format !== PACK_FORMAT) throw new Error("That file is not a pack from this app.");
+    if (data && data.version > PACK_VERSION) throw new Error("That pack was saved by a newer version of the app.");
+    const list = Array.isArray(data) ? data : data?.pack ? [data.pack] : Array.isArray(data?.packs) ? data.packs : [data];
+    if (!list.length) throw new Error("There are no packs in that text.");
+    return list.map((p) => normalizePack(p));
+  }
+  function addDesigns(pack, designs) {
+    const seen = new Set(pack.designs.map((d) => d.looks.join("")));
+    let added = 0;
+    let duplicates = 0;
+    for (const d of designs) {
+      const key = d.looks.join("");
+      if (seen.has(key)) {
+        duplicates += 1;
+        continue;
+      }
+      seen.add(key);
+      pack.designs.push({ looks: d.looks.slice(), stars: [1, 2, 3].includes(d.stars) ? d.stars : suggestDifficulty(d.looks) });
+      added += 1;
+    }
+    return { added, duplicates };
+  }
+  function packFromBook(book, id) {
+    const rows = book.n;
+    const cols = book.shape === "rect" ? 2 * book.n : book.n;
+    const pack = newPack({ id, name: book.title || "From the book", rows, cols });
+    addDesigns(pack, book.challenges.map((c) => ({ looks: c.looks, stars: c.difficulty })));
+    return pack;
+  }
+
+  // src/links.js
+  var CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+  function normalizeCode(text3) {
+    const clean = String(text3 ?? "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+    return clean.match(/.{1,4}/g)?.join("-") ?? "";
+  }
+  var isCode = (code) => new RegExp(`^[${CODE_ALPHABET}]{4}-[${CODE_ALPHABET}]{4}-[${CODE_ALPHABET}]{4}$`).test(code);
+  function baseAddress(url) {
+    return String(url ?? "").trim().replace(/#.*$/, "");
+  }
+  function designLink(base, rows, cols, looks) {
+    return `${baseAddress(base)}#d-${rows}x${cols}-${looks.join("")}`;
+  }
+  function unlockLink(base, code) {
+    return `${baseAddress(base)}#u-${code}`;
+  }
+  function parseLink(hash) {
+    const h = String(hash ?? "").replace(/^#/, "");
+    let m = /^d-(\d{1,2})x(\d{1,2})-([1-6]+)$/.exec(h);
+    if (m) {
+      const rows = Number(m[1]);
+      const cols = Number(m[2]);
+      if (!isPackSize(rows, cols) || m[3].length !== rows * cols) return null;
+      return { kind: "design", rows, cols, looks: [...m[3]].map(Number) };
+    }
+    m = /^u-([0-9A-Za-z-]{12,20})$/.exec(h);
+    if (m) {
+      const code = normalizeCode(m[1]);
+      return isCode(code) ? { kind: "unlock", code } : null;
+    }
+    return null;
+  }
+
+  // node_modules/qrcode-generator/dist/qrcode.mjs
+  var qrcode = function(typeNumber, errorCorrectionLevel) {
+    const PAD0 = 236;
+    const PAD1 = 17;
+    let _typeNumber = typeNumber;
+    const _errorCorrectionLevel = QRErrorCorrectionLevel[errorCorrectionLevel];
+    let _modules = null;
+    let _moduleCount = 0;
+    let _dataCache = null;
+    const _dataList = [];
+    const _this = {};
+    const makeImpl = function(test, maskPattern) {
+      _moduleCount = _typeNumber * 4 + 17;
+      _modules = (function(moduleCount) {
+        const modules = new Array(moduleCount);
+        for (let row = 0; row < moduleCount; row += 1) {
+          modules[row] = new Array(moduleCount);
+          for (let col = 0; col < moduleCount; col += 1) {
+            modules[row][col] = null;
+          }
+        }
+        return modules;
+      })(_moduleCount);
+      setupPositionProbePattern(0, 0);
+      setupPositionProbePattern(_moduleCount - 7, 0);
+      setupPositionProbePattern(0, _moduleCount - 7);
+      setupPositionAdjustPattern();
+      setupTimingPattern();
+      setupTypeInfo(test, maskPattern);
+      if (_typeNumber >= 7) {
+        setupTypeNumber(test);
+      }
+      if (_dataCache == null) {
+        _dataCache = createData(_typeNumber, _errorCorrectionLevel, _dataList);
+      }
+      mapData(_dataCache, maskPattern);
+    };
+    const setupPositionProbePattern = function(row, col) {
+      for (let r = -1; r <= 7; r += 1) {
+        if (row + r <= -1 || _moduleCount <= row + r) continue;
+        for (let c = -1; c <= 7; c += 1) {
+          if (col + c <= -1 || _moduleCount <= col + c) continue;
+          if (0 <= r && r <= 6 && (c == 0 || c == 6) || 0 <= c && c <= 6 && (r == 0 || r == 6) || 2 <= r && r <= 4 && 2 <= c && c <= 4) {
+            _modules[row + r][col + c] = true;
+          } else {
+            _modules[row + r][col + c] = false;
+          }
+        }
+      }
+    };
+    const getBestMaskPattern = function() {
+      let minLostPoint = 0;
+      let pattern = 0;
+      for (let i = 0; i < 8; i += 1) {
+        makeImpl(true, i);
+        const lostPoint = QRUtil.getLostPoint(_this);
+        if (i == 0 || minLostPoint > lostPoint) {
+          minLostPoint = lostPoint;
+          pattern = i;
+        }
+      }
+      return pattern;
+    };
+    const setupTimingPattern = function() {
+      for (let r = 8; r < _moduleCount - 8; r += 1) {
+        if (_modules[r][6] != null) {
+          continue;
+        }
+        _modules[r][6] = r % 2 == 0;
+      }
+      for (let c = 8; c < _moduleCount - 8; c += 1) {
+        if (_modules[6][c] != null) {
+          continue;
+        }
+        _modules[6][c] = c % 2 == 0;
+      }
+    };
+    const setupPositionAdjustPattern = function() {
+      const pos = QRUtil.getPatternPosition(_typeNumber);
+      for (let i = 0; i < pos.length; i += 1) {
+        for (let j = 0; j < pos.length; j += 1) {
+          const row = pos[i];
+          const col = pos[j];
+          if (_modules[row][col] != null) {
+            continue;
+          }
+          for (let r = -2; r <= 2; r += 1) {
+            for (let c = -2; c <= 2; c += 1) {
+              if (r == -2 || r == 2 || c == -2 || c == 2 || r == 0 && c == 0) {
+                _modules[row + r][col + c] = true;
+              } else {
+                _modules[row + r][col + c] = false;
+              }
+            }
+          }
+        }
+      }
+    };
+    const setupTypeNumber = function(test) {
+      const bits = QRUtil.getBCHTypeNumber(_typeNumber);
+      for (let i = 0; i < 18; i += 1) {
+        const mod = !test && (bits >> i & 1) == 1;
+        _modules[Math.floor(i / 3)][i % 3 + _moduleCount - 8 - 3] = mod;
+      }
+      for (let i = 0; i < 18; i += 1) {
+        const mod = !test && (bits >> i & 1) == 1;
+        _modules[i % 3 + _moduleCount - 8 - 3][Math.floor(i / 3)] = mod;
+      }
+    };
+    const setupTypeInfo = function(test, maskPattern) {
+      const data = _errorCorrectionLevel << 3 | maskPattern;
+      const bits = QRUtil.getBCHTypeInfo(data);
+      for (let i = 0; i < 15; i += 1) {
+        const mod = !test && (bits >> i & 1) == 1;
+        if (i < 6) {
+          _modules[i][8] = mod;
+        } else if (i < 8) {
+          _modules[i + 1][8] = mod;
+        } else {
+          _modules[_moduleCount - 15 + i][8] = mod;
+        }
+      }
+      for (let i = 0; i < 15; i += 1) {
+        const mod = !test && (bits >> i & 1) == 1;
+        if (i < 8) {
+          _modules[8][_moduleCount - i - 1] = mod;
+        } else if (i < 9) {
+          _modules[8][15 - i - 1 + 1] = mod;
+        } else {
+          _modules[8][15 - i - 1] = mod;
+        }
+      }
+      _modules[_moduleCount - 8][8] = !test;
+    };
+    const mapData = function(data, maskPattern) {
+      let inc = -1;
+      let row = _moduleCount - 1;
+      let bitIndex = 7;
+      let byteIndex = 0;
+      const maskFunc = QRUtil.getMaskFunction(maskPattern);
+      for (let col = _moduleCount - 1; col > 0; col -= 2) {
+        if (col == 6) col -= 1;
+        while (true) {
+          for (let c = 0; c < 2; c += 1) {
+            if (_modules[row][col - c] == null) {
+              let dark = false;
+              if (byteIndex < data.length) {
+                dark = (data[byteIndex] >>> bitIndex & 1) == 1;
+              }
+              const mask = maskFunc(row, col - c);
+              if (mask) {
+                dark = !dark;
+              }
+              _modules[row][col - c] = dark;
+              bitIndex -= 1;
+              if (bitIndex == -1) {
+                byteIndex += 1;
+                bitIndex = 7;
+              }
+            }
+          }
+          row += inc;
+          if (row < 0 || _moduleCount <= row) {
+            row -= inc;
+            inc = -inc;
+            break;
+          }
+        }
+      }
+    };
+    const createBytes = function(buffer, rsBlocks) {
+      let offset = 0;
+      let maxDcCount = 0;
+      let maxEcCount = 0;
+      const dcdata = new Array(rsBlocks.length);
+      const ecdata = new Array(rsBlocks.length);
+      for (let r = 0; r < rsBlocks.length; r += 1) {
+        const dcCount = rsBlocks[r].dataCount;
+        const ecCount = rsBlocks[r].totalCount - dcCount;
+        maxDcCount = Math.max(maxDcCount, dcCount);
+        maxEcCount = Math.max(maxEcCount, ecCount);
+        dcdata[r] = new Array(dcCount);
+        for (let i = 0; i < dcdata[r].length; i += 1) {
+          dcdata[r][i] = 255 & buffer.getBuffer()[i + offset];
+        }
+        offset += dcCount;
+        const rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
+        const rawPoly = qrPolynomial(dcdata[r], rsPoly.getLength() - 1);
+        const modPoly = rawPoly.mod(rsPoly);
+        ecdata[r] = new Array(rsPoly.getLength() - 1);
+        for (let i = 0; i < ecdata[r].length; i += 1) {
+          const modIndex = i + modPoly.getLength() - ecdata[r].length;
+          ecdata[r][i] = modIndex >= 0 ? modPoly.getAt(modIndex) : 0;
+        }
+      }
+      let totalCodeCount = 0;
+      for (let i = 0; i < rsBlocks.length; i += 1) {
+        totalCodeCount += rsBlocks[i].totalCount;
+      }
+      const data = new Array(totalCodeCount);
+      let index = 0;
+      for (let i = 0; i < maxDcCount; i += 1) {
+        for (let r = 0; r < rsBlocks.length; r += 1) {
+          if (i < dcdata[r].length) {
+            data[index] = dcdata[r][i];
+            index += 1;
+          }
+        }
+      }
+      for (let i = 0; i < maxEcCount; i += 1) {
+        for (let r = 0; r < rsBlocks.length; r += 1) {
+          if (i < ecdata[r].length) {
+            data[index] = ecdata[r][i];
+            index += 1;
+          }
+        }
+      }
+      return data;
+    };
+    const createData = function(typeNumber2, errorCorrectionLevel2, dataList) {
+      const rsBlocks = QRRSBlock.getRSBlocks(typeNumber2, errorCorrectionLevel2);
+      const buffer = qrBitBuffer();
+      for (let i = 0; i < dataList.length; i += 1) {
+        const data = dataList[i];
+        buffer.put(data.getMode(), 4);
+        buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber2));
+        data.write(buffer);
+      }
+      let totalDataCount = 0;
+      for (let i = 0; i < rsBlocks.length; i += 1) {
+        totalDataCount += rsBlocks[i].dataCount;
+      }
+      if (buffer.getLengthInBits() > totalDataCount * 8) {
+        throw "code length overflow. (" + buffer.getLengthInBits() + ">" + totalDataCount * 8 + ")";
+      }
+      if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) {
+        buffer.put(0, 4);
+      }
+      while (buffer.getLengthInBits() % 8 != 0) {
+        buffer.putBit(false);
+      }
+      while (true) {
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD0, 8);
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD1, 8);
+      }
+      return createBytes(buffer, rsBlocks);
+    };
+    _this.addData = function(data, mode) {
+      mode = mode || "Byte";
+      let newData = null;
+      switch (mode) {
+        case "Numeric":
+          newData = qrNumber(data);
+          break;
+        case "Alphanumeric":
+          newData = qrAlphaNum(data);
+          break;
+        case "Byte":
+          newData = qr8BitByte(data);
+          break;
+        case "Kanji":
+          newData = qrKanji(data);
+          break;
+        default:
+          throw "mode:" + mode;
+      }
+      _dataList.push(newData);
+      _dataCache = null;
+    };
+    _this.isDark = function(row, col) {
+      if (row < 0 || _moduleCount <= row || col < 0 || _moduleCount <= col) {
+        throw row + "," + col;
+      }
+      return _modules[row][col];
+    };
+    _this.getModuleCount = function() {
+      return _moduleCount;
+    };
+    _this.make = function() {
+      if (_typeNumber < 1) {
+        let typeNumber2 = 1;
+        for (; typeNumber2 < 40; typeNumber2++) {
+          const rsBlocks = QRRSBlock.getRSBlocks(typeNumber2, _errorCorrectionLevel);
+          const buffer = qrBitBuffer();
+          for (let i = 0; i < _dataList.length; i++) {
+            const data = _dataList[i];
+            buffer.put(data.getMode(), 4);
+            buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber2));
+            data.write(buffer);
+          }
+          let totalDataCount = 0;
+          for (let i = 0; i < rsBlocks.length; i++) {
+            totalDataCount += rsBlocks[i].dataCount;
+          }
+          if (buffer.getLengthInBits() <= totalDataCount * 8) {
+            break;
+          }
+        }
+        _typeNumber = typeNumber2;
+      }
+      makeImpl(false, getBestMaskPattern());
+    };
+    _this.createTableTag = function(cellSize, margin) {
+      cellSize = cellSize || 2;
+      margin = typeof margin == "undefined" ? cellSize * 4 : margin;
+      let qrHtml = "";
+      qrHtml += '<table style="';
+      qrHtml += " border-width: 0px; border-style: none;";
+      qrHtml += " border-collapse: collapse;";
+      qrHtml += " padding: 0px; margin: " + margin + "px;";
+      qrHtml += '">';
+      qrHtml += "<tbody>";
+      for (let r = 0; r < _this.getModuleCount(); r += 1) {
+        qrHtml += "<tr>";
+        for (let c = 0; c < _this.getModuleCount(); c += 1) {
+          qrHtml += '<td style="';
+          qrHtml += " border-width: 0px; border-style: none;";
+          qrHtml += " border-collapse: collapse;";
+          qrHtml += " padding: 0px; margin: 0px;";
+          qrHtml += " width: " + cellSize + "px;";
+          qrHtml += " height: " + cellSize + "px;";
+          qrHtml += " background-color: ";
+          qrHtml += _this.isDark(r, c) ? "#000000" : "#ffffff";
+          qrHtml += ";";
+          qrHtml += '"/>';
+        }
+        qrHtml += "</tr>";
+      }
+      qrHtml += "</tbody>";
+      qrHtml += "</table>";
+      return qrHtml;
+    };
+    _this.createSvgTag = function(cellSize, margin, alt, title) {
+      let opts = {};
+      if (typeof arguments[0] == "object") {
+        opts = arguments[0];
+        cellSize = opts.cellSize;
+        margin = opts.margin;
+        alt = opts.alt;
+        title = opts.title;
+      }
+      cellSize = cellSize || 2;
+      margin = typeof margin == "undefined" ? cellSize * 4 : margin;
+      alt = typeof alt === "string" ? { text: alt } : alt || {};
+      alt.text = alt.text || null;
+      alt.id = alt.text ? alt.id || "qrcode-description" : null;
+      title = typeof title === "string" ? { text: title } : title || {};
+      title.text = title.text || null;
+      title.id = title.text ? title.id || "qrcode-title" : null;
+      const size = _this.getModuleCount() * cellSize + margin * 2;
+      let c, mc, r, mr, qrSvg2 = "", rect;
+      rect = "l" + cellSize + ",0 0," + cellSize + " -" + cellSize + ",0 0,-" + cellSize + "z ";
+      qrSvg2 += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
+      qrSvg2 += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : "";
+      qrSvg2 += ' viewBox="0 0 ' + size + " " + size + '" ';
+      qrSvg2 += ' preserveAspectRatio="xMinYMin meet"';
+      qrSvg2 += title.text || alt.text ? ' role="img" aria-labelledby="' + escapeXml([title.id, alt.id].join(" ").trim()) + '"' : "";
+      qrSvg2 += ">";
+      qrSvg2 += title.text ? '<title id="' + escapeXml(title.id) + '">' + escapeXml(title.text) + "</title>" : "";
+      qrSvg2 += alt.text ? '<description id="' + escapeXml(alt.id) + '">' + escapeXml(alt.text) + "</description>" : "";
+      qrSvg2 += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>';
+      qrSvg2 += '<path d="';
+      for (r = 0; r < _this.getModuleCount(); r += 1) {
+        mr = r * cellSize + margin;
+        for (c = 0; c < _this.getModuleCount(); c += 1) {
+          if (_this.isDark(r, c)) {
+            mc = c * cellSize + margin;
+            qrSvg2 += "M" + mc + "," + mr + rect;
+          }
+        }
+      }
+      qrSvg2 += '" stroke="transparent" fill="black"/>';
+      qrSvg2 += "</svg>";
+      return qrSvg2;
+    };
+    _this.createDataURL = function(cellSize, margin) {
+      cellSize = cellSize || 2;
+      margin = typeof margin == "undefined" ? cellSize * 4 : margin;
+      const size = _this.getModuleCount() * cellSize + margin * 2;
+      const min = margin;
+      const max = size - margin;
+      return createDataURL(size, size, function(x, y) {
+        if (min <= x && x < max && min <= y && y < max) {
+          const c = Math.floor((x - min) / cellSize);
+          const r = Math.floor((y - min) / cellSize);
+          return _this.isDark(r, c) ? 0 : 1;
+        } else {
+          return 1;
+        }
+      });
+    };
+    _this.createImgTag = function(cellSize, margin, alt) {
+      cellSize = cellSize || 2;
+      margin = typeof margin == "undefined" ? cellSize * 4 : margin;
+      const size = _this.getModuleCount() * cellSize + margin * 2;
+      let img = "";
+      img += "<img";
+      img += ' src="';
+      img += _this.createDataURL(cellSize, margin);
+      img += '"';
+      img += ' width="';
+      img += size;
+      img += '"';
+      img += ' height="';
+      img += size;
+      img += '"';
+      if (alt) {
+        img += ' alt="';
+        img += escapeXml(alt);
+        img += '"';
+      }
+      img += "/>";
+      return img;
+    };
+    const escapeXml = function(s) {
+      let escaped = "";
+      for (let i = 0; i < s.length; i += 1) {
+        const c = s.charAt(i);
+        switch (c) {
+          case "<":
+            escaped += "&lt;";
+            break;
+          case ">":
+            escaped += "&gt;";
+            break;
+          case "&":
+            escaped += "&amp;";
+            break;
+          case '"':
+            escaped += "&quot;";
+            break;
+          default:
+            escaped += c;
+            break;
+        }
+      }
+      return escaped;
+    };
+    const _createHalfASCII = function(margin) {
+      const cellSize = 1;
+      margin = typeof margin == "undefined" ? cellSize * 2 : margin;
+      const size = _this.getModuleCount() * cellSize + margin * 2;
+      const min = margin;
+      const max = size - margin;
+      let y, x, r12, r2, p;
+      const blocks = {
+        "██": "█",
+        "█ ": "▀",
+        " █": "▄",
+        "  ": " "
+      };
+      const blocksLastLineNoMargin = {
+        "██": "▀",
+        "█ ": "▀",
+        " █": " ",
+        "  ": " "
+      };
+      let ascii = "";
+      for (y = 0; y < size; y += 2) {
+        r12 = Math.floor((y - min) / cellSize);
+        r2 = Math.floor((y + 1 - min) / cellSize);
+        for (x = 0; x < size; x += 1) {
+          p = "█";
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r12, Math.floor((x - min) / cellSize))) {
+            p = " ";
+          }
+          if (min <= x && x < max && min <= y + 1 && y + 1 < max && _this.isDark(r2, Math.floor((x - min) / cellSize))) {
+            p += " ";
+          } else {
+            p += "█";
+          }
+          ascii += margin < 1 && y + 1 >= max ? blocksLastLineNoMargin[p] : blocks[p];
+        }
+        ascii += "\n";
+      }
+      if (size % 2 && margin > 0) {
+        return ascii.substring(0, ascii.length - size - 1) + Array(size + 1).join("▀");
+      }
+      return ascii.substring(0, ascii.length - 1);
+    };
+    _this.createASCII = function(cellSize, margin) {
+      cellSize = cellSize || 1;
+      if (cellSize < 2) {
+        return _createHalfASCII(margin);
+      }
+      cellSize -= 1;
+      margin = typeof margin == "undefined" ? cellSize * 2 : margin;
+      const size = _this.getModuleCount() * cellSize + margin * 2;
+      const min = margin;
+      const max = size - margin;
+      let y, x, r, p;
+      const white = Array(cellSize + 1).join("██");
+      const black = Array(cellSize + 1).join("  ");
+      let ascii = "";
+      let line = "";
+      for (y = 0; y < size; y += 1) {
+        r = Math.floor((y - min) / cellSize);
+        line = "";
+        for (x = 0; x < size; x += 1) {
+          p = 1;
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r, Math.floor((x - min) / cellSize))) {
+            p = 0;
+          }
+          line += p ? white : black;
+        }
+        for (r = 0; r < cellSize; r += 1) {
+          ascii += line + "\n";
+        }
+      }
+      return ascii.substring(0, ascii.length - 1);
+    };
+    _this.renderTo2dContext = function(context, cellSize) {
+      cellSize = cellSize || 2;
+      const length = _this.getModuleCount();
+      for (let row = 0; row < length; row++) {
+        for (let col = 0; col < length; col++) {
+          context.fillStyle = _this.isDark(row, col) ? "black" : "white";
+          context.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+        }
+      }
+    };
+    return _this;
+  };
+  qrcode.stringToBytes = function(s) {
+    const bytes = [];
+    for (let i = 0; i < s.length; i += 1) {
+      const c = s.charCodeAt(i);
+      bytes.push(c & 255);
+    }
+    return bytes;
+  };
+  qrcode.createStringToBytes = function(unicodeData, numChars) {
+    const unicodeMap = (function() {
+      const bin = base64DecodeInputStream(unicodeData);
+      const read = function() {
+        const b = bin.read();
+        if (b == -1) throw "eof";
+        return b;
+      };
+      let count = 0;
+      const unicodeMap2 = {};
+      while (true) {
+        const b0 = bin.read();
+        if (b0 == -1) break;
+        const b1 = read();
+        const b2 = read();
+        const b3 = read();
+        const k = String.fromCharCode(b0 << 8 | b1);
+        const v = b2 << 8 | b3;
+        unicodeMap2[k] = v;
+        count += 1;
+      }
+      if (count != numChars) {
+        throw count + " != " + numChars;
+      }
+      return unicodeMap2;
+    })();
+    const unknownChar = "?".charCodeAt(0);
+    return function(s) {
+      const bytes = [];
+      for (let i = 0; i < s.length; i += 1) {
+        const c = s.charCodeAt(i);
+        if (c < 128) {
+          bytes.push(c);
+        } else {
+          const b = unicodeMap[s.charAt(i)];
+          if (typeof b == "number") {
+            if ((b & 255) == b) {
+              bytes.push(b);
+            } else {
+              bytes.push(b >>> 8);
+              bytes.push(b & 255);
+            }
+          } else {
+            bytes.push(unknownChar);
+          }
+        }
+      }
+      return bytes;
+    };
+  };
+  var QRMode = {
+    MODE_NUMBER: 1 << 0,
+    MODE_ALPHA_NUM: 1 << 1,
+    MODE_8BIT_BYTE: 1 << 2,
+    MODE_KANJI: 1 << 3
+  };
+  var QRErrorCorrectionLevel = {
+    L: 1,
+    M: 0,
+    Q: 3,
+    H: 2
+  };
+  var QRMaskPattern = {
+    PATTERN000: 0,
+    PATTERN001: 1,
+    PATTERN010: 2,
+    PATTERN011: 3,
+    PATTERN100: 4,
+    PATTERN101: 5,
+    PATTERN110: 6,
+    PATTERN111: 7
+  };
+  var QRUtil = (function() {
+    const PATTERN_POSITION_TABLE = [
+      [],
+      [6, 18],
+      [6, 22],
+      [6, 26],
+      [6, 30],
+      [6, 34],
+      [6, 22, 38],
+      [6, 24, 42],
+      [6, 26, 46],
+      [6, 28, 50],
+      [6, 30, 54],
+      [6, 32, 58],
+      [6, 34, 62],
+      [6, 26, 46, 66],
+      [6, 26, 48, 70],
+      [6, 26, 50, 74],
+      [6, 30, 54, 78],
+      [6, 30, 56, 82],
+      [6, 30, 58, 86],
+      [6, 34, 62, 90],
+      [6, 28, 50, 72, 94],
+      [6, 26, 50, 74, 98],
+      [6, 30, 54, 78, 102],
+      [6, 28, 54, 80, 106],
+      [6, 32, 58, 84, 110],
+      [6, 30, 58, 86, 114],
+      [6, 34, 62, 90, 118],
+      [6, 26, 50, 74, 98, 122],
+      [6, 30, 54, 78, 102, 126],
+      [6, 26, 52, 78, 104, 130],
+      [6, 30, 56, 82, 108, 134],
+      [6, 34, 60, 86, 112, 138],
+      [6, 30, 58, 86, 114, 142],
+      [6, 34, 62, 90, 118, 146],
+      [6, 30, 54, 78, 102, 126, 150],
+      [6, 24, 50, 76, 102, 128, 154],
+      [6, 28, 54, 80, 106, 132, 158],
+      [6, 32, 58, 84, 110, 136, 162],
+      [6, 26, 54, 82, 110, 138, 166],
+      [6, 30, 58, 86, 114, 142, 170]
+    ];
+    const G15 = 1 << 10 | 1 << 8 | 1 << 5 | 1 << 4 | 1 << 2 | 1 << 1 | 1 << 0;
+    const G18 = 1 << 12 | 1 << 11 | 1 << 10 | 1 << 9 | 1 << 8 | 1 << 5 | 1 << 2 | 1 << 0;
+    const G15_MASK = 1 << 14 | 1 << 12 | 1 << 10 | 1 << 4 | 1 << 1;
+    const _this = {};
+    const getBCHDigit = function(data) {
+      let digit = 0;
+      while (data != 0) {
+        digit += 1;
+        data >>>= 1;
+      }
+      return digit;
+    };
+    _this.getBCHTypeInfo = function(data) {
+      let d = data << 10;
+      while (getBCHDigit(d) - getBCHDigit(G15) >= 0) {
+        d ^= G15 << getBCHDigit(d) - getBCHDigit(G15);
+      }
+      return (data << 10 | d) ^ G15_MASK;
+    };
+    _this.getBCHTypeNumber = function(data) {
+      let d = data << 12;
+      while (getBCHDigit(d) - getBCHDigit(G18) >= 0) {
+        d ^= G18 << getBCHDigit(d) - getBCHDigit(G18);
+      }
+      return data << 12 | d;
+    };
+    _this.getPatternPosition = function(typeNumber) {
+      return PATTERN_POSITION_TABLE[typeNumber - 1];
+    };
+    _this.getMaskFunction = function(maskPattern) {
+      switch (maskPattern) {
+        case QRMaskPattern.PATTERN000:
+          return function(i, j) {
+            return (i + j) % 2 == 0;
+          };
+        case QRMaskPattern.PATTERN001:
+          return function(i, j) {
+            return i % 2 == 0;
+          };
+        case QRMaskPattern.PATTERN010:
+          return function(i, j) {
+            return j % 3 == 0;
+          };
+        case QRMaskPattern.PATTERN011:
+          return function(i, j) {
+            return (i + j) % 3 == 0;
+          };
+        case QRMaskPattern.PATTERN100:
+          return function(i, j) {
+            return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 == 0;
+          };
+        case QRMaskPattern.PATTERN101:
+          return function(i, j) {
+            return i * j % 2 + i * j % 3 == 0;
+          };
+        case QRMaskPattern.PATTERN110:
+          return function(i, j) {
+            return (i * j % 2 + i * j % 3) % 2 == 0;
+          };
+        case QRMaskPattern.PATTERN111:
+          return function(i, j) {
+            return (i * j % 3 + (i + j) % 2) % 2 == 0;
+          };
+        default:
+          throw "bad maskPattern:" + maskPattern;
+      }
+    };
+    _this.getErrorCorrectPolynomial = function(errorCorrectLength) {
+      let a = qrPolynomial([1], 0);
+      for (let i = 0; i < errorCorrectLength; i += 1) {
+        a = a.multiply(qrPolynomial([1, QRMath.gexp(i)], 0));
+      }
+      return a;
+    };
+    _this.getLengthInBits = function(mode, type) {
+      if (1 <= type && type < 10) {
+        switch (mode) {
+          case QRMode.MODE_NUMBER:
+            return 10;
+          case QRMode.MODE_ALPHA_NUM:
+            return 9;
+          case QRMode.MODE_8BIT_BYTE:
+            return 8;
+          case QRMode.MODE_KANJI:
+            return 8;
+          default:
+            throw "mode:" + mode;
+        }
+      } else if (type < 27) {
+        switch (mode) {
+          case QRMode.MODE_NUMBER:
+            return 12;
+          case QRMode.MODE_ALPHA_NUM:
+            return 11;
+          case QRMode.MODE_8BIT_BYTE:
+            return 16;
+          case QRMode.MODE_KANJI:
+            return 10;
+          default:
+            throw "mode:" + mode;
+        }
+      } else if (type < 41) {
+        switch (mode) {
+          case QRMode.MODE_NUMBER:
+            return 14;
+          case QRMode.MODE_ALPHA_NUM:
+            return 13;
+          case QRMode.MODE_8BIT_BYTE:
+            return 16;
+          case QRMode.MODE_KANJI:
+            return 12;
+          default:
+            throw "mode:" + mode;
+        }
+      } else {
+        throw "type:" + type;
+      }
+    };
+    _this.getLostPoint = function(qrcode2) {
+      const moduleCount = qrcode2.getModuleCount();
+      let lostPoint = 0;
+      for (let row = 0; row < moduleCount; row += 1) {
+        for (let col = 0; col < moduleCount; col += 1) {
+          let sameCount = 0;
+          const dark = qrcode2.isDark(row, col);
+          for (let r = -1; r <= 1; r += 1) {
+            if (row + r < 0 || moduleCount <= row + r) {
+              continue;
+            }
+            for (let c = -1; c <= 1; c += 1) {
+              if (col + c < 0 || moduleCount <= col + c) {
+                continue;
+              }
+              if (r == 0 && c == 0) {
+                continue;
+              }
+              if (dark == qrcode2.isDark(row + r, col + c)) {
+                sameCount += 1;
+              }
+            }
+          }
+          if (sameCount > 5) {
+            lostPoint += 3 + sameCount - 5;
+          }
+        }
+      }
+      ;
+      for (let row = 0; row < moduleCount - 1; row += 1) {
+        for (let col = 0; col < moduleCount - 1; col += 1) {
+          let count = 0;
+          if (qrcode2.isDark(row, col)) count += 1;
+          if (qrcode2.isDark(row + 1, col)) count += 1;
+          if (qrcode2.isDark(row, col + 1)) count += 1;
+          if (qrcode2.isDark(row + 1, col + 1)) count += 1;
+          if (count == 0 || count == 4) {
+            lostPoint += 3;
+          }
+        }
+      }
+      for (let row = 0; row < moduleCount; row += 1) {
+        for (let col = 0; col < moduleCount - 6; col += 1) {
+          if (qrcode2.isDark(row, col) && !qrcode2.isDark(row, col + 1) && qrcode2.isDark(row, col + 2) && qrcode2.isDark(row, col + 3) && qrcode2.isDark(row, col + 4) && !qrcode2.isDark(row, col + 5) && qrcode2.isDark(row, col + 6)) {
+            lostPoint += 40;
+          }
+        }
+      }
+      for (let col = 0; col < moduleCount; col += 1) {
+        for (let row = 0; row < moduleCount - 6; row += 1) {
+          if (qrcode2.isDark(row, col) && !qrcode2.isDark(row + 1, col) && qrcode2.isDark(row + 2, col) && qrcode2.isDark(row + 3, col) && qrcode2.isDark(row + 4, col) && !qrcode2.isDark(row + 5, col) && qrcode2.isDark(row + 6, col)) {
+            lostPoint += 40;
+          }
+        }
+      }
+      let darkCount = 0;
+      for (let col = 0; col < moduleCount; col += 1) {
+        for (let row = 0; row < moduleCount; row += 1) {
+          if (qrcode2.isDark(row, col)) {
+            darkCount += 1;
+          }
+        }
+      }
+      const ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
+      lostPoint += ratio * 10;
+      return lostPoint;
+    };
+    return _this;
+  })();
+  var QRMath = (function() {
+    const EXP_TABLE = new Array(256);
+    const LOG_TABLE = new Array(256);
+    for (let i = 0; i < 8; i += 1) {
+      EXP_TABLE[i] = 1 << i;
+    }
+    for (let i = 8; i < 256; i += 1) {
+      EXP_TABLE[i] = EXP_TABLE[i - 4] ^ EXP_TABLE[i - 5] ^ EXP_TABLE[i - 6] ^ EXP_TABLE[i - 8];
+    }
+    for (let i = 0; i < 255; i += 1) {
+      LOG_TABLE[EXP_TABLE[i]] = i;
+    }
+    const _this = {};
+    _this.glog = function(n) {
+      if (n < 1) {
+        throw "glog(" + n + ")";
+      }
+      return LOG_TABLE[n];
+    };
+    _this.gexp = function(n) {
+      while (n < 0) {
+        n += 255;
+      }
+      while (n >= 256) {
+        n -= 255;
+      }
+      return EXP_TABLE[n];
+    };
+    return _this;
+  })();
+  var qrPolynomial = function(num2, shift) {
+    if (typeof num2.length == "undefined") {
+      throw num2.length + "/" + shift;
+    }
+    const _num = (function() {
+      let offset = 0;
+      while (offset < num2.length && num2[offset] == 0) {
+        offset += 1;
+      }
+      const _num2 = new Array(num2.length - offset + shift);
+      for (let i = 0; i < num2.length - offset; i += 1) {
+        _num2[i] = num2[i + offset];
+      }
+      return _num2;
+    })();
+    const _this = {};
+    _this.getAt = function(index) {
+      return _num[index];
+    };
+    _this.getLength = function() {
+      return _num.length;
+    };
+    _this.multiply = function(e) {
+      const num3 = new Array(_this.getLength() + e.getLength() - 1);
+      for (let i = 0; i < _this.getLength(); i += 1) {
+        for (let j = 0; j < e.getLength(); j += 1) {
+          num3[i + j] ^= QRMath.gexp(QRMath.glog(_this.getAt(i)) + QRMath.glog(e.getAt(j)));
+        }
+      }
+      return qrPolynomial(num3, 0);
+    };
+    _this.mod = function(e) {
+      if (_this.getLength() - e.getLength() < 0) {
+        return _this;
+      }
+      const ratio = QRMath.glog(_this.getAt(0)) - QRMath.glog(e.getAt(0));
+      const num3 = new Array(_this.getLength());
+      for (let i = 0; i < _this.getLength(); i += 1) {
+        num3[i] = _this.getAt(i);
+      }
+      for (let i = 0; i < e.getLength(); i += 1) {
+        num3[i] ^= QRMath.gexp(QRMath.glog(e.getAt(i)) + ratio);
+      }
+      return qrPolynomial(num3, 0).mod(e);
+    };
+    return _this;
+  };
+  var QRRSBlock = (function() {
+    const RS_BLOCK_TABLE = [
+      // L
+      // M
+      // Q
+      // H
+      // 1
+      [1, 26, 19],
+      [1, 26, 16],
+      [1, 26, 13],
+      [1, 26, 9],
+      // 2
+      [1, 44, 34],
+      [1, 44, 28],
+      [1, 44, 22],
+      [1, 44, 16],
+      // 3
+      [1, 70, 55],
+      [1, 70, 44],
+      [2, 35, 17],
+      [2, 35, 13],
+      // 4
+      [1, 100, 80],
+      [2, 50, 32],
+      [2, 50, 24],
+      [4, 25, 9],
+      // 5
+      [1, 134, 108],
+      [2, 67, 43],
+      [2, 33, 15, 2, 34, 16],
+      [2, 33, 11, 2, 34, 12],
+      // 6
+      [2, 86, 68],
+      [4, 43, 27],
+      [4, 43, 19],
+      [4, 43, 15],
+      // 7
+      [2, 98, 78],
+      [4, 49, 31],
+      [2, 32, 14, 4, 33, 15],
+      [4, 39, 13, 1, 40, 14],
+      // 8
+      [2, 121, 97],
+      [2, 60, 38, 2, 61, 39],
+      [4, 40, 18, 2, 41, 19],
+      [4, 40, 14, 2, 41, 15],
+      // 9
+      [2, 146, 116],
+      [3, 58, 36, 2, 59, 37],
+      [4, 36, 16, 4, 37, 17],
+      [4, 36, 12, 4, 37, 13],
+      // 10
+      [2, 86, 68, 2, 87, 69],
+      [4, 69, 43, 1, 70, 44],
+      [6, 43, 19, 2, 44, 20],
+      [6, 43, 15, 2, 44, 16],
+      // 11
+      [4, 101, 81],
+      [1, 80, 50, 4, 81, 51],
+      [4, 50, 22, 4, 51, 23],
+      [3, 36, 12, 8, 37, 13],
+      // 12
+      [2, 116, 92, 2, 117, 93],
+      [6, 58, 36, 2, 59, 37],
+      [4, 46, 20, 6, 47, 21],
+      [7, 42, 14, 4, 43, 15],
+      // 13
+      [4, 133, 107],
+      [8, 59, 37, 1, 60, 38],
+      [8, 44, 20, 4, 45, 21],
+      [12, 33, 11, 4, 34, 12],
+      // 14
+      [3, 145, 115, 1, 146, 116],
+      [4, 64, 40, 5, 65, 41],
+      [11, 36, 16, 5, 37, 17],
+      [11, 36, 12, 5, 37, 13],
+      // 15
+      [5, 109, 87, 1, 110, 88],
+      [5, 65, 41, 5, 66, 42],
+      [5, 54, 24, 7, 55, 25],
+      [11, 36, 12, 7, 37, 13],
+      // 16
+      [5, 122, 98, 1, 123, 99],
+      [7, 73, 45, 3, 74, 46],
+      [15, 43, 19, 2, 44, 20],
+      [3, 45, 15, 13, 46, 16],
+      // 17
+      [1, 135, 107, 5, 136, 108],
+      [10, 74, 46, 1, 75, 47],
+      [1, 50, 22, 15, 51, 23],
+      [2, 42, 14, 17, 43, 15],
+      // 18
+      [5, 150, 120, 1, 151, 121],
+      [9, 69, 43, 4, 70, 44],
+      [17, 50, 22, 1, 51, 23],
+      [2, 42, 14, 19, 43, 15],
+      // 19
+      [3, 141, 113, 4, 142, 114],
+      [3, 70, 44, 11, 71, 45],
+      [17, 47, 21, 4, 48, 22],
+      [9, 39, 13, 16, 40, 14],
+      // 20
+      [3, 135, 107, 5, 136, 108],
+      [3, 67, 41, 13, 68, 42],
+      [15, 54, 24, 5, 55, 25],
+      [15, 43, 15, 10, 44, 16],
+      // 21
+      [4, 144, 116, 4, 145, 117],
+      [17, 68, 42],
+      [17, 50, 22, 6, 51, 23],
+      [19, 46, 16, 6, 47, 17],
+      // 22
+      [2, 139, 111, 7, 140, 112],
+      [17, 74, 46],
+      [7, 54, 24, 16, 55, 25],
+      [34, 37, 13],
+      // 23
+      [4, 151, 121, 5, 152, 122],
+      [4, 75, 47, 14, 76, 48],
+      [11, 54, 24, 14, 55, 25],
+      [16, 45, 15, 14, 46, 16],
+      // 24
+      [6, 147, 117, 4, 148, 118],
+      [6, 73, 45, 14, 74, 46],
+      [11, 54, 24, 16, 55, 25],
+      [30, 46, 16, 2, 47, 17],
+      // 25
+      [8, 132, 106, 4, 133, 107],
+      [8, 75, 47, 13, 76, 48],
+      [7, 54, 24, 22, 55, 25],
+      [22, 45, 15, 13, 46, 16],
+      // 26
+      [10, 142, 114, 2, 143, 115],
+      [19, 74, 46, 4, 75, 47],
+      [28, 50, 22, 6, 51, 23],
+      [33, 46, 16, 4, 47, 17],
+      // 27
+      [8, 152, 122, 4, 153, 123],
+      [22, 73, 45, 3, 74, 46],
+      [8, 53, 23, 26, 54, 24],
+      [12, 45, 15, 28, 46, 16],
+      // 28
+      [3, 147, 117, 10, 148, 118],
+      [3, 73, 45, 23, 74, 46],
+      [4, 54, 24, 31, 55, 25],
+      [11, 45, 15, 31, 46, 16],
+      // 29
+      [7, 146, 116, 7, 147, 117],
+      [21, 73, 45, 7, 74, 46],
+      [1, 53, 23, 37, 54, 24],
+      [19, 45, 15, 26, 46, 16],
+      // 30
+      [5, 145, 115, 10, 146, 116],
+      [19, 75, 47, 10, 76, 48],
+      [15, 54, 24, 25, 55, 25],
+      [23, 45, 15, 25, 46, 16],
+      // 31
+      [13, 145, 115, 3, 146, 116],
+      [2, 74, 46, 29, 75, 47],
+      [42, 54, 24, 1, 55, 25],
+      [23, 45, 15, 28, 46, 16],
+      // 32
+      [17, 145, 115],
+      [10, 74, 46, 23, 75, 47],
+      [10, 54, 24, 35, 55, 25],
+      [19, 45, 15, 35, 46, 16],
+      // 33
+      [17, 145, 115, 1, 146, 116],
+      [14, 74, 46, 21, 75, 47],
+      [29, 54, 24, 19, 55, 25],
+      [11, 45, 15, 46, 46, 16],
+      // 34
+      [13, 145, 115, 6, 146, 116],
+      [14, 74, 46, 23, 75, 47],
+      [44, 54, 24, 7, 55, 25],
+      [59, 46, 16, 1, 47, 17],
+      // 35
+      [12, 151, 121, 7, 152, 122],
+      [12, 75, 47, 26, 76, 48],
+      [39, 54, 24, 14, 55, 25],
+      [22, 45, 15, 41, 46, 16],
+      // 36
+      [6, 151, 121, 14, 152, 122],
+      [6, 75, 47, 34, 76, 48],
+      [46, 54, 24, 10, 55, 25],
+      [2, 45, 15, 64, 46, 16],
+      // 37
+      [17, 152, 122, 4, 153, 123],
+      [29, 74, 46, 14, 75, 47],
+      [49, 54, 24, 10, 55, 25],
+      [24, 45, 15, 46, 46, 16],
+      // 38
+      [4, 152, 122, 18, 153, 123],
+      [13, 74, 46, 32, 75, 47],
+      [48, 54, 24, 14, 55, 25],
+      [42, 45, 15, 32, 46, 16],
+      // 39
+      [20, 147, 117, 4, 148, 118],
+      [40, 75, 47, 7, 76, 48],
+      [43, 54, 24, 22, 55, 25],
+      [10, 45, 15, 67, 46, 16],
+      // 40
+      [19, 148, 118, 6, 149, 119],
+      [18, 75, 47, 31, 76, 48],
+      [34, 54, 24, 34, 55, 25],
+      [20, 45, 15, 61, 46, 16]
+    ];
+    const qrRSBlock = function(totalCount, dataCount) {
+      const _this2 = {};
+      _this2.totalCount = totalCount;
+      _this2.dataCount = dataCount;
+      return _this2;
+    };
+    const _this = {};
+    const getRsBlockTable = function(typeNumber, errorCorrectionLevel) {
+      switch (errorCorrectionLevel) {
+        case QRErrorCorrectionLevel.L:
+          return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+        case QRErrorCorrectionLevel.M:
+          return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+        case QRErrorCorrectionLevel.Q:
+          return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+        case QRErrorCorrectionLevel.H:
+          return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+        default:
+          return void 0;
+      }
+    };
+    _this.getRSBlocks = function(typeNumber, errorCorrectionLevel) {
+      const rsBlock = getRsBlockTable(typeNumber, errorCorrectionLevel);
+      if (typeof rsBlock == "undefined") {
+        throw "bad rs block @ typeNumber:" + typeNumber + "/errorCorrectionLevel:" + errorCorrectionLevel;
+      }
+      const length = rsBlock.length / 3;
+      const list = [];
+      for (let i = 0; i < length; i += 1) {
+        const count = rsBlock[i * 3 + 0];
+        const totalCount = rsBlock[i * 3 + 1];
+        const dataCount = rsBlock[i * 3 + 2];
+        for (let j = 0; j < count; j += 1) {
+          list.push(qrRSBlock(totalCount, dataCount));
+        }
+      }
+      return list;
+    };
+    return _this;
+  })();
+  var qrBitBuffer = function() {
+    const _buffer = [];
+    let _length = 0;
+    const _this = {};
+    _this.getBuffer = function() {
+      return _buffer;
+    };
+    _this.getAt = function(index) {
+      const bufIndex = Math.floor(index / 8);
+      return (_buffer[bufIndex] >>> 7 - index % 8 & 1) == 1;
+    };
+    _this.put = function(num2, length) {
+      for (let i = 0; i < length; i += 1) {
+        _this.putBit((num2 >>> length - i - 1 & 1) == 1);
+      }
+    };
+    _this.getLengthInBits = function() {
+      return _length;
+    };
+    _this.putBit = function(bit) {
+      const bufIndex = Math.floor(_length / 8);
+      if (_buffer.length <= bufIndex) {
+        _buffer.push(0);
+      }
+      if (bit) {
+        _buffer[bufIndex] |= 128 >>> _length % 8;
+      }
+      _length += 1;
+    };
+    return _this;
+  };
+  var qrNumber = function(data) {
+    const _mode = QRMode.MODE_NUMBER;
+    const _data = data;
+    const _this = {};
+    _this.getMode = function() {
+      return _mode;
+    };
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+    _this.write = function(buffer) {
+      const data2 = _data;
+      let i = 0;
+      while (i + 2 < data2.length) {
+        buffer.put(strToNum(data2.substring(i, i + 3)), 10);
+        i += 3;
+      }
+      if (i < data2.length) {
+        if (data2.length - i == 1) {
+          buffer.put(strToNum(data2.substring(i, i + 1)), 4);
+        } else if (data2.length - i == 2) {
+          buffer.put(strToNum(data2.substring(i, i + 2)), 7);
+        }
+      }
+    };
+    const strToNum = function(s) {
+      let num2 = 0;
+      for (let i = 0; i < s.length; i += 1) {
+        num2 = num2 * 10 + chatToNum(s.charAt(i));
+      }
+      return num2;
+    };
+    const chatToNum = function(c) {
+      if ("0" <= c && c <= "9") {
+        return c.charCodeAt(0) - "0".charCodeAt(0);
+      }
+      throw "illegal char :" + c;
+    };
+    return _this;
+  };
+  var qrAlphaNum = function(data) {
+    const _mode = QRMode.MODE_ALPHA_NUM;
+    const _data = data;
+    const _this = {};
+    _this.getMode = function() {
+      return _mode;
+    };
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+    _this.write = function(buffer) {
+      const s = _data;
+      let i = 0;
+      while (i + 1 < s.length) {
+        buffer.put(
+          getCode(s.charAt(i)) * 45 + getCode(s.charAt(i + 1)),
+          11
+        );
+        i += 2;
+      }
+      if (i < s.length) {
+        buffer.put(getCode(s.charAt(i)), 6);
+      }
+    };
+    const getCode = function(c) {
+      if ("0" <= c && c <= "9") {
+        return c.charCodeAt(0) - "0".charCodeAt(0);
+      } else if ("A" <= c && c <= "Z") {
+        return c.charCodeAt(0) - "A".charCodeAt(0) + 10;
+      } else {
+        switch (c) {
+          case " ":
+            return 36;
+          case "$":
+            return 37;
+          case "%":
+            return 38;
+          case "*":
+            return 39;
+          case "+":
+            return 40;
+          case "-":
+            return 41;
+          case ".":
+            return 42;
+          case "/":
+            return 43;
+          case ":":
+            return 44;
+          default:
+            throw "illegal char :" + c;
+        }
+      }
+    };
+    return _this;
+  };
+  var qr8BitByte = function(data) {
+    const _mode = QRMode.MODE_8BIT_BYTE;
+    const _data = data;
+    const _bytes = qrcode.stringToBytes(data);
+    const _this = {};
+    _this.getMode = function() {
+      return _mode;
+    };
+    _this.getLength = function(buffer) {
+      return _bytes.length;
+    };
+    _this.write = function(buffer) {
+      for (let i = 0; i < _bytes.length; i += 1) {
+        buffer.put(_bytes[i], 8);
+      }
+    };
+    return _this;
+  };
+  var qrKanji = function(data) {
+    const _mode = QRMode.MODE_KANJI;
+    const _data = data;
+    const stringToBytes2 = qrcode.stringToBytes;
+    !(function(c, code) {
+      const test = stringToBytes2(c);
+      if (test.length != 2 || (test[0] << 8 | test[1]) != code) {
+        throw "sjis not supported.";
+      }
+    })("友", 38726);
+    const _bytes = stringToBytes2(data);
+    const _this = {};
+    _this.getMode = function() {
+      return _mode;
+    };
+    _this.getLength = function(buffer) {
+      return ~~(_bytes.length / 2);
+    };
+    _this.write = function(buffer) {
+      const data2 = _bytes;
+      let i = 0;
+      while (i + 1 < data2.length) {
+        let c = (255 & data2[i]) << 8 | 255 & data2[i + 1];
+        if (33088 <= c && c <= 40956) {
+          c -= 33088;
+        } else if (57408 <= c && c <= 60351) {
+          c -= 49472;
+        } else {
+          throw "illegal char at " + (i + 1) + "/" + c;
+        }
+        c = (c >>> 8 & 255) * 192 + (c & 255);
+        buffer.put(c, 13);
+        i += 2;
+      }
+      if (i < data2.length) {
+        throw "illegal char at " + (i + 1);
+      }
+    };
+    return _this;
+  };
+  var byteArrayOutputStream = function() {
+    const _bytes = [];
+    const _this = {};
+    _this.writeByte = function(b) {
+      _bytes.push(b & 255);
+    };
+    _this.writeShort = function(i) {
+      _this.writeByte(i);
+      _this.writeByte(i >>> 8);
+    };
+    _this.writeBytes = function(b, off, len) {
+      off = off || 0;
+      len = len || b.length;
+      for (let i = 0; i < len; i += 1) {
+        _this.writeByte(b[i + off]);
+      }
+    };
+    _this.writeString = function(s) {
+      for (let i = 0; i < s.length; i += 1) {
+        _this.writeByte(s.charCodeAt(i));
+      }
+    };
+    _this.toByteArray = function() {
+      return _bytes;
+    };
+    _this.toString = function() {
+      let s = "";
+      s += "[";
+      for (let i = 0; i < _bytes.length; i += 1) {
+        if (i > 0) {
+          s += ",";
+        }
+        s += _bytes[i];
+      }
+      s += "]";
+      return s;
+    };
+    return _this;
+  };
+  var base64EncodeOutputStream = function() {
+    let _buffer = 0;
+    let _buflen = 0;
+    let _length = 0;
+    let _base64 = "";
+    const _this = {};
+    const writeEncoded = function(b) {
+      _base64 += String.fromCharCode(encode(b & 63));
+    };
+    const encode = function(n) {
+      if (n < 0) {
+        throw "n:" + n;
+      } else if (n < 26) {
+        return 65 + n;
+      } else if (n < 52) {
+        return 97 + (n - 26);
+      } else if (n < 62) {
+        return 48 + (n - 52);
+      } else if (n == 62) {
+        return 43;
+      } else if (n == 63) {
+        return 47;
+      } else {
+        throw "n:" + n;
+      }
+    };
+    _this.writeByte = function(n) {
+      _buffer = _buffer << 8 | n & 255;
+      _buflen += 8;
+      _length += 1;
+      while (_buflen >= 6) {
+        writeEncoded(_buffer >>> _buflen - 6);
+        _buflen -= 6;
+      }
+    };
+    _this.flush = function() {
+      if (_buflen > 0) {
+        writeEncoded(_buffer << 6 - _buflen);
+        _buffer = 0;
+        _buflen = 0;
+      }
+      if (_length % 3 != 0) {
+        const padlen = 3 - _length % 3;
+        for (let i = 0; i < padlen; i += 1) {
+          _base64 += "=";
+        }
+      }
+    };
+    _this.toString = function() {
+      return _base64;
+    };
+    return _this;
+  };
+  var base64DecodeInputStream = function(str) {
+    const _str = str;
+    let _pos = 0;
+    let _buffer = 0;
+    let _buflen = 0;
+    const _this = {};
+    _this.read = function() {
+      while (_buflen < 8) {
+        if (_pos >= _str.length) {
+          if (_buflen == 0) {
+            return -1;
+          }
+          throw "unexpected end of file./" + _buflen;
+        }
+        const c = _str.charAt(_pos);
+        _pos += 1;
+        if (c == "=") {
+          _buflen = 0;
+          return -1;
+        } else if (c.match(/^\s$/)) {
+          continue;
+        }
+        _buffer = _buffer << 6 | decode(c.charCodeAt(0));
+        _buflen += 6;
+      }
+      const n = _buffer >>> _buflen - 8 & 255;
+      _buflen -= 8;
+      return n;
+    };
+    const decode = function(c) {
+      if (65 <= c && c <= 90) {
+        return c - 65;
+      } else if (97 <= c && c <= 122) {
+        return c - 97 + 26;
+      } else if (48 <= c && c <= 57) {
+        return c - 48 + 52;
+      } else if (c == 43) {
+        return 62;
+      } else if (c == 47) {
+        return 63;
+      } else {
+        throw "c:" + c;
+      }
+    };
+    return _this;
+  };
+  var gifImage = function(width, height) {
+    const _width = width;
+    const _height = height;
+    const _data = new Array(width * height);
+    const _this = {};
+    _this.setPixel = function(x, y, pixel) {
+      _data[y * _width + x] = pixel;
+    };
+    _this.write = function(out) {
+      out.writeString("GIF87a");
+      out.writeShort(_width);
+      out.writeShort(_height);
+      out.writeByte(128);
+      out.writeByte(0);
+      out.writeByte(0);
+      out.writeByte(0);
+      out.writeByte(0);
+      out.writeByte(0);
+      out.writeByte(255);
+      out.writeByte(255);
+      out.writeByte(255);
+      out.writeString(",");
+      out.writeShort(0);
+      out.writeShort(0);
+      out.writeShort(_width);
+      out.writeShort(_height);
+      out.writeByte(0);
+      const lzwMinCodeSize = 2;
+      const raster = getLZWRaster(lzwMinCodeSize);
+      out.writeByte(lzwMinCodeSize);
+      let offset = 0;
+      while (raster.length - offset > 255) {
+        out.writeByte(255);
+        out.writeBytes(raster, offset, 255);
+        offset += 255;
+      }
+      out.writeByte(raster.length - offset);
+      out.writeBytes(raster, offset, raster.length - offset);
+      out.writeByte(0);
+      out.writeString(";");
+    };
+    const bitOutputStream = function(out) {
+      const _out = out;
+      let _bitLength = 0;
+      let _bitBuffer = 0;
+      const _this2 = {};
+      _this2.write = function(data, length) {
+        if (data >>> length != 0) {
+          throw "length over";
+        }
+        while (_bitLength + length >= 8) {
+          _out.writeByte(255 & (data << _bitLength | _bitBuffer));
+          length -= 8 - _bitLength;
+          data >>>= 8 - _bitLength;
+          _bitBuffer = 0;
+          _bitLength = 0;
+        }
+        _bitBuffer = data << _bitLength | _bitBuffer;
+        _bitLength = _bitLength + length;
+      };
+      _this2.flush = function() {
+        if (_bitLength > 0) {
+          _out.writeByte(_bitBuffer);
+        }
+      };
+      return _this2;
+    };
+    const getLZWRaster = function(lzwMinCodeSize) {
+      const clearCode = 1 << lzwMinCodeSize;
+      const endCode = (1 << lzwMinCodeSize) + 1;
+      let bitLength = lzwMinCodeSize + 1;
+      const table = lzwTable();
+      for (let i = 0; i < clearCode; i += 1) {
+        table.add(String.fromCharCode(i));
+      }
+      table.add(String.fromCharCode(clearCode));
+      table.add(String.fromCharCode(endCode));
+      const byteOut = byteArrayOutputStream();
+      const bitOut = bitOutputStream(byteOut);
+      bitOut.write(clearCode, bitLength);
+      let dataIndex = 0;
+      let s = String.fromCharCode(_data[dataIndex]);
+      dataIndex += 1;
+      while (dataIndex < _data.length) {
+        const c = String.fromCharCode(_data[dataIndex]);
+        dataIndex += 1;
+        if (table.contains(s + c)) {
+          s = s + c;
+        } else {
+          bitOut.write(table.indexOf(s), bitLength);
+          if (table.size() < 4095) {
+            if (table.size() == 1 << bitLength) {
+              bitLength += 1;
+            }
+            table.add(s + c);
+          }
+          s = c;
+        }
+      }
+      bitOut.write(table.indexOf(s), bitLength);
+      bitOut.write(endCode, bitLength);
+      bitOut.flush();
+      return byteOut.toByteArray();
+    };
+    const lzwTable = function() {
+      const _map = {};
+      let _size = 0;
+      const _this2 = {};
+      _this2.add = function(key) {
+        if (_this2.contains(key)) {
+          throw "dup key:" + key;
+        }
+        _map[key] = _size;
+        _size += 1;
+      };
+      _this2.size = function() {
+        return _size;
+      };
+      _this2.indexOf = function(key) {
+        return _map[key];
+      };
+      _this2.contains = function(key) {
+        return typeof _map[key] != "undefined";
+      };
+      return _this2;
+    };
+    return _this;
+  };
+  var createDataURL = function(width, height, getPixel) {
+    const gif = gifImage(width, height);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        gif.setPixel(x, y, getPixel(x, y));
+      }
+    }
+    const b = byteArrayOutputStream();
+    gif.write(b);
+    const base64 = base64EncodeOutputStream();
+    const bytes = b.toByteArray();
+    for (let i = 0; i < bytes.length; i += 1) {
+      base64.writeByte(bytes[i]);
+    }
+    base64.flush();
+    return "data:image/gif;base64," + base64;
+  };
+  var qrcode_default = qrcode;
+  var stringToBytes = qrcode.stringToBytes;
+
+  // src/qr.js
+  /*! QR codes made with qrcode-generator, (c) 2009 Kazuhiko Arase, MIT license. "QR Code" is a registered trademark of DENSO WAVE INCORPORATED. */
+  function qrMatrix(text3, level = "M") {
+    const qr = qrcode_default(0, level);
+    qr.addData(String(text3), "Byte");
+    qr.make();
+    const size = qr.getModuleCount();
+    return { size, dark: (r, c) => qr.isDark(r, c) };
+  }
+  function qrItems(text3, x, y, side, { fill = "#000000", background = "#ffffff" } = {}) {
+    const { size, dark } = qrMatrix(text3);
+    const total = size + 8;
+    const m = side / total;
+    const items = [{ t: "rect", x, y, w: side, h: side, fill: background }];
+    for (let r = 0; r < size; r += 1) {
+      let c = 0;
+      while (c < size) {
+        if (!dark(r, c)) {
+          c += 1;
+          continue;
+        }
+        let end = c;
+        while (end + 1 < size && dark(r, end + 1)) end += 1;
+        items.push({ t: "rect", x: x + (4 + c) * m, y: y + (4 + r) * m, w: (end - c + 1) * m + m * 0.02, h: m * 1.02, fill });
+        c = end + 1;
+      }
+    }
+    return items;
+  }
+  function qrSvg(text3, { className = "qr", label = "QR code" } = {}) {
+    const { size, dark } = qrMatrix(text3);
+    let d = "";
+    for (let r = 0; r < size; r += 1) {
+      for (let c = 0; c < size; c += 1) if (dark(r, c)) d += `M${c + 4} ${r + 4}h1v1h-1z`;
+    }
+    const total = size + 8;
+    return `<svg viewBox="0 0 ${total} ${total}" class="${className}" role="img" aria-label="${label}" shape-rendering="crispEdges"><rect width="${total}" height="${total}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
   }
 
   // src/cards.js
@@ -4344,7 +6378,7 @@ ${xrefAt}
     items.push(...trayItems(ch.looks, rows, cols, fit.x, fit.y, fit.cell));
     return items;
   }
-  function cardBack(book) {
+  function cardBack(book, { qr = null } = {}) {
     const { rows, cols } = bookTray(book);
     const W2 = cardWidth(book);
     const items = [
@@ -4352,6 +6386,21 @@ ${xrefAt}
       { t: "rect", x: 50, y: 50, w: W2 - 100, h: 900, r: 56, stroke: BACK_EDGE, sw: 10 }
     ];
     const art = defaultArt(rows, cols);
+    if (qr) {
+      const side = W2 === 1e3 ? 300 : 360;
+      const qx = W2 - 110 - side;
+      const qy = 1e3 - 110 - side;
+      const fitArt = fitTray(rows, cols, { x: 140, y: 110, w: W2 - 280, h: qy - 160 });
+      items.push(...trayItems(art, rows, cols, fitArt.x, fitArt.y, fitArt.cell));
+      items.push({ t: "rect", x: qx - 14, y: qy - 14, w: side + 28, h: side + 28, r: 24, fill: "#ffffff" });
+      items.push(...qrItems(qr, qx, qy, side));
+      const width = qx - 140 - 40;
+      const lines = wrapText(book.title || "Block Challenges", 58, width, true).slice(0, 3);
+      lines.forEach((line, i) => items.push(text2(130, qy + 70 + i * 66, line, 58, { bold: true })));
+      items.push(text2(130, qy + 70 + lines.length * 66 + 10, "Scan to play it", 40, { fill: MUTED2 }));
+      items.push(text2(130, qy + 70 + lines.length * 66 + 58, "in the app", 40, { fill: MUTED2 }));
+      return items;
+    }
     const title = wrapText(book.title || "Block Challenges", 76, W2 - 220, true).slice(0, 2);
     const titleTop = 1e3 - 170 - (title.length - 1) * 84;
     const fit = fitTray(rows, cols, { x: 140, y: 110, w: W2 - 280, h: titleTop - 190 });
@@ -4360,11 +6409,15 @@ ${xrefAt}
     items.push(text2(W2 / 2, titleTop + (title.length - 1) * 84 + 72, `${rows}×${cols} tray`, 46, { fill: MUTED2, anchor: "middle" }));
     return items;
   }
-  function cardSvg(book, index) {
+  function cardLink(book, index, base) {
+    const { rows, cols } = bookTray(book);
+    return designLink(base, rows, cols, book.challenges[index].looks);
+  }
+  function cardSvg(book, index, { back = index === null, qrBase = null } = {}) {
     const W2 = cardWidth(book);
-    const back = index === null;
-    const items = back ? cardBack(book) : cardFront(book, index);
-    const label = back ? "Back of the cards" : `Card ${index + 1}`;
+    const qr = back && qrBase && index !== null ? cardLink(book, index, qrBase) : null;
+    const items = back ? cardBack(book, { qr }) : cardFront(book, index);
+    const label = back ? index === null ? "Back of the cards" : `Back of card ${index + 1}` : `Card ${index + 1}`;
     return `<svg viewBox="0 0 ${W2} 1000" xmlns="http://www.w3.org/2000/svg" class="card-svg" role="img" aria-label="${label}"><rect width="${W2}" height="1000" fill="#ffffff"/>${itemsSvg(items)}</svg>`;
   }
   function drawCard(canvas, items, xMm, yMm, layout, width, images) {
@@ -4396,7 +6449,7 @@ ${xrefAt}
     }
     return y1;
   }
-  function cardsPdf(book) {
+  function cardsPdf(book, { qrBase = null } = {}) {
     const layout = cardSheet(book);
     const doc = new PdfDocument();
     const images = /* @__PURE__ */ new Map();
@@ -4411,13 +6464,241 @@ ${xrefAt}
         const canvas = doc.page(layout.sheetW * MM, layout.sheetH * MM);
         for (let k = 0; k < count; k += 1) {
           const { x, y } = cardSlot(layout, k, side === "back");
-          drawCard(canvas, side === "back" ? back : cardFront(book, first + k), x, y, layout, W2, images);
+          const face = side === "front" ? cardFront(book, first + k) : qrBase ? cardBack(book, { qr: cardLink(book, first + k, qrBase) }) : back;
+          drawCard(canvas, face, x, y, layout, W2, images);
         }
         const bottom = cutMarks(canvas, layout, Math.max(1, count));
         const cards = count > 1 ? `cards ${first + 1} to ${first + count}` : count === 1 ? `card ${first + 1}` : "no cards yet";
         const label = side === "front" ? `Sheet ${s + 1} of ${sheets}, fronts: ${cards}. Print the next page on the back.` : `Sheet ${s + 1} of ${sheets}, backs (other side of the same sheet, flip on the long edge).`;
         canvas.text(layout.sheetW * MM / 2, bottom + 12 * MM, label, { size: 8, fill: MARK, anchor: "middle" });
       }
+    }
+    return doc.toBytes();
+  }
+  function unlockCardItems(code, base, packName) {
+    const items = [
+      { t: "rect", x: 0, y: 0, w: 1e3, h: 1e3, fill: "#ffffff" },
+      { t: "rect", x: 34, y: 34, w: 932, h: 932, r: 60, fill: "#ffffff", stroke: BACK_EDGE, sw: 8 },
+      text2(500, 120, "Your digital pack", 54, { bold: true, anchor: "middle" })
+    ];
+    const name = wrapText(packName || "Block Challenges", 44, 800, false).slice(0, 2);
+    name.forEach((line, i) => items.push(text2(500, 180 + i * 52, line, 44, { fill: MUTED2, anchor: "middle" })));
+    const side = 460;
+    items.push(...qrItems(unlockLink(base, code), 270, 250, side));
+    items.push(text2(500, 800, code, 76, { bold: true, anchor: "middle" }));
+    items.push(text2(500, 870, "Scan with your phone camera,", 36, { fill: MUTED2, anchor: "middle" }));
+    items.push(text2(500, 914, "or type the code in My packs.", 36, { fill: MUTED2, anchor: "middle" }));
+    return items;
+  }
+  function unlockCardSvg(code, base, packName) {
+    return `<svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg" class="card-svg" role="img" aria-label="Unlock card ${code}">${itemsSvg(unlockCardItems(code, base, packName))}</svg>`;
+  }
+  function unlockCardsPdf(codes, base, packName, paper = "a4") {
+    const fake = { shape: "square", paper };
+    const layout = cardSheet(fake);
+    const doc = new PdfDocument();
+    const images = /* @__PURE__ */ new Map();
+    const sheets = Math.max(1, Math.ceil(codes.length / layout.perSheet));
+    for (let s = 0; s < sheets; s += 1) {
+      const canvas = doc.page(layout.sheetW * MM, layout.sheetH * MM);
+      const first = s * layout.perSheet;
+      const count = Math.min(layout.perSheet, codes.length - first);
+      for (let k = 0; k < count; k += 1) {
+        const { x, y } = cardSlot(layout, k);
+        drawCard(canvas, unlockCardItems(codes[first + k], base, packName), x, y, layout, 1e3, images);
+      }
+      const bottom = cutMarks(canvas, layout, Math.max(1, count));
+      canvas.text(layout.sheetW * MM / 2, bottom + 12 * MM, `Unlock cards for ${packName}: sheet ${s + 1} of ${sheets}. One card goes in each box.`, { size: 8, fill: MARK, anchor: "middle" });
+    }
+    return doc.toBytes();
+  }
+
+  // src/box.js
+  var TRAYS = {
+    "4x4": { w: 112, d: 112 },
+    "4x8": { w: 205, d: 112 }
+  };
+  var TRAY_HEIGHT = 15;
+  var LOADED_HEIGHT = 25;
+  var CARD_THICKNESS = 0.32;
+  var BOOKLET = { w: 100, d: 100, h: 2 };
+  var GAP = 3;
+  var CLEAR = 2;
+  var BLEED = 3;
+  var MATERIALS = {
+    carton: { name: "Folding carton, 0.5 mm", t: 0.5 },
+    board: { name: "Rigid board, 1.5 mm", t: 1.5 }
+  };
+  var LAYOUTS = {
+    beside: "Cards beside the tray",
+    top: "Cards on top of the pieces"
+  };
+  function traySize(rows, cols) {
+    const known = TRAYS[`${rows}x${cols}`];
+    if (known) return { ...known, h: LOADED_HEIGHT, measured: true };
+    return { w: cols * 24 + 16, d: rows * 24 + 16, h: LOADED_HEIGHT, measured: false };
+  }
+  var r1 = (n) => Math.round(n * 10) / 10;
+  function boxPlan({ rows, cols, cards = 24, layout = "beside", material = "carton", booklet = true }) {
+    const tray = traySize(rows, cols);
+    const card = CARD[cols > rows ? "rect" : "square"];
+    const deck = { w: card.w, d: card.h, h: r1(Math.max(1, cards) * CARD_THICKNESS) };
+    const book = booklet ? { ...BOOKLET, w: Math.min(BOOKLET.w, tray.w - 4), d: Math.min(BOOKLET.d, tray.d - 4) } : null;
+    const t = (MATERIALS[material] ?? MATERIALS.carton).t;
+    let inner;
+    let places;
+    if (layout === "top") {
+      inner = { l: tray.w + CLEAR, w: tray.d + CLEAR, h: r1(tray.h + deck.h + (book?.h ?? 0) + CLEAR) };
+      places = {
+        tray: { x: CLEAR / 2, y: CLEAR / 2, z: 0 },
+        deck: { x: CLEAR / 2 + (tray.w - deck.w) / 2, y: CLEAR / 2 + (tray.d - deck.d) / 2, z: tray.h },
+        booklet: book ? { x: CLEAR / 2 + (tray.w - book.w) / 2, y: CLEAR / 2 + (tray.d - book.d) / 2, z: tray.h + deck.h } : null
+      };
+    } else {
+      inner = {
+        l: tray.w + GAP + deck.w + CLEAR,
+        w: Math.max(tray.d, deck.d) + CLEAR,
+        h: r1(Math.max(tray.h + (book?.h ?? 0), deck.h) + CLEAR)
+      };
+      places = {
+        tray: { x: CLEAR / 2, y: CLEAR / 2, z: 0 },
+        deck: { x: CLEAR / 2 + tray.w + GAP, y: CLEAR / 2 + (tray.d - deck.d) / 2, z: 0 },
+        booklet: book ? { x: CLEAR / 2 + (tray.w - book.w) / 2, y: CLEAR / 2 + (tray.d - book.d) / 2, z: tray.h } : null
+      };
+    }
+    const base = { l: r1(inner.l + 2 * t), w: r1(inner.w + 2 * t), h: r1(inner.h + t) };
+    const lidInner = { l: r1(base.l + 1), w: r1(base.w + 1), h: base.h };
+    const lid = { l: r1(lidInner.l + 2 * t), w: r1(lidInner.w + 2 * t), h: r1(lidInner.h + t) };
+    return {
+      rows,
+      cols,
+      cards,
+      layout,
+      material,
+      t,
+      tray,
+      deck,
+      booklet: book,
+      inner,
+      places,
+      base,
+      lid,
+      // A flat shape is its floor (or top) with a wall folded up on each side.
+      flats: {
+        base: { panel: { l: inner.l, w: inner.w }, wall: inner.h },
+        lid: { panel: { l: lidInner.l, w: lidInner.w }, wall: lidInner.h }
+      }
+    };
+  }
+  var CUT = "#d0021b";
+  var FOLD = "#1f6feb";
+  var INK3 = "#1d1c19";
+  var MUTED3 = "#6f6a5c";
+  var ART = "#efe7d6";
+  var txt = (x, y, text3, size, opts = {}) => ({ t: "text", x, y, text: text3, size, fill: opts.fill ?? INK3, bold: !!opts.bold, anchor: opts.anchor ?? "middle" });
+  var cut = (x1, y1, x2, y2) => ({ t: "line", x1, y1, x2, y2, stroke: CUT, sw: 0.35 });
+  var fold = (x1, y1, x2, y2) => ({ t: "line", x1, y1, x2, y2, stroke: FOLD, sw: 0.35, dash: [3, 2] });
+  function dieline(kind, plan, opts = {}) {
+    const { panel, wall: h } = plan.flats[kind];
+    const a = panel.l;
+    const b = panel.w;
+    const m = 15;
+    const ox = m;
+    const oy = m;
+    const W2 = a + 2 * h;
+    const H = b + 2 * h;
+    const fw = Math.max(4, h - 2);
+    const taper = Math.min(4, fw / 3);
+    const items = [];
+    const X = (x) => ox + x;
+    const Y = (y) => oy + y;
+    if (kind === "lid") {
+      items.push({ t: "rect", x: X(h - BLEED), y: Y(-BLEED), w: a + 2 * BLEED, h: H + 2 * BLEED, fill: ART });
+      items.push({ t: "rect", x: X(-BLEED), y: Y(h - BLEED), w: W2 + 2 * BLEED, h: b + 2 * BLEED, fill: ART });
+      if (opts.cover?.src) {
+        items.push({ t: "image", src: opts.cover.src, width: opts.cover.width, height: opts.cover.height, x: X(h - BLEED), y: Y(h - BLEED), w: a + 2 * BLEED, h: b + 2 * BLEED });
+      } else {
+        items.push(txt(X(h + a / 2), Y(h + b / 2 - 6), "Cover art goes here", Math.min(9, a / 18), { bold: true, fill: MUTED3 }));
+        items.push(txt(X(h + a / 2), Y(h + b / 2 + 4), `${a} × ${b} mm, plus ${BLEED} mm bleed on every side`, Math.min(5, a / 34), { fill: MUTED3 }));
+      }
+      const front = Y(h + b + h / 2);
+      items.push(txt(X(h + a / 2), front + Math.min(4, h / 6), opts.title ?? "Building Blocks", Math.min(8, h / 2.6), { bold: true }));
+      if (opts.subtitle) items.push(txt(X(h + a / 2), front + Math.min(4, h / 6) + Math.min(6, h / 3.6), opts.subtitle, Math.min(4.5, h / 5.5), { fill: MUTED3 }));
+    } else {
+      const lines = [opts.title ?? "Building Blocks", ...opts.contents ?? [], "", ...opts.maker ?? []];
+      const size = Math.min(4.2, b / 22);
+      lines.forEach((line, i) => {
+        if (line) items.push(txt(X(h + a / 2), Y(h + 10 + i * size * 1.5), line, i === 0 ? size * 1.4 : size, { bold: i === 0, fill: i === 0 ? INK3 : MUTED3 }));
+      });
+      items.push(txt(X(h + a / 2), Y(h + b - 6), "This side is the outside of the bottom of the box", Math.min(3.4, b / 30), { fill: MUTED3 }));
+    }
+    items.push(fold(X(h), Y(h), X(h + a), Y(h)), fold(X(h), Y(h + b), X(h + a), Y(h + b)));
+    items.push(fold(X(h), Y(h), X(h), Y(h + b)), fold(X(h + a), Y(h), X(h + a), Y(h + b)));
+    items.push(fold(X(h), Y(0), X(h), Y(h)), fold(X(h + a), Y(0), X(h + a), Y(h)));
+    items.push(fold(X(h), Y(h + b), X(h), Y(H)), fold(X(h + a), Y(h + b), X(h + a), Y(H)));
+    items.push(cut(X(h), Y(0), X(h + a), Y(0)), cut(X(h), Y(H), X(h + a), Y(H)));
+    items.push(cut(X(h), Y(0), X(h - fw), Y(taper)), cut(X(h - fw), Y(taper), X(h - fw), Y(h)));
+    items.push(cut(X(h + a), Y(0), X(h + a + fw), Y(taper)), cut(X(h + a + fw), Y(taper), X(h + a + fw), Y(h)));
+    items.push(cut(X(h), Y(H), X(h - fw), Y(H - taper)), cut(X(h - fw), Y(H - taper), X(h - fw), Y(h + b)));
+    items.push(cut(X(h + a), Y(H), X(h + a + fw), Y(H - taper)), cut(X(h + a + fw), Y(H - taper), X(h + a + fw), Y(h + b)));
+    items.push(cut(X(0), Y(h), X(0), Y(h + b)), cut(X(W2), Y(h), X(W2), Y(h + b)));
+    items.push(cut(X(0), Y(h), X(h), Y(h)), cut(X(0), Y(h + b), X(h), Y(h + b)));
+    items.push(cut(X(h + a), Y(h), X(W2), Y(h)), cut(X(h + a), Y(h + b), X(W2), Y(h + b)));
+    const name = kind === "lid" ? "Lid" : "Base";
+    const outer = plan[kind];
+    items.push(txt(X(0), Y(-6), `${name}: ${outer.l} × ${outer.w} × ${outer.h} mm outside`, 4, { bold: true, anchor: "start" }));
+    items.push(txt(X(W2), Y(-6), `${MATERIALS[plan.material].name} · glue the flaps inside the short walls`, 3.2, { fill: MUTED3, anchor: "end" }));
+    items.push(txt(X(0), Y(H + 9), "Red: cut · Blue dashed: fold · Shaded: print area (with bleed)", 3.2, { fill: MUTED3, anchor: "start" }));
+    return { w: W2 + 2 * m, h: H + 2 * m + 4, items };
+  }
+  function contentsDrawing(plan) {
+    const { inner, tray, deck, booklet, places, rows, cols } = plan;
+    const m = 12;
+    const items = [];
+    const top = { x: m, y: m + 8 };
+    items.push(txt(top.x, top.y - 4, `Inside the box, from above: ${inner.l} × ${inner.w} mm`, 4.2, { bold: true, anchor: "start" }));
+    items.push({ t: "rect", x: top.x, y: top.y, w: inner.l, h: inner.w, fill: "#f6f1e6", stroke: INK3, sw: 0.5 });
+    const tx = top.x + places.tray.x;
+    const ty = top.y + places.tray.y;
+    items.push({ t: "rect", x: tx, y: ty, w: tray.w, h: tray.d, r: 3, fill: "#e8cf93", stroke: "#b89d66", sw: 0.4 });
+    const cell = Math.min((tray.w - 16) / cols, (tray.d - 16) / rows);
+    items.push(...trayItems(defaultArt(rows, cols), rows, cols, tx + (tray.w - cell * cols) / 2, ty + (tray.d - cell * rows) / 2, cell));
+    items.push(txt(tx + tray.w / 2, ty + tray.d + 5, `Tray with pieces ${tray.w} × ${tray.d} mm${tray.measured ? "" : " (estimate)"}`, 3.2, { fill: MUTED3 }));
+    const dx = top.x + places.deck.x;
+    const dy = top.y + places.deck.y;
+    items.push({ t: "rect", x: dx, y: dy, w: deck.w, h: deck.d, r: 3, fill: "#ecd9ab", stroke: "#b89d66", sw: 0.5, dash: plan.layout === "top" ? [2, 1.5] : void 0 });
+    items.push(txt(dx + deck.w / 2, dy + deck.d / 2, `${plan.cards} cards`, 3.6, { bold: true }));
+    items.push(txt(dx + deck.w / 2, dy + deck.d / 2 + 5, `${deck.w} × ${deck.d} × ${deck.h} mm`, 3, { fill: MUTED3 }));
+    if (booklet) {
+      const bx = top.x + places.booklet.x;
+      const by = top.y + places.booklet.y;
+      items.push({ t: "rect", x: bx, y: by, w: booklet.w, h: booklet.d, stroke: MUTED3, sw: 0.4, dash: [1.5, 1.5] });
+      items.push(txt(bx + booklet.w / 2, by + 6, `Rules booklet on top (${booklet.w} × ${booklet.d} mm)`, 3, { fill: MUTED3 }));
+    }
+    const side = { x: m, y: top.y + inner.w + 28 };
+    items.push(txt(side.x, side.y - 4, `From the side: ${inner.h} mm high inside`, 4.2, { bold: true, anchor: "start" }));
+    items.push({ t: "rect", x: side.x, y: side.y, w: inner.l, h: inner.h, fill: "#f6f1e6", stroke: INK3, sw: 0.5 });
+    const floor = side.y + inner.h;
+    items.push({ t: "rect", x: side.x + places.tray.x, y: floor - TRAY_HEIGHT, w: tray.w, h: TRAY_HEIGHT, fill: "#e8cf93", stroke: "#b89d66", sw: 0.4 });
+    items.push({ t: "rect", x: side.x + places.tray.x + 8, y: floor - tray.h, w: tray.w - 16, h: tray.h - TRAY_HEIGHT + 2, fill: "#1d1c19" });
+    items.push({ t: "rect", x: side.x + places.deck.x, y: floor - places.deck.z - deck.h, w: deck.w, h: deck.h, fill: "#ecd9ab", stroke: "#b89d66", sw: 0.4 });
+    if (booklet) items.push({ t: "rect", x: side.x + places.booklet.x, y: floor - places.booklet.z - booklet.h, w: booklet.w, h: booklet.h, fill: "#ffffff", stroke: MUTED3, sw: 0.3 });
+    items.push(txt(side.x + inner.l + 3, floor - TRAY_HEIGHT / 2 + 1, `tray ${TRAY_HEIGHT}`, 3, { fill: MUTED3, anchor: "start" }));
+    items.push(txt(side.x + inner.l + 3, floor - tray.h + 1, `pieces ${tray.h}`, 3, { fill: MUTED3, anchor: "start" }));
+    const w = Math.max(inner.l + 2 * m + 22, 120);
+    const h = side.y + inner.h + m;
+    return { w, h, items };
+  }
+  function drawingSvg(drawing, itemsSvg2, label) {
+    return `<svg viewBox="0 0 ${drawing.w.toFixed(1)} ${drawing.h.toFixed(1)}" xmlns="http://www.w3.org/2000/svg" class="box-svg" role="img" aria-label="${label}"><rect width="${drawing.w.toFixed(1)}" height="${drawing.h.toFixed(1)}" fill="#ffffff"/>${itemsSvg2(drawing.items)}</svg>`;
+  }
+  function boxPdf(plan, opts = {}) {
+    const doc = new PdfDocument();
+    const images = /* @__PURE__ */ new Map();
+    for (const drawing of [dieline("lid", plan, opts), dieline("base", plan, opts), contentsDrawing(plan)]) {
+      const page = doc.page(drawing.w * MM, drawing.h * MM);
+      page.setFrame(0, 0, 1e3 * MM, 1e3);
+      drawItemsPdf(page, drawing.items, images);
     }
     return doc.toBytes();
   }
@@ -4456,7 +6737,7 @@ ${xrefAt}
   // src/render2d.js
   var CELL = 100;
   var RIM = 34;
-  var GAP = 1.7;
+  var GAP2 = 1.7;
   var RADIUS = 7;
   var SQUARE = [[0, 0], [1, 0], [1, 1], [0, 1]];
   var f1 = (n) => (Math.round(n * 10) / 10).toString();
@@ -4525,7 +6806,7 @@ ${xrefAt}
     }
     return `${d}Z`;
   }
-  var outlinePath = (points) => roundedPath(insetConvex2(points, GAP), RADIUS);
+  var outlinePath = (points) => roundedPath(insetConvex2(points, GAP2), RADIUS);
   function pieceShape(board, piece, { xray = false } = {}) {
     if (piece.type === "tri") {
       const h = piece.o;
@@ -4811,7 +7092,9 @@ ${slopes}
         book.n,
         book.challenges.map((c) => `${c.looks.join("")}:${c.difficulty}`),
         book.cover.front?.src.length ?? 0,
-        book.cover.back?.src.length ?? 0
+        book.cover.back?.src.length ?? 0,
+        ctx.cardQrBase(),
+        state2().box
       ]);
     }
     function pageBox(book, number, pages, extra = "") {
@@ -4857,8 +7140,37 @@ ${slopes}
       return `<div class="deck is-${book.shape}">
 <p class="muted">${n} card${n === 1 ? "" : "s"} of ${layout.w} × ${layout.h} mm: ${layout.perSheet} fit on a sheet of ${PAPER[book.paper].name}, so ${sheets} sheet${sheets === 1 ? "" : "s"}, printed on both sides.</p>
 ${n ? `<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book, i), "")).join("")}</div>` : '<p class="muted">No challenges yet: each challenge you add becomes a card.</p>'}
-<h3 class="deck-h">The back of every card</h3>
-<div class="deck-grid">${face(cardSvg(book, null), "")}</div>
+${ctx.cardQrBase() && n ? `<h3 class="deck-h">The backs, each with the QR code of its card</h3>
+<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book, i, { back: true, qrBase: ctx.cardQrBase() }), `Back of ${i + 1}`)).join("")}</div>` : `<h3 class="deck-h">The back of every card</h3>
+<div class="deck-grid">${face(cardSvg(book, null), "")}</div>`}
+</div>`;
+    }
+    function boxFor(book) {
+      const { rows, cols } = bookTray(book);
+      const bx = state2().box;
+      const cards = book.challenges.length || 24;
+      const plan = boxPlan({ rows, cols, cards, layout: bx.layout, material: bx.material });
+      const opts = {
+        title: book.title || "Block Challenges",
+        subtitle: `${rows * cols} pieces · ${cards} cards · 14+`,
+        cover: book.cover.front,
+        contents: [`Inside: 1 tray (${rows}×${cols}), ${rows * cols} pieces, ${cards} cards, rules`],
+        maker: bx.maker.split("\n").map((l) => l.trim()).filter(Boolean)
+      };
+      return { plan, opts, cards };
+    }
+    function boxMarkup(book) {
+      const { plan, opts } = boxFor(book);
+      const row = (label, d) => `<tr><th>${label}</th><td>${d.l} × ${d.w} × ${d.h} mm</td></tr>`;
+      return `<div class="box-view">
+<table class="box-sizes"><tbody>
+${row("Space inside", plan.inner)}${row("Base, outside", plan.base)}${row("Lid, outside", plan.lid)}
+<tr><th>Tray with pieces</th><td>${plan.tray.w} × ${plan.tray.d} × ${plan.tray.h} mm${plan.tray.measured ? " (measured)" : " (estimate: measure yours)"}</td></tr>
+<tr><th>Deck</th><td>${plan.cards} cards, ${plan.deck.w} × ${plan.deck.d} × ${plan.deck.h} mm (card thickness guessed: measure a proof deck)</td></tr>
+</tbody></table>
+<figure class="box-fig">${drawingSvg(contentsDrawing(plan), itemsSvg, "What goes where in the box")}<figcaption>What goes where</figcaption></figure>
+<figure class="box-fig">${drawingSvg(dieline("lid", plan, opts), itemsSvg, "The lid, flat")}<figcaption>The lid, flat${book.cover.front ? "" : ": the cover art goes on the top (add a front cover to the book)"}</figcaption></figure>
+<figure class="box-fig">${drawingSvg(dieline("base", plan, opts), itemsSvg, "The base, flat")}<figcaption>The base, flat</figcaption></figure>
 </div>`;
     }
     function renderStage2(container) {
@@ -4869,9 +7181,9 @@ ${n ? `<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book,
         const pages = bookPages(book);
         const view = st.bookView;
         st.bookLeaf = Math.min(st.bookLeaf ?? 0, pages.length / 2);
-        const views = [["3d", "Book (3D)"], ["spreads", "Spreads"], ["sheets", "Print sheets"], ["cards", "Cards"]].map(([id, label]) => `<button type="button" class="chip${view === id ? " is-on" : ""}" data-action="book-view" data-id="${id}" aria-pressed="${view === id}">${label}</button>`).join("");
-        const body = view === "spreads" ? spreadsMarkup(book, pages) : view === "sheets" ? sheetsMarkup(book, pages) : view === "cards" ? cardsMarkup(book) : flipbookMarkup(book, pages);
-        const about = view === "cards" ? `${book.challenges.length} card${book.challenges.length === 1 ? "" : "s"}` : `${pages.length} pages · ${pages.length / 4} sheet${pages.length > 4 ? "s" : ""} of ${PAPER[book.paper].name}`;
+        const views = [["3d", "Book (3D)"], ["spreads", "Spreads"], ["sheets", "Print sheets"], ["cards", "Cards"], ["box", "Box"]].map(([id, label]) => `<button type="button" class="chip${view === id ? " is-on" : ""}" data-action="book-view" data-id="${id}" aria-pressed="${view === id}">${label}</button>`).join("");
+        const body = view === "spreads" ? spreadsMarkup(book, pages) : view === "sheets" ? sheetsMarkup(book, pages) : view === "cards" ? cardsMarkup(book) : view === "box" ? boxMarkup(book) : flipbookMarkup(book, pages);
+        const about = view === "box" ? `A base and a lid for the ${bookTray(book).rows}×${bookTray(book).cols} tray and ${book.challenges.length || 24} cards` : view === "cards" ? `${book.challenges.length} card${book.challenges.length === 1 ? "" : "s"}` : `${pages.length} pages · ${pages.length / 4} sheet${pages.length > 4 ? "s" : ""} of ${PAPER[book.paper].name}`;
         container.innerHTML = `<div class="book-head"><div class="chips" role="group" aria-label="Preview">${views}</div>
 <p class="muted">${about}</p></div>
 <div class="book-preview view-${view}">${body}</div>`;
@@ -5034,7 +7346,23 @@ ${coverRow("back", "Back cover")}
 <button type="button" class="btn primary" data-action="book-cards-pdf">${ICONS.download}PDF of the cards</button>
 <button type="button" class="btn" data-action="book-view" data-id="cards"${st.bookView === "cards" ? " disabled" : ""}>Show the cards</button>
 </div>
-<p class="hint">Print it on ${PAPER[book.paper].name}, both sides, <b>flip on the long edge</b>, so each card gets the back. Then cut along the marks.</p>
+<button type="button" class="chip${st.cardQr ? " is-on" : ""}" data-action="book-card-qr" aria-pressed="${!!st.cardQr}">QR codes on the card backs</button>
+<p class="hint">Print it on ${PAPER[book.paper].name}, both sides, <b>flip on the long edge</b>, so each card gets the back. Then cut along the marks.${st.cardQr ? " Each back then has the QR code of its card: scanning it opens that picture in the app." : ""}</p>
+</section>
+<section class="card" aria-labelledby="box-h">
+<h2 id="box-h">Box</h2>
+<p class="muted">A base and a lid that hold the tray with its pieces, the cards and the rules, sized from your measurements. Print the flat shapes, cut the red lines, fold the blue ones.</p>
+<p class="field-label">Inside</p>
+<div class="chips tight" role="group" aria-label="Box layout">${Object.entries(LAYOUTS).map(([id, label]) => `<button type="button" class="chip${st.box.layout === id ? " is-on" : ""}" data-action="box-layout" data-id="${id}" aria-pressed="${st.box.layout === id}">${label}</button>`).join("")}</div>
+<p class="field-label">Material</p>
+<div class="chips tight" role="group" aria-label="Box material">${Object.entries(MATERIALS).map(([id, m]) => `<button type="button" class="chip${st.box.material === id ? " is-on" : ""}" data-action="box-material" data-id="${id}" aria-pressed="${st.box.material === id}">${m.name}</button>`).join("")}</div>
+<label class="field-label" for="boxMaker">Your name and address, for the underside (product safety rules)</label>
+<textarea class="text-input pk-paste" id="boxMaker" rows="3" maxlength="400" placeholder="Name&#10;Street, town&#10;Batch 1">${esc2(st.box.maker)}</textarea>
+<div class="row-buttons">
+<button type="button" class="btn primary" data-action="box-pdf">${ICONS.download}PDF of the box</button>
+<button type="button" class="btn" data-action="book-view" data-id="box"${st.bookView === "box" ? " disabled" : ""}>Show the box</button>
+</div>
+<p class="hint">The cover art for the lid is the book's front cover. The PDF is full size, one page each for the lid, the base and the layout.</p>
 </section>`;
     }
     function addLooks(looks, answer, source) {
@@ -5073,7 +7401,11 @@ ${coverRow("back", "Back cover")}
         ctx.setStatus("Add some challenges first: each one becomes a card.", true, "bad");
         return;
       }
-      const bytes = cardsPdf(book);
+      if (state2().cardQr && !ctx.cardQrBase()) {
+        ctx.setStatus("Fill in where buyers open the app (Packs › Sell this pack) for the QR codes, or turn them off.", true, "bad");
+        return;
+      }
+      const bytes = cardsPdf(book, { qrBase: ctx.cardQrBase() });
       const name = `${slug(book.title)}-cards.pdf`;
       const res = await ctx.saveFile(name, new Blob([bytes], { type: "application/pdf" }), "application/pdf");
       if (res === "saved") ctx.setStatus(`Saved ${name}.`);
@@ -5198,10 +7530,42 @@ ${coverRow("back", "Back cover")}
       "book-cards-pdf": exportCards,
       "book-export": exportJson,
       "book-import": () => pickFile("application/json,.json", importFile),
-      "book-copy": () => ctx.copyText(exportBook(currentBook()), "Book")
+      "book-copy": () => ctx.copyText(exportBook(currentBook()), "Book"),
+      "book-card-qr": () => {
+        const st = state2();
+        st.cardQr = !st.cardQr;
+        if (st.cardQr && !ctx.cardQrBase()) ctx.setStatus("The QR codes need the address where buyers open the app: fill it in under Packs › Sell this pack.", true, "bad");
+        changed();
+      },
+      "box-layout": (el) => {
+        state2().box.layout = el.dataset.id;
+        changed();
+      },
+      "box-material": (el) => {
+        state2().box.material = el.dataset.id;
+        changed();
+      },
+      "box-pdf": async () => {
+        const book = currentBook();
+        const { plan, opts } = boxFor(book);
+        const name = `${slug(book.title)}-box.pdf`;
+        const res = await ctx.saveFile(name, new Blob([boxPdf(plan, opts)], { type: "application/pdf" }), "application/pdf");
+        if (res === "saved") ctx.setStatus(`Saved ${name}: print it at 100% (no scaling).`);
+        else if (res === "failed") ctx.setStatus("The PDF could not be saved here.", true, "bad");
+      }
     };
     function attach() {
       document.getElementById("panel").addEventListener("input", (evt) => {
+        if (evt.target.id === "boxMaker") {
+          state2().box.maker = evt.target.value.slice(0, 400);
+          clearTimeout(titleTimer);
+          titleTimer = setTimeout(() => {
+            builtFor = "";
+            ctx.scheduleSave();
+            if (state2().bookView === "box") renderStage2(document.getElementById("bookStage"));
+          }, 350);
+          return;
+        }
         if (evt.target.id !== "bookTitle") return;
         currentBook().title = evt.target.value.slice(0, MAX_TITLE);
         clearTimeout(titleTimer);
@@ -5228,141 +7592,6 @@ ${coverRow("back", "Back cover")}
       ctx.scheduleSave();
     }
     return { renderStage: renderStage2, panelMarkup, actions, attach, onKey, currentBook, bookTraySize, addFromCheck, bookFor, invalidate };
-  }
-
-  // src/builtinpacks.js
-  var BUILT_IN_PACKS = [
-    {
-      id: "starter-4x4",
-      name: "Starter 4×4",
-      rows: 4,
-      cols: 4,
-      designs: [
-        { looks: "1121/1122/1122/1122", stars: 1 },
-        { looks: "5111/2121/2223/1122", stars: 1 },
-        { looks: "2411/2221/5122/1124", stars: 2 },
-        { looks: "2212/2432/2416/1111", stars: 2 },
-        { looks: "6512/1322/1132/2141", stars: 3 },
-        { looks: "6113/1322/2266/2411", stars: 3 }
-      ]
-    }
-  ];
-
-  // src/packs.js
-  var PACK_FORMAT = "building-blocks-pack";
-  var PACK_VERSION = 1;
-  var MAX_PACK_NAME = 60;
-  var PACK_SIZES = Object.freeze([
-    ...BOOK_SIZES.square.map((n) => ({ shape: "square", n, rows: n, cols: n })),
-    ...BOOK_SIZES.rect.map((n) => ({ shape: "rect", n, rows: n, cols: 2 * n }))
-  ]);
-  var sizeLabel = (rows, cols) => `${rows}×${cols}`;
-  var isPackSize = (rows, cols) => PACK_SIZES.some((s) => s.rows === rows && s.cols === cols);
-  function bookShapeFor(rows, cols) {
-    const s = PACK_SIZES.find((x) => x.rows === rows && x.cols === cols);
-    return s ? { shape: s.shape, n: s.n } : null;
-  }
-  var designKey = (rows, cols, looks) => `${rows}x${cols}:${looks.join("")}`;
-  function slugify(s) {
-    return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "pack";
-  }
-  function looksToText(looks, cols) {
-    const rows = [];
-    for (let i = 0; i < looks.length; i += cols) rows.push(looks.slice(i, i + cols).join(""));
-    return rows.join("/");
-  }
-  function textToLooks(text3, rows, cols) {
-    const digits = String(text3).replace(/[\s/,|]+/g, "");
-    if (!/^[1-6]*$/.test(digits)) throw new Error("A design may only use the digits 1 to 6.");
-    if (digits.length !== rows * cols) throw new Error(`A ${sizeLabel(rows, cols)} design needs ${rows * cols} squares; this one has ${digits.length}.`);
-    return [...digits].map(Number);
-  }
-  function newPack({ id, name = "New pack", rows = 4, cols = 4 } = {}) {
-    if (!isPackSize(rows, cols)) throw new Error(`Packs can be ${PACK_SIZES.map((s) => sizeLabel(s.rows, s.cols)).join(", ")}.`);
-    return { id: id ?? `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, rows, cols, builtIn: false, designs: [] };
-  }
-  function normalizePack(raw, { builtIn = false } = {}) {
-    if (!raw || typeof raw !== "object") throw new Error("That is not a pack.");
-    const rows = Number(raw.rows);
-    const cols = Number(raw.cols);
-    if (!isPackSize(rows, cols)) {
-      throw new Error(`The pack is ${raw.rows}×${raw.cols}; packs can be ${PACK_SIZES.map((s) => sizeLabel(s.rows, s.cols)).join(", ")}.`);
-    }
-    if (!Array.isArray(raw.designs)) throw new Error("The pack has no list of designs.");
-    const designs = raw.designs.map((d, i) => {
-      let looks;
-      try {
-        looks = Array.isArray(d?.looks) ? d.looks.map(Number) : textToLooks(d?.looks ?? "", rows, cols);
-      } catch (err) {
-        throw new Error(`Design ${i + 1}: ${err.message}`);
-      }
-      if (looks.length !== rows * cols || !looks.every((l) => Number.isInteger(l) && l >= LOOK.WHITE && l <= LOOK.BACK_BW)) {
-        throw new Error(`Design ${i + 1} does not fit a ${sizeLabel(rows, cols)} tray.`);
-      }
-      const stars2 = [1, 2, 3].includes(Number(d.stars)) ? Number(d.stars) : suggestDifficulty(looks);
-      return { looks, stars: stars2 };
-    });
-    const name = typeof raw.name === "string" && raw.name.trim() ? raw.name.trim().slice(0, MAX_PACK_NAME) : "Pack";
-    const id = typeof raw.id === "string" && raw.id ? raw.id : slugify(name);
-    return { id: builtIn ? `builtin:${id}` : id, name, rows, cols, builtIn, designs };
-  }
-  var builtInPacks = () => BUILT_IN_PACKS.map((p) => normalizePack(p, { builtIn: true }));
-  function packToCode(pack) {
-    const id = pack.builtIn ? pack.id.replace(/^builtin:/, "") : slugify(pack.name);
-    const lines = pack.designs.map((d) => `    { "looks": ${JSON.stringify(looksToText(d.looks, pack.cols))}, "stars": ${d.stars} }`);
-    return `{
-  "format": "${PACK_FORMAT}",
-  "version": ${PACK_VERSION},
-  "id": ${JSON.stringify(id)},
-  "name": ${JSON.stringify(pack.name)},
-  "rows": ${pack.rows},
-  "cols": ${pack.cols},
-  "designs": [
-${lines.join(",\n")}
-  ]
-}`;
-  }
-  function parsePacks(text3) {
-    const cleaned = String(text3).replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*export\s+const\s+\w+\s*=\s*/m, "").replace(/;\s*$/, "").replace(/,\s*([\]}])/g, "$1").replace(/,\s*$/, "").trim();
-    if (!cleaned) throw new Error("There is nothing to read.");
-    let data;
-    try {
-      data = JSON.parse(cleaned);
-    } catch {
-      try {
-        data = JSON.parse(cleaned.replace(/([{,]\s*)([A-Za-z_]\w*)\s*:/g, '$1"$2":').replace(/'([^'\\]*)'/g, '"$1"'));
-      } catch {
-        throw new Error("That text is not a pack (it should look like what “Copy as code” gives).");
-      }
-    }
-    if (data && data.format && data.format !== PACK_FORMAT) throw new Error("That file is not a pack from this app.");
-    if (data && data.version > PACK_VERSION) throw new Error("That pack was saved by a newer version of the app.");
-    const list = Array.isArray(data) ? data : data?.pack ? [data.pack] : Array.isArray(data?.packs) ? data.packs : [data];
-    if (!list.length) throw new Error("There are no packs in that text.");
-    return list.map((p) => normalizePack(p));
-  }
-  function addDesigns(pack, designs) {
-    const seen = new Set(pack.designs.map((d) => d.looks.join("")));
-    let added = 0;
-    let duplicates = 0;
-    for (const d of designs) {
-      const key = d.looks.join("");
-      if (seen.has(key)) {
-        duplicates += 1;
-        continue;
-      }
-      seen.add(key);
-      pack.designs.push({ looks: d.looks.slice(), stars: [1, 2, 3].includes(d.stars) ? d.stars : suggestDifficulty(d.looks) });
-      added += 1;
-    }
-    return { added, duplicates };
-  }
-  function packFromBook(book, id) {
-    const rows = book.n;
-    const cols = book.shape === "rect" ? 2 * book.n : book.n;
-    const pack = newPack({ id, name: book.title || "From the book", rows, cols });
-    addDesigns(pack, book.challenges.map((c) => ({ looks: c.looks, stars: c.difficulty })));
-    return pack;
   }
 
   // src/solver.js
@@ -6276,6 +8505,103 @@ ${lines.join(",\n")}
     return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
   }
 
+  // src/lock.js
+  var LOCK_FORMAT = "building-blocks-locked-pack";
+  var LOCK_VERSION = 1;
+  var ITERATIONS = 12e4;
+  var subtle = () => {
+    const s = globalThis.crypto?.subtle;
+    if (!s) throw new Error("This browser cannot unlock packs (no Web Crypto).");
+    return s;
+  };
+  var enc = new TextEncoder();
+  var dec = new TextDecoder();
+  function toBase64(bytes) {
+    let bin = "";
+    const arr = new Uint8Array(bytes);
+    for (let i = 0; i < arr.length; i += 1) bin += String.fromCharCode(arr[i]);
+    return btoa(bin);
+  }
+  function fromBase64(text3) {
+    const bin = atob(text3);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  var randomBytes = (n) => globalThis.crypto.getRandomValues(new Uint8Array(n));
+  function makeCodes(n) {
+    const codes = /* @__PURE__ */ new Set();
+    while (codes.size < n) {
+      const bytes = randomBytes(12);
+      let raw = "";
+      for (const b of bytes) raw += CODE_ALPHABET[b % CODE_ALPHABET.length];
+      codes.add(normalizeCode(raw));
+    }
+    return [...codes];
+  }
+  async function codeKey(code, salt, iterations) {
+    const material = await subtle().importKey("raw", enc.encode(normalizeCode(code)), "PBKDF2", false, ["deriveKey"]);
+    return subtle().deriveKey({ name: "PBKDF2", salt, iterations, hash: "SHA-256" }, material, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  }
+  async function lockPack(pack, codes, { iterations = ITERATIONS } = {}) {
+    const s = subtle();
+    const rawKey = randomBytes(32);
+    const packKey = await s.importKey("raw", rawKey, "AES-GCM", false, ["encrypt"]);
+    const salt = randomBytes(16);
+    const iv = randomBytes(12);
+    const designs = pack.designs.map((d) => ({ looks: d.looks.join(""), stars: d.stars }));
+    const data = new Uint8Array(await s.encrypt({ name: "AES-GCM", iv }, packKey, enc.encode(JSON.stringify(designs))));
+    const keys = [];
+    for (const code of codes) {
+      const k = await codeKey(code, salt, iterations);
+      const kiv = randomBytes(12);
+      keys.push({ iv: toBase64(kiv), key: toBase64(new Uint8Array(await s.encrypt({ name: "AES-GCM", iv: kiv }, k, rawKey))) });
+    }
+    keys.sort((a, b) => a.key < b.key ? -1 : 1);
+    return {
+      format: LOCK_FORMAT,
+      version: LOCK_VERSION,
+      id: pack.id.replace(/^builtin:/, ""),
+      name: pack.name,
+      rows: pack.rows,
+      cols: pack.cols,
+      count: pack.designs.length,
+      salt: toBase64(salt),
+      iterations,
+      iv: toBase64(iv),
+      data: toBase64(data),
+      keys
+    };
+  }
+  function isLockedPack(x) {
+    return !!x && x.format === LOCK_FORMAT && typeof x.data === "string" && Array.isArray(x.keys) && typeof x.salt === "string" && Number.isInteger(x.rows) && Number.isInteger(x.cols) && Number.isInteger(x.iterations);
+  }
+  async function unlockPack(locked, code) {
+    if (!isLockedPack(locked)) return null;
+    const s = subtle();
+    const k = await codeKey(code, fromBase64(locked.salt), locked.iterations);
+    for (const entry of locked.keys) {
+      let rawKey;
+      try {
+        rawKey = await s.decrypt({ name: "AES-GCM", iv: fromBase64(entry.iv) }, k, fromBase64(entry.key));
+      } catch {
+        continue;
+      }
+      const packKey = await s.importKey("raw", rawKey, "AES-GCM", false, ["decrypt"]);
+      const plain = await s.decrypt({ name: "AES-GCM", iv: fromBase64(locked.iv) }, packKey, fromBase64(locked.data));
+      const designs = JSON.parse(dec.decode(plain));
+      return normalizePack({ id: locked.id, name: locked.name, rows: locked.rows, cols: locked.cols, designs });
+    }
+    return null;
+  }
+  async function unlockAny(lockedPacks2, code) {
+    for (const locked of lockedPacks2) {
+      const pack = await unlockPack(locked, code);
+      if (pack) return { locked, pack };
+    }
+    return null;
+  }
+
   // src/packui.js
   var esc3 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   var plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -6422,6 +8748,7 @@ ${lines.join(",\n")}
       }
     }
     const showingPhoto = () => state2().packView === "photo" && !!photo;
+    const showingQr = () => state2().packView === "qr";
     function paintGrid() {
       if (showingPhoto()) return null;
       const pack = currentPack();
@@ -6610,9 +8937,77 @@ ${viewing ? "" : `<div class="row-buttons"><button type="button" class="btn prim
 </div>
 </section>`;
     }
+    const packSig = (pack) => pack.designs.map((d) => `${d.looks.join("")}${d.stars}`).join("|");
+    const saleOf = (pack) => state2().sale.locked[pack.id] ?? null;
+    const appBase = () => state2().sale.appUrl.trim();
+    let locking = false;
+    function sellCard() {
+      const pack = currentPack();
+      const sale = saleOf(pack);
+      const stale = sale && sale.sig !== packSig(pack);
+      const countChips = (action, counts) => counts.map((n) => `<button type="button" class="chip" data-action="${action}" data-count="${n}" ${locking || !pack.designs.length ? "disabled" : ""}>${n}</button>`).join("");
+      const codesPart = !sale ? `<p class="field-label">Make unlock codes (one per box)</p>
+<div class="chips tight" role="group" aria-label="How many codes">${countChips("sale-lock", [10, 25, 50, 100])}</div>` : `<p><b>${plural(sale.codes.length, "code")}</b> made${sale.at ? ` on ${esc3(sale.at)}` : ""}.</p>
+${stale ? `<p class="hint is-bad">The pack has changed since. Lock it again so buyers get the new designs; the codes stay the same.</p>
+<div class="row-buttons"><button type="button" class="btn small primary" data-action="sale-relock" ${locking ? "disabled" : ""}>Lock it again</button></div>` : ""}
+<div class="row-buttons">
+<button type="button" class="btn small" data-action="sale-copy-codes">${ICONS.copy}Copy the codes</button>
+<button type="button" class="btn small" data-action="sale-copy-locked">${ICONS.copy}Copy locked pack as code</button>
+</div>
+<p class="field-label">More codes</p>
+<div class="chips tight" role="group" aria-label="More codes">${countChips("sale-more", [10, 25, 50])}<button type="button" class="chip" data-action="sale-forget">Forget the codes</button></div>`;
+      return `<section class="card" aria-labelledby="sell-h">
+<h2 id="sell-h">Sell this pack</h2>
+<p class="muted">Each box gets a card with its own code. The code unlocks this pack, and only this pack, in the buyer's app; nobody can read the designs without one.</p>
+<label class="field-label" for="appUrl">Where buyers open the app</label>
+<input class="text-input" id="appUrl" value="${esc3(state2().sale.appUrl)}" placeholder="https://your-site.com/blocks/" autocomplete="off" spellcheck="false">
+<p class="hint">The QR codes on the cards point to this address.${appBase() ? "" : " Fill it in before printing anything with QR codes."}</p>
+${codesPart}
+<div class="row-buttons">
+<button type="button" class="btn small" data-action="sale-qr">QR codes and unlock cards</button>
+<button type="button" class="btn small" data-action="sale-preview">${ICONS.play}Preview as a customer</button>
+</div>
+<p class="hint">The codes are kept only in this browser and in copies you make: copy them somewhere safe. They never go into the app. To build a sold pack into the app, paste “Copy locked pack as code” into the locked list in <code>src/builtinpacks.js</code>.</p>
+</section>`;
+    }
+    function renderQrStage(container) {
+      const pack = currentPack();
+      const sale = saleOf(pack);
+      const base = appBase() || "https://example.com/";
+      const thumb = Math.max(4, Math.round(44 / Math.max(pack.rows, pack.cols)));
+      const cards = pack.designs.map((d, i) => `<figure class="qr-item"><div class="qr-pair"><span class="pk-thumb">${flatPicture(pack.rows, pack.cols, d.looks, { cell: thumb, gap: 1 })}</span>${qrSvg(designLink(base, pack.rows, pack.cols, d.looks), { label: `QR code for design ${i + 1}` })}</div><figcaption>Card ${i + 1} ${"★".repeat(d.stars)}</figcaption></figure>`).join("");
+      const shown = sale ? sale.codes.slice(0, 6) : [];
+      container.innerHTML = `<div class="qr-sheet">
+<div class="qr-head"><h2 class="pl-title">QR codes: ${esc3(pack.name)}</h2><button type="button" class="btn small" data-action="sale-qr-hide">${ICONS.prev}Back to the pack</button></div>
+${appBase() ? `<p class="muted">They open <b>${esc3(base)}</b>.</p>` : '<p class="hint is-bad">No app address yet (Sell this pack): these point to example.com, just to show them.</p>'}
+<h3 class="deck-h">On the back of each card</h3>
+<p class="hint">Scanning one opens that design as a challenge. To print them, turn on “QR codes on the card backs” in Challenge book › Cards.</p>
+<div class="qr-grid">${cards || '<p class="muted">No designs yet.</p>'}</div>
+<h3 class="deck-h">Unlock cards, one in each box</h3>
+${sale ? `<div class="deck-grid qr-unlock">${shown.map((c) => `<figure class="deck-card"><div class="card-face">${unlockCardSvg(c, base, pack.name)}</div></figure>`).join("")}</div>
+${sale.codes.length > shown.length ? `<p class="hint">and ${sale.codes.length - shown.length} more in the PDF.</p>` : ""}
+<div class="row-buttons"><button type="button" class="btn primary" data-action="sale-unlock-pdf">${ICONS.download}PDF of the ${plural(sale.codes.length, "unlock card")}</button></div>` : '<p class="muted">Make the codes first (Sell this pack, in the panel).</p>'}
+</div>`;
+    }
+    async function lockWith(pack, codes, done2) {
+      if (locking) return;
+      locking = true;
+      ctx.renderPanel();
+      ctx.setStatus(`Locking “${pack.name}” with ${plural(codes.length, "code")}…`, false);
+      try {
+        const locked = await lockPack(pack, codes);
+        state2().sale.locked[pack.id] = { locked, codes, sig: packSig(pack), at: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) };
+        ctx.setStatus(done2, true, "ok");
+      } catch (err) {
+        ctx.setStatus(`Could not lock the pack: ${err.message}`, true, "bad");
+      } finally {
+        locking = false;
+        changed();
+      }
+    }
     function panelMarkup() {
       const showPhotoFirst = showingPhoto();
-      return showPhotoFirst ? `${photoCard()}${designsCard()}${useCard()}${exportCard()}${packsCard()}` : `${packsCard()}${designsCard()}${photoCard()}${useCard()}${exportCard()}`;
+      return showPhotoFirst ? `${photoCard()}${designsCard()}${useCard()}${exportCard()}${packsCard()}` : `${packsCard()}${designsCard()}${photoCard()}${useCard()}${sellCard()}${exportCard()}`;
     }
     function regionStatus(region) {
       const s = photoDrag ? checker.get(photo.rows, photo.cols, region.looks) ?? { status: "pending" } : statusOf(photo.rows, photo.cols, region.looks);
@@ -7178,11 +9573,70 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
         redrawPhoto();
         renderPhotoBar();
       },
-      "photo-add": addFromPhoto
+      "photo-add": addFromPhoto,
+      "sale-lock": (el) => {
+        const pack = currentPack();
+        const n = Number(el.dataset.count);
+        lockWith(pack, makeCodes(n), `Made ${plural(n, "code")} for “${pack.name}”. Copy them somewhere safe.`);
+      },
+      "sale-relock": () => {
+        const pack = currentPack();
+        const sale = saleOf(pack);
+        if (sale) lockWith(pack, sale.codes, `Locked “${pack.name}” again with the same ${plural(sale.codes.length, "code")}.`);
+      },
+      "sale-more": (el) => {
+        const pack = currentPack();
+        const sale = saleOf(pack);
+        if (!sale) return;
+        const more = makeCodes(Number(el.dataset.count) + 5).filter((c) => !sale.codes.includes(c)).slice(0, Number(el.dataset.count));
+        lockWith(pack, [...sale.codes, ...more], `Added ${plural(more.length, "code")}: ${sale.codes.length + more.length} in all.`);
+      },
+      "sale-forget": async () => {
+        const pack = currentPack();
+        if (!saleOf(pack)) return;
+        if (!await ctx.confirmDialog(`Forget the unlock codes of “${pack.name}”? Boxes already sold with them can no longer be unlocked unless you kept a copy.`, "Forget the codes")) return;
+        delete state2().sale.locked[pack.id];
+        changed();
+      },
+      "sale-copy-codes": () => {
+        const sale = saleOf(currentPack());
+        if (sale) ctx.copyText(sale.codes.join("\n"), "Unlock codes");
+      },
+      "sale-copy-locked": () => {
+        const sale = saleOf(currentPack());
+        if (sale) ctx.copyText(`${JSON.stringify(sale.locked, null, 2)},`, "Locked pack");
+      },
+      "sale-qr": () => {
+        state2().packView = "qr";
+        changed();
+      },
+      "sale-qr-hide": () => {
+        state2().packView = "design";
+        changed();
+      },
+      "sale-preview": () => ctx.enterCustomerPreview(),
+      "sale-unlock-pdf": async () => {
+        const pack = currentPack();
+        const sale = saleOf(pack);
+        if (!sale) return;
+        if (!appBase()) {
+          ctx.setStatus("Fill in where buyers open the app first: the QR codes need it.", true, "bad");
+          return;
+        }
+        const name = `${slugify(pack.name)}-unlock-cards.pdf`;
+        const res = await ctx.saveFile(name, new Blob([unlockCardsPdf(sale.codes, appBase(), pack.name)], { type: "application/pdf" }), "application/pdf");
+        if (res === "saved") ctx.setStatus(`Saved ${name}.`);
+        else if (res === "failed") ctx.setStatus("The PDF could not be saved here.", true, "bad");
+      }
     };
     function attach() {
       const panel = document.getElementById("panel");
       panel.addEventListener("input", (evt) => {
+        if (evt.target.id === "appUrl") {
+          state2().sale.appUrl = evt.target.value.slice(0, 300);
+          ctx.scheduleSave();
+          return;
+        }
         if (evt.target.id === "packName") {
           const pack = currentPack();
           if (!editable(pack)) return;
@@ -7203,7 +9657,7 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
         }
       });
       panel.addEventListener("change", (evt) => {
-        if (evt.target.id === "packName") ctx.renderPanel();
+        if (evt.target.id === "packName" || evt.target.id === "appUrl") ctx.render();
       });
       document.getElementById("stageBar").addEventListener("change", (evt) => {
         const box = evt.target.closest?.("input[data-region]");
@@ -7228,6 +9682,8 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
       stageBarMarkup,
       renderPhotoStage,
       showingPhoto,
+      showingQr,
+      renderQrStage,
       packsFor,
       addPackById: (id) => addPackToBook(allPacks().find((p) => p.id === id), { show: false }),
       isAdding: () => addingToBook,
@@ -7499,6 +9955,7 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
     function setup() {
       const st = state2();
       const s = normalizeSetup(st.gameSetup);
+      if (!ctx.allowRandom()) s.random = [];
       const sized = packsForSize(s);
       if (!s.random.length && !sized.some((p) => s.packIds.includes(p.id))) s.packIds = sized.map((p) => p.id);
       st.gameSetup = s;
@@ -7731,9 +10188,9 @@ ${problem ? `<p class="hint is-bad">${esc4(problem)}</p>` : ""}
 <p class="field-label">Tray</p>
 <div class="chips tight" role="group" aria-label="Tray size">${sizes}</div>
 <p class="field-label">Packs to shuffle in</p>
-${packChips ? `<div class="chips tight" role="group" aria-label="Packs">${packChips}</div>` : `<p class="muted">No ${sizeLabel(s.rows, s.cols)} packs yet. Make one in the Packs tab, or add random designs.</p>`}
-<p class="field-label">Random designs (always buildable)</p>
-<div class="chips tight" role="group" aria-label="Random designs">${randomChips}</div>
+${packChips ? `<div class="chips tight" role="group" aria-label="Packs">${packChips}</div>` : `<p class="muted">No ${sizeLabel(s.rows, s.cols)} packs yet. ${ctx.allowRandom() ? "Make one in the Packs tab, or add random designs." : "Unlock yours in My packs."}</p>`}
+${ctx.allowRandom() ? `<p class="field-label">Random designs (always buildable)</p>
+<div class="chips tight" role="group" aria-label="Random designs">${randomChips}</div>` : ""}
 <p class="hint">${inDeck ? `${plural2(inDeck, "card")} from packs` : "No pack cards"}${s.random.length ? " + random designs" : ""}. This game deals ${need}; ${inDeck && !s.random.length && inDeck < need ? "the deck is shuffled again when it runs out." : "every card is dealt once."}</p>
 </section>
 <section class="card" aria-labelledby="pl-rules-h">
@@ -7906,6 +10363,100 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
     } };
   }
 
+  // src/customerui.js
+  var esc5 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  var plural3 = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  function createCustomerUI(ctx) {
+    const state2 = () => ctx.getState();
+    let busy = false;
+    let message2 = null;
+    const packs = () => state2().customer.packs;
+    async function unlock(rawCode) {
+      const code = normalizeCode(rawCode);
+      if (!isCode(code)) {
+        message2 = { text: "A code has 12 letters and numbers, like K7QM-3XTP-ZR8D.", tone: "bad" };
+        ctx.render();
+        return false;
+      }
+      if (busy) return false;
+      busy = true;
+      message2 = { text: "Checking the code…", tone: "" };
+      ctx.render();
+      let found = null;
+      try {
+        found = await unlockAny(ctx.lockedPacks(), code);
+      } catch (err) {
+        message2 = { text: err.message, tone: "bad" };
+      }
+      busy = false;
+      if (!found) {
+        if (!message2 || message2.tone !== "bad") message2 = { text: "That code does not open any pack. Check it on the card in your box.", tone: "bad" };
+        ctx.render();
+        return false;
+      }
+      const st = state2();
+      const pack = { ...found.pack, id: `c:${found.locked.id}`, builtIn: false };
+      const had = packs().findIndex((p) => p.id === pack.id);
+      if (had >= 0) st.customer.packs[had] = pack;
+      else st.customer.packs.push(pack);
+      message2 = { text: had >= 0 ? `“${pack.name}” was already unlocked on this device.` : `Unlocked “${pack.name}”: ${plural3(pack.designs.length, "design")} to play.`, tone: "ok" };
+      ctx.scheduleSave();
+      ctx.render();
+      return true;
+    }
+    function packCard(p) {
+      const preview = p.designs.slice(0, 3).map((d) => `<span class="cu-mini">${flatPicture(p.rows, p.cols, d.looks, { cell: Math.max(4, Math.round(36 / Math.max(p.rows, p.cols))), gap: 1 })}</span>`).join("");
+      const stars2 = [1, 2, 3].map((s) => p.designs.filter((d) => d.stars === s).length);
+      return `<li class="cu-pack">
+<div class="cu-pack-head"><h3>${esc5(p.name)}</h3><p class="muted">${sizeLabel(p.rows, p.cols)} tray · ${plural3(p.designs.length, "design")} · ${stars2.map((n, i) => `${n}${"★".repeat(i + 1)}`).join(" ")}</p></div>
+<div class="cu-previews">${preview}</div>
+<div class="row-buttons">
+<button type="button" class="btn primary" data-action="cu-solo" data-id="${esc5(p.id)}">${ICONS.play}Play alone</button>
+<button type="button" class="btn" data-action="cu-together" data-id="${esc5(p.id)}">${ICONS.dice}Play together</button>
+</div></li>`;
+    }
+    function renderStage2(container) {
+      const list = packs();
+      const msg = message2 ? `<p class="cu-msg ${message2.tone ? `is-${message2.tone}` : ""}" role="status">${esc5(message2.text)}</p>` : "";
+      container.innerHTML = `<div class="cu">
+<h2 class="pl-title">My packs</h2>
+<form class="cu-unlock" id="cuUnlock" autocomplete="off">
+<label class="field-label" for="cuCode">Code from the card in your box</label>
+<div class="cu-unlock-row"><input class="text-input cu-code" id="cuCode" placeholder="XXXX-XXXX-XXXX" maxlength="20" autocapitalize="characters" spellcheck="false" inputmode="text">
+<button type="submit" class="btn primary" ${busy ? "disabled" : ""}>${ICONS.check}Unlock</button></div>
+<p class="hint">Or scan the QR code on that card with your phone's camera.</p>
+${msg}
+</form>
+${list.length ? `<ol class="cu-packs">${list.map(packCard).join("")}</ol>` : '<p class="muted cu-empty">No packs on this device yet. Unlock the pack that came with your game above.</p>'}
+</div>`;
+      container.querySelector("#cuUnlock").addEventListener("submit", (evt) => {
+        evt.preventDefault();
+        unlock(container.querySelector("#cuCode").value);
+      });
+    }
+    function panelMarkup() {
+      return `<section class="card" aria-labelledby="cu-how-h">
+<h2 id="cu-how-h">How it works</h2>
+<ol class="pl-rules">
+<li>Each game box has a card with a code and a QR code. It unlocks the digital version of the cards in the box.</li>
+<li><b>Play alone:</b> draw a card and build its picture in the tray on screen, or on your real tray.</li>
+<li><b>Play together:</b> the app deals the cards, keeps time and counts the stars while everyone builds on a real tray.</li>
+<li>Every card also has its own QR code: scan it to open that picture straight away.</li>
+</ol>
+<p class="hint">Your packs stay on this device and in this browser.</p>
+</section>`;
+    }
+    return {
+      renderStage: renderStage2,
+      panelMarkup,
+      unlock,
+      actions: {
+        "cu-solo": (el) => ctx.playAlone(el.dataset.id),
+        "cu-together": (el) => ctx.playTogether(el.dataset.id)
+      }
+    };
+  }
+
   // src/presets.js
   var mixO = (dir, pose) => MIX_ORIENTS.find((m) => m.dir === dir && m.pose === pose).o;
   var RAMP = 2;
@@ -7946,7 +10497,8 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
   ]);
 
   // src/app.js
-  var STORAGE_KEY = "building-blocks-simulator:v2";
+  var CUSTOMER_BUILD = false;
+  var STORAGE_KEY = CUSTOMER_BUILD ? "building-blocks-customer:v1" : "building-blocks-simulator:v2";
   var OLD_STORAGE_KEY = "building-blocks-simulator:v1";
   var MAX_HISTORY = 300;
   var CHECK_BUDGET = 15e5;
@@ -7997,6 +10549,7 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
   var bookUI;
   var packUI;
   var playUI;
+  var customerUI;
   var pointer = { down: false, id: null, type: "mouse", erase: false, x: 0, y: 0, moved: false, dragging: false, grab: null };
   var hits3d = [];
   var outline3d = [];
@@ -8046,8 +10599,22 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
       game: null,
       // Build challenges drawn from packs: the packs chosen and the shuffled deck.
       soloPackIds: [],
-      soloDeck: null
+      soloDeck: null,
+      // Selling: where the app lives (for QR codes), locked packs and their codes, card backs with QR.
+      sale: { appUrl: defaultAppUrl(), locked: {} },
+      cardQr: false,
+      box: { layout: "beside", material: "carton", maker: "" },
+      // What a buyer sees: the preview switch, and the packs unlocked on this device.
+      customerPreview: CUSTOMER_BUILD,
+      customer: { packs: [] }
     };
+  }
+  function defaultAppUrl() {
+    try {
+      return /^https?:$/.test(location.protocol) ? `${location.origin}${location.pathname}` : "";
+    } catch {
+      return "";
+    }
   }
   function snapshot() {
     return {
@@ -8073,8 +10640,24 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
       gameSetup: state.gameSetup,
       game: state.game,
       soloPackIds: state.soloPackIds,
-      soloDeck: state.soloDeck
+      soloDeck: state.soloDeck,
+      sale: CUSTOMER_BUILD ? void 0 : state.sale,
+      cardQr: state.cardQr,
+      box: state.box,
+      customerPreview: state.customerPreview,
+      customer: state.customer
     };
+  }
+  function reviveSale(raw) {
+    const sale = { appUrl: typeof raw?.appUrl === "string" ? raw.appUrl.slice(0, 300) : defaultAppUrl(), locked: {} };
+    if (raw?.locked && typeof raw.locked === "object") {
+      for (const [id, entry] of Object.entries(raw.locked)) {
+        if (isLockedPack(entry?.locked) && Array.isArray(entry.codes) && entry.codes.every((c) => typeof c === "string")) {
+          sale.locked[id] = { locked: entry.locked, codes: entry.codes, sig: typeof entry.sig === "string" ? entry.sig : "", at: typeof entry.at === "string" ? entry.at : "" };
+        }
+      }
+    }
+    return sale;
   }
   function restore(data) {
     const base = defaultState();
@@ -8114,7 +10697,16 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
         gameSetup: normalizeSetup(data.gameSetup),
         game: reviveGame(data.game),
         soloPackIds: Array.isArray(data.soloPackIds) ? data.soloPackIds.filter((x) => typeof x === "string") : [],
-        soloDeck: data.soloDeck && Array.isArray(data.soloDeck.cards) && data.soloDeck.cards.length && Number.isInteger(data.soloDeck.used) ? data.soloDeck : null
+        soloDeck: data.soloDeck && Array.isArray(data.soloDeck.cards) && data.soloDeck.cards.length && Number.isInteger(data.soloDeck.used) ? data.soloDeck : null,
+        sale: reviveSale(data.sale),
+        cardQr: !!data.cardQr,
+        box: {
+          layout: LAYOUTS[data.box?.layout] ? data.box.layout : "beside",
+          material: MATERIALS[data.box?.material] ? data.box.material : "carton",
+          maker: typeof data.box?.maker === "string" ? data.box.maker.slice(0, 400) : ""
+        },
+        customerPreview: CUSTOMER_BUILD || !!data.customerPreview,
+        customer: { packs: revivePacks(data.customer?.packs, normalizePack).map((p, i) => ({ ...p, id: typeof data.customer.packs[i]?.id === "string" ? data.customer.packs[i].id : p.id })) }
       };
     } catch {
       return base;
@@ -8186,22 +10778,52 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
     if (!statusTimer) showDefaultStatus();
     scheduleSave();
   }
+  var isCustomer = () => CUSTOMER_BUILD || state.customerPreview;
+  var availablePacks = () => isCustomer() ? state.customer.packs : packUI.allPacks();
+  function lockedPacks() {
+    const made = CUSTOMER_BUILD ? [] : Object.values(state.sale.locked).map((x) => x.locked);
+    return [...LOCKED_PACKS.filter(isLockedPack), ...made];
+  }
+  var CUSTOMER_TABS = ["build", "packs", "play"];
   function renderTabs() {
+    const customer = isCustomer();
+    if (customer && !CUSTOMER_TABS.includes(state.mode)) state.mode = "packs";
     document.querySelectorAll("[data-tab]").forEach((tab) => {
       const on = tab.dataset.tab === state.mode;
       tab.setAttribute("aria-selected", on ? "true" : "false");
       tab.tabIndex = on ? 0 : -1;
+      tab.hidden = customer && !CUSTOMER_TABS.includes(tab.dataset.tab);
+      if (tab.dataset.tab === "packs") tab.textContent = customer ? "My packs" : "Packs";
     });
     document.body.dataset.mode = state.mode;
+    document.body.dataset.audience = customer ? "customer" : "maker";
+    const bar = $("#previewBar");
+    bar.hidden = !state.customerPreview || CUSTOMER_BUILD;
+    if (!bar.hidden) {
+      bar.innerHTML = `<p><b>Customer preview:</b> the app as a buyer sees it, with only the packs unlocked here (${state.customer.packs.length}).</p>
+<div class="row-buttons"><button type="button" class="btn small" data-action="customer-reset">Forget unlocked packs</button><button type="button" class="btn small primary" data-action="maker-mode">Back to maker mode</button></div>`;
+    }
   }
   function renderStage() {
     const book = state.mode === "book";
-    const photo = state.mode === "packs" && packUI.showingPhoto();
+    const library = state.mode === "packs" && isCustomer();
+    const photo = state.mode === "packs" && !library && packUI.showingPhoto();
+    const sheet = state.mode === "packs" && !library && packUI.showingQr();
     const play = state.mode === "play";
-    $("#boardWrap").hidden = book || photo || play;
+    $("#boardWrap").hidden = book || photo || play || library || sheet;
     $("#bookStage").hidden = !book;
     $("#photoStage").hidden = !photo;
     $("#playStage").hidden = !play;
+    $("#libraryStage").hidden = !library && !sheet;
+    if (library || sheet) {
+      if (library) customerUI.renderStage($("#libraryStage"));
+      else packUI.renderQrStage($("#libraryStage"));
+      $("#stageTop").innerHTML = "";
+      $("#stageBar").innerHTML = "";
+      $("#status").hidden = false;
+      playUI.stop();
+      return;
+    }
     if (play) {
       playUI.renderStage($("#playStage"));
       $("#stageTop").innerHTML = "";
@@ -8407,7 +11029,7 @@ ${note}<div class="chips" role="group" aria-label="Common sizes">${quick}</div>`
   function buildPanel() {
     const ch = state.challenge;
     const levels = [1, 2, 3].map((level) => `<button type="button" class="btn level level-${level}" data-action="new-challenge" data-level="${level}">${starsHtml(level)}</button>`).join("");
-    const soloPacks = packUI.allPacks().filter((p) => p.designs.length);
+    const soloPacks = availablePacks().filter((p) => p.designs.length);
     const soloChips = soloPacks.map((p) => {
       const on = state.soloPackIds.includes(p.id);
       return `<button type="button" class="chip${on ? " is-on" : ""}" data-action="solo-pack" data-id="${escapeHtml(p.id)}" aria-pressed="${on}">${escapeHtml(p.name)} <small>${p.rows}×${p.cols} · ${p.designs.length}</small></button>`;
@@ -8417,9 +11039,9 @@ ${note}<div class="chips" role="group" aria-label="Common sizes">${quick}</div>`
 <h2 id="ch-h">Play a challenge</h2>
 <p class="muted">Draw a card from your packs and rebuild its picture in the tray, card after card.</p>
 ${soloChips ? `<div class="chips tight" role="group" aria-label="Packs to draw from">${soloChips}</div>
-<div class="row-buttons"><button type="button" class="btn primary" data-action="solo-draw" ${soloCount ? "" : "disabled"}>${ICONS.dice}Draw a card${soloCount ? ` <small>(${soloCount} in the deck)</small>` : ""}</button></div>` : '<p class="hint">No packs yet: make one in the Packs tab.</p>'}
-<p class="field-label">Or a random picture</p>
-<div class="row-buttons">${levels}</div>
+<div class="row-buttons"><button type="button" class="btn primary" data-action="solo-draw" ${soloCount ? "" : "disabled"}>${ICONS.dice}Draw a card${soloCount ? ` <small>(${soloCount} in the deck)</small>` : ""}</button></div>` : `<p class="hint">${isCustomer() ? "No packs yet: unlock yours in My packs." : "No packs yet: make one in the Packs tab."}</p>`}
+${isCustomer() ? "" : `<p class="field-label">Or a random picture</p>
+<div class="row-buttons">${levels}</div>`}
 <p class="hint">Playing with friends? The Play tab deals cards to several players, with a timer and scores.</p>
 </section>`;
     const presets = PRESETS.map((p) => `<button type="button" class="chip" data-action="preset" data-id="${p.id}">${p.name}</button>`).join("");
@@ -8467,7 +11089,7 @@ ${sizeMarkup()}
     const focused = document.activeElement && panel.contains(document.activeElement) ? focusKey(document.activeElement) : null;
     const openDetails = panel.querySelector("details[open]") !== null;
     if (state.mode === "book") panel.innerHTML = bookUI.panelMarkup();
-    else if (state.mode === "packs") panel.innerHTML = packUI.panelMarkup();
+    else if (state.mode === "packs") panel.innerHTML = isCustomer() ? customerUI.panelMarkup() : packUI.panelMarkup();
     else if (state.mode === "play") panel.innerHTML = playUI.panelMarkup();
     else panel.innerHTML = state.mode === "check" ? checkPanel() : buildPanel();
     if (openDetails) panel.querySelector("details")?.setAttribute("open", "");
@@ -8863,7 +11485,7 @@ ${sizeMarkup()}
   }
   var freshRng = () => makeRng((Date.now() ^ Math.random() * 1e9) >>> 0);
   function toggleSoloPack(id) {
-    const packs = packUI.allPacks();
+    const packs = availablePacks();
     const pack = packs.find((p) => p.id === id);
     if (!pack) return;
     const chosen = packs.filter((p) => state.soloPackIds.includes(p.id));
@@ -8875,8 +11497,37 @@ ${sizeMarkup()}
     state.soloDeck = null;
     render();
   }
+  var lastLink = "";
+  async function handleLink() {
+    let hash = "";
+    try {
+      hash = location.hash;
+    } catch {
+      return;
+    }
+    if (!hash || hash === lastLink) return;
+    const link = parseLink(hash);
+    if (!link) return;
+    lastLink = hash;
+    if (link.kind === "unlock") {
+      if (!CUSTOMER_BUILD) state.customerPreview = true;
+      state.mode = "packs";
+      render();
+      await customerUI.unlock(link.code);
+      return;
+    }
+    const started = await startChallenge({ target: link.looks, answer: null, difficulty: suggestDifficulty(link.looks), label: "Card from a QR code", rows: link.rows, cols: link.cols });
+    if (!started) return;
+    const ch = state.challenge;
+    packUI.solve(link.rows, link.cols, link.looks).then((res) => {
+      if (res?.status === "possible" && state.challenge === ch && !ch.answer) {
+        ch.answer = res.pieces;
+        if (state.mode === "build") renderStageTop();
+      }
+    });
+  }
   async function drawSoloCard() {
-    const packs = packUI.allPacks();
+    const packs = availablePacks();
     const chosen = packs.filter((p) => state.soloPackIds.includes(p.id));
     if (!chosen.length) return;
     const { rows, cols } = chosen[0];
@@ -9547,6 +12198,25 @@ ${sizeMarkup()}
     "next-challenge": () => state.challenge?.fromDeck && state.soloPackIds.length ? drawSoloCard() : newChallenge(state.challenge?.difficulty ?? 2),
     "solo-pack": (el) => toggleSoloPack(el.dataset.id),
     "solo-draw": drawSoloCard,
+    "customer-preview": () => {
+      state.customerPreview = true;
+      state.mode = "packs";
+      render();
+      setStatus("Customer preview: unlock a pack with one of its codes to see what a buyer gets.");
+    },
+    "maker-mode": () => {
+      if (CUSTOMER_BUILD) return;
+      state.customerPreview = false;
+      state.mode = "packs";
+      render();
+    },
+    "customer-reset": async () => {
+      if (!await confirmDialog("Forget the packs unlocked in this preview? You can unlock them again with their codes.", "Forget them")) return;
+      state.customer.packs = [];
+      state.soloPackIds = [];
+      state.soloDeck = null;
+      render();
+    },
     "stop-challenge": () => {
       state.challenge = null;
       render();
@@ -9561,7 +12231,7 @@ ${sizeMarkup()}
     }
     const el = evt.target.closest("[data-action]");
     if (!el || el.disabled) return;
-    const action = ACTIONS[el.dataset.action] ?? bookUI.actions[el.dataset.action] ?? packUI.actions[el.dataset.action] ?? playUI.actions[el.dataset.action];
+    const action = ACTIONS[el.dataset.action] ?? bookUI.actions[el.dataset.action] ?? packUI.actions[el.dataset.action] ?? playUI.actions[el.dataset.action] ?? customerUI.actions[el.dataset.action];
     if (action) action(el, evt);
   }
   function onTabKey(evt) {
@@ -9602,7 +12272,8 @@ ${sizeMarkup()}
       scheduleSave,
       packsFor: (rows, cols) => packUI.packsFor(rows, cols),
       addPackToBook: (id) => packUI.addPackById(id),
-      addingPack: () => packUI.isAdding()
+      addingPack: () => packUI.isAdding(),
+      cardQrBase: () => state.cardQr && state.sale.appUrl ? state.sale.appUrl : null
     });
     packUI = createPackUI({
       getState: () => state,
@@ -9623,7 +12294,8 @@ ${sizeMarkup()}
       bookFor: (shape, n) => bookUI.bookFor(shape, n),
       bookChanged: () => bookUI.invalidate(),
       buildFits: (rows, cols) => state.rows === rows && state.cols === cols && state.build.isComplete(),
-      buildLooks: () => state.build.looks()
+      buildLooks: () => state.build.looks(),
+      enterCustomerPreview: () => ACTIONS["customer-preview"]()
     });
     window.claude?.hot?.snapshot?.(() => snapshot());
     downloadsCapability();
@@ -9669,14 +12341,37 @@ ${sizeMarkup()}
       confirmDialog,
       scheduleSave,
       randomChallenge,
-      packs: () => packUI.allPacks(),
+      packs: availablePacks,
+      allowRandom: () => !isCustomer(),
       solve: (rows, cols, looks) => packUI.solve(rows, cols, looks)
+    });
+    customerUI = createCustomerUI({
+      getState: () => state,
+      render,
+      scheduleSave,
+      lockedPacks,
+      playAlone: (id) => {
+        state.soloPackIds = [id];
+        state.soloDeck = null;
+        state.challenge = null;
+        setMode("build");
+        drawSoloCard();
+      },
+      playTogether: (id) => {
+        const pack = state.customer.packs.find((p) => p.id === id);
+        if (!pack) return;
+        state.gameSetup = { ...state.gameSetup, rows: pack.rows, cols: pack.cols, packIds: [id], random: [] };
+        if (state.game?.phase === "over") state.game = null;
+        setMode("play");
+      }
     });
     bookUI.attach();
     packUI.attach();
     playUI.attach();
+    window.addEventListener("hashchange", handleLink);
     if (state.mode === "check") scheduleCheck(0);
     render();
+    handleLink();
   }
 
   // src/main.js

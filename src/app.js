@@ -2,12 +2,22 @@
 // several players around real trays), and Challenge book.
 
 import { Board, KINDS, MAX_SIZE, decodeBoard, encodeBoard, kindOf, occupancy, pieceCovers, pieceName, sizeProblem } from './board.js';
-import { DIFFICULTY } from './book.js';
+import { DIFFICULTY, suggestDifficulty } from './book.js';
 import { createBookUI } from './bookui.js';
 import { createPackUI, revivePacks } from './packui.js';
 import { normalizePack } from './packs.js';
 import { createPlayUI } from './playui.js';
 import { normalizeSetup, reviveGame, soloDeck, soloNext } from './game.js';
+import { createCustomerUI } from './customerui.js';
+import { parseLink } from './links.js';
+import { isLockedPack } from './lock.js';
+import { LOCKED_PACKS } from './builtinpacks.js';
+import { LAYOUTS, MATERIALS } from './box.js';
+
+// The customer build (customer.html) is the app as a buyer gets it: only their packs, no
+// maker tools. The maker's app can show the same thing as a "customer preview".
+// eslint-disable-next-line no-undef
+const CUSTOMER_BUILD = typeof __CUSTOMER_BUILD__ !== 'undefined' && __CUSTOMER_BUILD__ === true;
 import { LOOK, MIX_ORIENTS, flipMix, flipTri, isRamp, rotateMix, rotateTri, thickSide, tipMix, tipTri } from './geometry.js';
 import { ICONS } from './icons.js';
 import { PRESETS } from './presets.js';
@@ -15,7 +25,8 @@ import { boardMarkup, cellFromPoint, flatPicture, pictureMarkup } from './render
 import { board3d, hitTest3d, insideAny, nearTray3d, pieceIcon } from './render3d.js';
 import { makeRng, quickCheck, randomArrangement, solvePattern } from './solver.js';
 
-const STORAGE_KEY = 'building-blocks-simulator:v2';
+// The buyer's app keeps its own storage, apart from the maker's (they may share a site).
+const STORAGE_KEY = CUSTOMER_BUILD ? 'building-blocks-customer:v1' : 'building-blocks-simulator:v2';
 const OLD_STORAGE_KEY = 'building-blocks-simulator:v1';
 const MAX_HISTORY = 300;
 const CHECK_BUDGET = 1500000;
@@ -77,6 +88,7 @@ let state;
 let bookUI;
 let packUI;
 let playUI;
+let customerUI;
 // The press in progress on the board: where it started, whether it has moved, and whether it
 // grabbed the selected piece (grab: offset from the piece's square to the square grabbed).
 const pointer = { down: false, id: null, type: 'mouse', erase: false, x: 0, y: 0, moved: false, dragging: false, grab: null };
@@ -131,7 +143,23 @@ function defaultState() {
     // Build challenges drawn from packs: the packs chosen and the shuffled deck.
     soloPackIds: [],
     soloDeck: null,
+    // Selling: where the app lives (for QR codes), locked packs and their codes, card backs with QR.
+    sale: { appUrl: defaultAppUrl(), locked: {} },
+    cardQr: false,
+    box: { layout: 'beside', material: 'carton', maker: '' },
+    // What a buyer sees: the preview switch, and the packs unlocked on this device.
+    customerPreview: CUSTOMER_BUILD,
+    customer: { packs: [] },
   };
+}
+
+/** Where this page lives, when it is on the web (for QR codes); empty for a local file. */
+function defaultAppUrl() {
+  try {
+    return /^https?:$/.test(location.protocol) ? `${location.origin}${location.pathname}` : '';
+  } catch {
+    return '';
+  }
 }
 
 function snapshot() {
@@ -159,7 +187,24 @@ function snapshot() {
     game: state.game,
     soloPackIds: state.soloPackIds,
     soloDeck: state.soloDeck,
+    sale: CUSTOMER_BUILD ? undefined : state.sale,
+    cardQr: state.cardQr,
+    box: state.box,
+    customerPreview: state.customerPreview,
+    customer: state.customer,
   };
+}
+
+function reviveSale(raw) {
+  const sale = { appUrl: typeof raw?.appUrl === 'string' ? raw.appUrl.slice(0, 300) : defaultAppUrl(), locked: {} };
+  if (raw?.locked && typeof raw.locked === 'object') {
+    for (const [id, entry] of Object.entries(raw.locked)) {
+      if (isLockedPack(entry?.locked) && Array.isArray(entry.codes) && entry.codes.every((c) => typeof c === 'string')) {
+        sale.locked[id] = { locked: entry.locked, codes: entry.codes, sig: typeof entry.sig === 'string' ? entry.sig : '', at: typeof entry.at === 'string' ? entry.at : '' };
+      }
+    }
+  }
+  return sale;
 }
 
 function restore(data) {
@@ -202,6 +247,15 @@ function restore(data) {
       game: reviveGame(data.game),
       soloPackIds: Array.isArray(data.soloPackIds) ? data.soloPackIds.filter((x) => typeof x === 'string') : [],
       soloDeck: data.soloDeck && Array.isArray(data.soloDeck.cards) && data.soloDeck.cards.length && Number.isInteger(data.soloDeck.used) ? data.soloDeck : null,
+      sale: reviveSale(data.sale),
+      cardQr: !!data.cardQr,
+      box: {
+        layout: LAYOUTS[data.box?.layout] ? data.box.layout : 'beside',
+        material: MATERIALS[data.box?.material] ? data.box.material : 'carton',
+        maker: typeof data.box?.maker === 'string' ? data.box.maker.slice(0, 400) : '',
+      },
+      customerPreview: CUSTOMER_BUILD || !!data.customerPreview,
+      customer: { packs: revivePacks(data.customer?.packs, normalizePack).map((p, i) => ({ ...p, id: typeof data.customer.packs[i]?.id === 'string' ? data.customer.packs[i].id : p.id })) },
     };
   } catch {
     return base;
@@ -287,23 +341,59 @@ function render() {
   scheduleSave();
 }
 
+const isCustomer = () => CUSTOMER_BUILD || state.customerPreview;
+
+/** Packs a player can use here: the maker's packs, or a buyer's unlocked packs. */
+const availablePacks = () => (isCustomer() ? state.customer.packs : packUI.allPacks());
+
+/** Locked packs a code can open: those built into the app and, for the maker, those just made. */
+function lockedPacks() {
+  const made = CUSTOMER_BUILD ? [] : Object.values(state.sale.locked).map((x) => x.locked);
+  return [...LOCKED_PACKS.filter(isLockedPack), ...made];
+}
+
+const CUSTOMER_TABS = ['build', 'packs', 'play'];
+
 function renderTabs() {
+  const customer = isCustomer();
+  if (customer && !CUSTOMER_TABS.includes(state.mode)) state.mode = 'packs';
   document.querySelectorAll('[data-tab]').forEach((tab) => {
     const on = tab.dataset.tab === state.mode;
     tab.setAttribute('aria-selected', on ? 'true' : 'false');
     tab.tabIndex = on ? 0 : -1;
+    tab.hidden = customer && !CUSTOMER_TABS.includes(tab.dataset.tab);
+    if (tab.dataset.tab === 'packs') tab.textContent = customer ? 'My packs' : 'Packs';
   });
   document.body.dataset.mode = state.mode;
+  document.body.dataset.audience = customer ? 'customer' : 'maker';
+  const bar = $('#previewBar');
+  bar.hidden = !state.customerPreview || CUSTOMER_BUILD;
+  if (!bar.hidden) {
+    bar.innerHTML = `<p><b>Customer preview:</b> the app as a buyer sees it, with only the packs unlocked here (${state.customer.packs.length}).</p>
+<div class="row-buttons"><button type="button" class="btn small" data-action="customer-reset">Forget unlocked packs</button><button type="button" class="btn small primary" data-action="maker-mode">Back to maker mode</button></div>`;
+  }
 }
 
 function renderStage() {
   const book = state.mode === 'book';
-  const photo = state.mode === 'packs' && packUI.showingPhoto();
+  const library = state.mode === 'packs' && isCustomer();
+  const photo = state.mode === 'packs' && !library && packUI.showingPhoto();
+  const sheet = state.mode === 'packs' && !library && packUI.showingQr();
   const play = state.mode === 'play';
-  $('#boardWrap').hidden = book || photo || play;
+  $('#boardWrap').hidden = book || photo || play || library || sheet;
   $('#bookStage').hidden = !book;
   $('#photoStage').hidden = !photo;
   $('#playStage').hidden = !play;
+  $('#libraryStage').hidden = !library && !sheet;
+  if (library || sheet) {
+    if (library) customerUI.renderStage($('#libraryStage'));
+    else packUI.renderQrStage($('#libraryStage'));
+    $('#stageTop').innerHTML = '';
+    $('#stageBar').innerHTML = '';
+    $('#status').hidden = false;
+    playUI.stop();
+    return;
+  }
   if (play) {
     playUI.renderStage($('#playStage'));
     $('#stageTop').innerHTML = '';
@@ -533,7 +623,7 @@ function buildPanel() {
   const levels = [1, 2, 3]
     .map((level) => `<button type="button" class="btn level level-${level}" data-action="new-challenge" data-level="${level}">${starsHtml(level)}</button>`)
     .join('');
-  const soloPacks = packUI.allPacks().filter((p) => p.designs.length);
+  const soloPacks = availablePacks().filter((p) => p.designs.length);
   const soloChips = soloPacks.map((p) => {
     const on = state.soloPackIds.includes(p.id);
     return `<button type="button" class="chip${on ? ' is-on' : ''}" data-action="solo-pack" data-id="${escapeHtml(p.id)}" aria-pressed="${on}">${escapeHtml(p.name)} <small>${p.rows}×${p.cols} · ${p.designs.length}</small></button>`;
@@ -545,9 +635,9 @@ function buildPanel() {
 <h2 id="ch-h">Play a challenge</h2>
 <p class="muted">Draw a card from your packs and rebuild its picture in the tray, card after card.</p>
 ${soloChips ? `<div class="chips tight" role="group" aria-label="Packs to draw from">${soloChips}</div>
-<div class="row-buttons"><button type="button" class="btn primary" data-action="solo-draw" ${soloCount ? '' : 'disabled'}>${ICONS.dice}Draw a card${soloCount ? ` <small>(${soloCount} in the deck)</small>` : ''}</button></div>` : '<p class="hint">No packs yet: make one in the Packs tab.</p>'}
-<p class="field-label">Or a random picture</p>
-<div class="row-buttons">${levels}</div>
+<div class="row-buttons"><button type="button" class="btn primary" data-action="solo-draw" ${soloCount ? '' : 'disabled'}>${ICONS.dice}Draw a card${soloCount ? ` <small>(${soloCount} in the deck)</small>` : ''}</button></div>` : `<p class="hint">${isCustomer() ? 'No packs yet: unlock yours in My packs.' : 'No packs yet: make one in the Packs tab.'}</p>`}
+${isCustomer() ? '' : `<p class="field-label">Or a random picture</p>
+<div class="row-buttons">${levels}</div>`}
 <p class="hint">Playing with friends? The Play tab deals cards to several players, with a timer and scores.</p>
 </section>`;
   const presets = PRESETS.map((p) => `<button type="button" class="chip" data-action="preset" data-id="${p.id}">${p.name}</button>`).join('');
@@ -599,7 +689,7 @@ function renderPanel() {
   const focused = document.activeElement && panel.contains(document.activeElement) ? focusKey(document.activeElement) : null;
   const openDetails = panel.querySelector('details[open]') !== null;
   if (state.mode === 'book') panel.innerHTML = bookUI.panelMarkup();
-  else if (state.mode === 'packs') panel.innerHTML = packUI.panelMarkup();
+  else if (state.mode === 'packs') panel.innerHTML = isCustomer() ? customerUI.panelMarkup() : packUI.panelMarkup();
   else if (state.mode === 'play') panel.innerHTML = playUI.panelMarkup();
   else panel.innerHTML = state.mode === 'check' ? checkPanel() : buildPanel();
   if (openDetails) panel.querySelector('details')?.setAttribute('open', '');
@@ -1071,7 +1161,7 @@ const freshRng = () => makeRng((Date.now() ^ (Math.random() * 1e9)) >>> 0);
 
 /** Choose the packs the Build challenge draws from (all of one tray size). */
 function toggleSoloPack(id) {
-  const packs = packUI.allPacks();
+  const packs = availablePacks();
   const pack = packs.find((p) => p.id === id);
   if (!pack) return;
   const chosen = packs.filter((p) => state.soloPackIds.includes(p.id));
@@ -1084,9 +1174,43 @@ function toggleSoloPack(id) {
   render();
 }
 
+// ---- Links from QR codes ----------------------------------------------------------------
+
+let lastLink = '';
+
+/** Open what a QR code points at: a design (as a challenge) or an unlock code. */
+async function handleLink() {
+  let hash = '';
+  try {
+    hash = location.hash;
+  } catch {
+    return;
+  }
+  if (!hash || hash === lastLink) return;
+  const link = parseLink(hash);
+  if (!link) return;
+  lastLink = hash;
+  if (link.kind === 'unlock') {
+    if (!CUSTOMER_BUILD) state.customerPreview = true;
+    state.mode = 'packs';
+    render();
+    await customerUI.unlock(link.code);
+    return;
+  }
+  const started = await startChallenge({ target: link.looks, answer: null, difficulty: suggestDifficulty(link.looks), label: 'Card from a QR code', rows: link.rows, cols: link.cols });
+  if (!started) return;
+  const ch = state.challenge;
+  packUI.solve(link.rows, link.cols, link.looks).then((res) => {
+    if (res?.status === 'possible' && state.challenge === ch && !ch.answer) {
+      ch.answer = res.pieces;
+      if (state.mode === 'build') renderStageTop();
+    }
+  });
+}
+
 /** Draw the next card from the chosen packs and play it as a challenge. */
 async function drawSoloCard() {
-  const packs = packUI.allPacks();
+  const packs = availablePacks();
   const chosen = packs.filter((p) => state.soloPackIds.includes(p.id));
   if (!chosen.length) return;
   const { rows, cols } = chosen[0];
@@ -1862,6 +1986,25 @@ const ACTIONS = {
   'next-challenge': () => (state.challenge?.fromDeck && state.soloPackIds.length ? drawSoloCard() : newChallenge(state.challenge?.difficulty ?? 2)),
   'solo-pack': (el) => toggleSoloPack(el.dataset.id),
   'solo-draw': drawSoloCard,
+  'customer-preview': () => {
+    state.customerPreview = true;
+    state.mode = 'packs';
+    render();
+    setStatus('Customer preview: unlock a pack with one of its codes to see what a buyer gets.');
+  },
+  'maker-mode': () => {
+    if (CUSTOMER_BUILD) return;
+    state.customerPreview = false;
+    state.mode = 'packs';
+    render();
+  },
+  'customer-reset': async () => {
+    if (!(await confirmDialog('Forget the packs unlocked in this preview? You can unlock them again with their codes.', 'Forget them'))) return;
+    state.customer.packs = [];
+    state.soloPackIds = [];
+    state.soloDeck = null;
+    render();
+  },
   'stop-challenge': () => {
     state.challenge = null;
     render();
@@ -1877,7 +2020,7 @@ function onClick(evt) {
   }
   const el = evt.target.closest('[data-action]');
   if (!el || el.disabled) return;
-  const action = ACTIONS[el.dataset.action] ?? bookUI.actions[el.dataset.action] ?? packUI.actions[el.dataset.action] ?? playUI.actions[el.dataset.action];
+  const action = ACTIONS[el.dataset.action] ?? bookUI.actions[el.dataset.action] ?? packUI.actions[el.dataset.action] ?? playUI.actions[el.dataset.action] ?? customerUI.actions[el.dataset.action];
   if (action) action(el, evt);
 }
 
@@ -1923,6 +2066,7 @@ export function start(hotData) {
     packsFor: (rows, cols) => packUI.packsFor(rows, cols),
     addPackToBook: (id) => packUI.addPackById(id),
     addingPack: () => packUI.isAdding(),
+    cardQrBase: () => (state.cardQr && state.sale.appUrl ? state.sale.appUrl : null),
   });
   packUI = createPackUI({
     getState: () => state,
@@ -1944,6 +2088,7 @@ export function start(hotData) {
     bookChanged: () => bookUI.invalidate(),
     buildFits: (rows, cols) => state.rows === rows && state.cols === cols && state.build.isComplete(),
     buildLooks: () => state.build.looks(),
+    enterCustomerPreview: () => ACTIONS['customer-preview'](),
   });
   window.claude?.hot?.snapshot?.(() => snapshot());
   downloadsCapability();
@@ -1990,14 +2135,37 @@ export function start(hotData) {
     confirmDialog,
     scheduleSave,
     randomChallenge,
-    packs: () => packUI.allPacks(),
+    packs: availablePacks,
+    allowRandom: () => !isCustomer(),
     solve: (rows, cols, looks) => packUI.solve(rows, cols, looks),
+  });
+  customerUI = createCustomerUI({
+    getState: () => state,
+    render,
+    scheduleSave,
+    lockedPacks,
+    playAlone: (id) => {
+      state.soloPackIds = [id];
+      state.soloDeck = null;
+      state.challenge = null;
+      setMode('build');
+      drawSoloCard();
+    },
+    playTogether: (id) => {
+      const pack = state.customer.packs.find((p) => p.id === id);
+      if (!pack) return;
+      state.gameSetup = { ...state.gameSetup, rows: pack.rows, cols: pack.cols, packIds: [id], random: [] };
+      if (state.game?.phase === 'over') state.game = null;
+      setMode('play');
+    },
   });
   bookUI.attach();
   packUI.attach();
   playUI.attach();
+  window.addEventListener('hashchange', handleLink);
   if (state.mode === 'check') scheduleCheck(0);
   render();
+  handleLink();
 }
 
 export const _test = { describeOrientation, failureText, KIND_INFO };
