@@ -29,8 +29,6 @@ import { flatPicture } from './render2d.js';
 import { quickCheck } from './solver.js';
 import { lockPack, makeCodes } from './lock.js';
 import { unlockCardSvg, unlockCardsPdf } from './cards.js';
-import { designLink } from './links.js';
-import { qrSvg } from './qr.js';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -431,10 +429,10 @@ ${stale ? `<p class="hint is-bad">The pack has changed since. Lock it again so b
 <p class="muted">Each box gets a card with its own code. The code unlocks this pack, and only this pack, in the buyer's app; nobody can read the designs without one.</p>
 <label class="field-label" for="appUrl">Where buyers open the app</label>
 <input class="text-input" id="appUrl" value="${esc(state().sale.appUrl)}" placeholder="https://your-site.com/blocks/" autocomplete="off" spellcheck="false">
-<p class="hint">The QR codes on the cards point to this address.${appBase() ? '' : ' Fill it in before printing anything with QR codes.'}</p>
+<p class="hint">The QR code on each unlock card points to this address.${appBase() ? '' : ' Fill it in before printing the unlock cards.'}</p>
 ${codesPart}
 <div class="row-buttons">
-<button type="button" class="btn small" data-action="sale-qr">QR codes and unlock cards</button>
+<button type="button" class="btn small" data-action="sale-qr">Unlock cards</button>
 <button type="button" class="btn small" data-action="sale-preview">${ICONS.play}Preview as a customer</button>
 </div>
 <p class="hint">The codes are kept only in this browser and in copies you make: copy them somewhere safe. They never go into the app. To build a sold pack into the app, paste “Copy locked pack as code” into the locked list in <code>src/builtinpacks.js</code>.</p>
@@ -445,16 +443,11 @@ ${codesPart}
     const pack = currentPack();
     const sale = saleOf(pack);
     const base = appBase() || 'https://example.com/';
-    const thumb = Math.max(4, Math.round(44 / Math.max(pack.rows, pack.cols)));
-    const cards = pack.designs.map((d, i) => `<figure class="qr-item"><div class="qr-pair"><span class="pk-thumb">${flatPicture(pack.rows, pack.cols, d.looks, { cell: thumb, gap: 1 })}</span>${qrSvg(designLink(base, pack.rows, pack.cols, d.looks), { label: `QR code for design ${i + 1}` })}</div><figcaption>Card ${i + 1} ${'★'.repeat(d.stars)}</figcaption></figure>`).join('');
     const shown = sale ? sale.codes.slice(0, 6) : [];
     container.innerHTML = `<div class="qr-sheet">
-<div class="qr-head"><h2 class="pl-title">QR codes: ${esc(pack.name)}</h2><button type="button" class="btn small" data-action="sale-qr-hide">${ICONS.prev}Back to the pack</button></div>
+<div class="qr-head"><h2 class="pl-title">Unlock cards: ${esc(pack.name)}</h2><button type="button" class="btn small" data-action="sale-qr-hide">${ICONS.prev}Back to the pack</button></div>
 ${appBase() ? `<p class="muted">They open <b>${esc(base)}</b>.</p>` : '<p class="hint is-bad">No app address yet (Sell this pack): these point to example.com, just to show them.</p>'}
-<h3 class="deck-h">On the back of each card</h3>
-<p class="hint">Scanning one opens that design as a challenge. To print them, turn on “QR codes on the card backs” in Challenge book › Cards.</p>
-<div class="qr-grid">${cards || '<p class="muted">No designs yet.</p>'}</div>
-<h3 class="deck-h">Unlock cards, one in each box</h3>
+<p class="hint">One card in each box. Its QR code, or the code typed in My packs, unlocks this pack in the buyer's app.</p>
 ${sale ? `<div class="deck-grid qr-unlock">${shown.map((c) => `<figure class="deck-card"><div class="card-face">${unlockCardSvg(c, base, pack.name)}</div></figure>`).join('')}</div>
 ${sale.codes.length > shown.length ? `<p class="hint">and ${sale.codes.length - shown.length} more in the PDF.</p>` : ''}
 <div class="row-buttons"><button type="button" class="btn primary" data-action="sale-unlock-pdf">${ICONS.download}PDF of the ${plural(sale.codes.length, 'unlock card')}</button></div>` : '<p class="muted">Make the codes first (Sell this pack, in the panel).</p>'}

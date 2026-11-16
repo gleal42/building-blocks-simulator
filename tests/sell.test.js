@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import jsQR from 'jsqr';
 
-import { baseAddress, designLink, isCode, normalizeCode, parseLink, unlockLink } from '../src/links.js';
+import { baseAddress, isCode, normalizeCode, parseLink, unlockLink } from '../src/links.js';
 import { isLockedPack, lockPack, makeCodes, unlockAny, unlockPack } from '../src/lock.js';
 import { newPack } from '../src/packs.js';
 import { qrItems, qrMatrix } from '../src/qr.js';
@@ -26,20 +26,14 @@ function scan(text, px = 4) {
 }
 
 test('QR codes read back as the same text', () => {
-  const link = designLink('https://example.com/play/', 4, 4, [1, 1, 2, 1, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2]);
-  assert.equal(scan(link), link);
-  const long = designLink('https://example.com/', 6, 12, new Array(72).fill(5));
+  const long = unlockLink('https://example.com/a/rather/long/path/to/the/app/', 'K7QM-3XTP-ZR8D');
   assert.equal(scan(long), long);
   assert.equal(scan(unlockLink('https://example.com/', 'K7QM-3XTP-ZR8D')), 'https://example.com/#u-K7QM-3XTP-ZR8D');
 });
 
-test('links: design and unlock, and anything else is ignored', () => {
+test('unlock links, and anything else is ignored', () => {
   assert.equal(baseAddress('https://x.org/app/#u-AAAA'), 'https://x.org/app/');
-  const d = parseLink('#d-4x4-1121112211221122');
-  assert.deepEqual(d, { kind: 'design', rows: 4, cols: 4, looks: [1, 1, 2, 1, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2] });
-  assert.equal(parseLink('#d-4x4-112'), null, 'wrong length');
-  assert.equal(parseLink('#d-3x3-111111111'), null, 'not a tray size');
-  assert.equal(parseLink('#d-4x4-1121112211221170'), null, 'bad look');
+  assert.equal(parseLink('#d-4x4-1121112211221122'), null, 'cards have no links');
   assert.deepEqual(parseLink('#u-k7qm-3xtp-zr8d'), { kind: 'unlock', code: 'K7QM-3XTP-ZR8D' });
   assert.equal(parseLink('#u-K7QM-3XTP'), null);
   assert.equal(parseLink('#costs'), null);

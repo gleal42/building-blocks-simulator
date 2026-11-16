@@ -109,7 +109,6 @@ export function createBookUI(ctx) {
       book.challenges.map((c) => `${c.looks.join('')}:${c.difficulty}`),
       book.cover.front?.src.length ?? 0,
       book.cover.back?.src.length ?? 0,
-      ctx.cardQrBase(),
       state().box,
     ]);
   }
@@ -161,11 +160,8 @@ export function createBookUI(ctx) {
     return `<div class="deck is-${book.shape}">
 <p class="muted">${n} card${n === 1 ? '' : 's'} of ${layout.w} × ${layout.h} mm: ${layout.perSheet} fit on a sheet of ${PAPER[book.paper].name}, so ${sheets} sheet${sheets === 1 ? '' : 's'}, printed on both sides.</p>
 ${n ? `<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book, i), '')).join('')}</div>` : '<p class="muted">No challenges yet: each challenge you add becomes a card.</p>'}
-${ctx.cardQrBase() && n
-    ? `<h3 class="deck-h">The backs, each with the QR code of its card</h3>
-<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book, i, { back: true, qrBase: ctx.cardQrBase() }), `Back of ${i + 1}`)).join('')}</div>`
-    : `<h3 class="deck-h">The back of every card</h3>
-<div class="deck-grid">${face(cardSvg(book, null), '')}</div>`}
+<h3 class="deck-h">The back of every card</h3>
+<div class="deck-grid">${face(cardSvg(book, null), '')}</div>
 </div>`;
   }
 
@@ -386,8 +382,7 @@ ${coverRow('back', 'Back cover')}
 <button type="button" class="btn primary" data-action="book-cards-pdf">${ICONS.download}PDF of the cards</button>
 <button type="button" class="btn" data-action="book-view" data-id="cards"${st.bookView === 'cards' ? ' disabled' : ''}>Show the cards</button>
 </div>
-<button type="button" class="chip${st.cardQr ? ' is-on' : ''}" data-action="book-card-qr" aria-pressed="${!!st.cardQr}">QR codes on the card backs</button>
-<p class="hint">Print it on ${PAPER[book.paper].name}, both sides, <b>flip on the long edge</b>, so each card gets the back. Then cut along the marks.${st.cardQr ? ' Each back then has the QR code of its card: scanning it opens that picture in the app.' : ''}</p>
+<p class="hint">Print it on ${PAPER[book.paper].name}, both sides, <b>flip on the long edge</b>, so each card gets the back. Then cut along the marks.</p>
 </section>
 <section class="card" aria-labelledby="box-h">
 <h2 id="box-h">Box</h2>
@@ -447,11 +442,7 @@ ${coverRow('back', 'Back cover')}
       ctx.setStatus('Add some challenges first: each one becomes a card.', true, 'bad');
       return;
     }
-    if (state().cardQr && !ctx.cardQrBase()) {
-      ctx.setStatus('Fill in where buyers open the app (Packs › Sell this pack) for the QR codes, or turn them off.', true, 'bad');
-      return;
-    }
-    const bytes = cardsPdf(book, { qrBase: ctx.cardQrBase() });
+    const bytes = cardsPdf(book);
     const name = `${slug(book.title)}-cards.pdf`;
     const res = await ctx.saveFile(name, new Blob([bytes], { type: 'application/pdf' }), 'application/pdf');
     if (res === 'saved') ctx.setStatus(`Saved ${name}.`);
@@ -583,12 +574,6 @@ ${coverRow('back', 'Back cover')}
     'book-export': exportJson,
     'book-import': () => pickFile('application/json,.json', importFile),
     'book-copy': () => ctx.copyText(exportBook(currentBook()), 'Book'),
-    'book-card-qr': () => {
-      const st = state();
-      st.cardQr = !st.cardQr;
-      if (st.cardQr && !ctx.cardQrBase()) ctx.setStatus('The QR codes need the address where buyers open the app: fill it in under Packs › Sell this pack.', true, 'bad');
-      changed();
-    },
     'box-layout': (el) => {
       state().box.layout = el.dataset.id;
       changed();

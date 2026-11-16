@@ -7,7 +7,7 @@ import { PAPER, bookTray } from './book.js';
 import { defaultArt, drawItemsPdf, fitTray, itemsSvg, starItems, trayItems } from './bookpages.js';
 import { wrapText } from './fonts.js';
 import { MM, PdfDocument } from './pdf.js';
-import { designLink, unlockLink } from './links.js';
+import { unlockLink } from './links.js';
 import { qrItems } from './qr.js';
 
 /** Card sizes in millimetres. */
@@ -71,11 +71,8 @@ export function cardFront(book, index) {
   return items;
 }
 
-/**
- * The back of the cards: the book's title over a pattern of pieces. With qr (the link of the
- * card's design), a QR code that opens the design in the app sits beside the title.
- */
-export function cardBack(book, { qr = null } = {}) {
+/** The back of the cards: the book's title over a pattern of pieces. */
+export function cardBack(book) {
   const { rows, cols } = bookTray(book);
   const W = cardWidth(book);
   const items = [
@@ -83,22 +80,6 @@ export function cardBack(book, { qr = null } = {}) {
     { t: 'rect', x: 50, y: 50, w: W - 100, h: 900, r: 56, stroke: BACK_EDGE, sw: 10 },
   ];
   const art = defaultArt(rows, cols);
-  if (qr) {
-    // About 19 mm on a square card: big enough for any phone camera.
-    const side = W === 1000 ? 300 : 360;
-    const qx = W - 110 - side;
-    const qy = 1000 - 110 - side;
-    const fitArt = fitTray(rows, cols, { x: 140, y: 110, w: W - 280, h: qy - 160 });
-    items.push(...trayItems(art, rows, cols, fitArt.x, fitArt.y, fitArt.cell));
-    items.push({ t: 'rect', x: qx - 14, y: qy - 14, w: side + 28, h: side + 28, r: 24, fill: '#ffffff' });
-    items.push(...qrItems(qr, qx, qy, side));
-    const width = qx - 140 - 40;
-    const lines = wrapText(book.title || 'Block Challenges', 58, width, true).slice(0, 3);
-    lines.forEach((line, i) => items.push(text(130, qy + 70 + i * 66, line, 58, { bold: true })));
-    items.push(text(130, qy + 70 + lines.length * 66 + 10, 'Scan to play it', 40, { fill: MUTED }));
-    items.push(text(130, qy + 70 + lines.length * 66 + 58, 'in the app', 40, { fill: MUTED }));
-    return items;
-  }
   const title = wrapText(book.title || 'Block Challenges', 76, W - 220, true).slice(0, 2);
   const titleTop = 1000 - 170 - (title.length - 1) * 84;
   const fit = fitTray(rows, cols, { x: 140, y: 110, w: W - 280, h: titleTop - 190 });
@@ -108,21 +89,12 @@ export function cardBack(book, { qr = null } = {}) {
   return items;
 }
 
-/** The link a card's QR code opens: its design in the app at base. */
-export function cardLink(book, index, base) {
-  const { rows, cols } = bookTray(book);
-  return designLink(base, rows, cols, book.challenges[index].looks);
-}
-
-/**
- * SVG of a card: the front of challenge `index`, or the back when index is null (or when
- * back is set: the back of card `index`, with its QR code when qrBase is given).
- */
-export function cardSvg(book, index, { back = index === null, qrBase = null } = {}) {
+/** SVG of a card: the front of challenge `index`, or the back when index is null. */
+export function cardSvg(book, index) {
   const W = cardWidth(book);
-  const qr = back && qrBase && index !== null ? cardLink(book, index, qrBase) : null;
-  const items = back ? cardBack(book, { qr }) : cardFront(book, index);
-  const label = back ? (index === null ? 'Back of the cards' : `Back of card ${index + 1}`) : `Card ${index + 1}`;
+  const back = index === null;
+  const items = back ? cardBack(book) : cardFront(book, index);
+  const label = back ? 'Back of the cards' : `Card ${index + 1}`;
   return `<svg viewBox="0 0 ${W} 1000" xmlns="http://www.w3.org/2000/svg" class="card-svg" role="img" aria-label="${label}"><rect width="${W}" height="1000" fill="#ffffff"/>${itemsSvg(items)}</svg>`;
 }
 
@@ -162,7 +134,7 @@ export function cutMarks(canvas, layout, count) {
  * The deck as a PDF: for each sheet, a page of fronts and then a page of backs. Printed on
  * both sides (flip on the long edge), every card gets its back; cut along the marks.
  */
-export function cardsPdf(book, { qrBase = null } = {}) {
+export function cardsPdf(book) {
   const layout = cardSheet(book);
   const doc = new PdfDocument();
   const images = new Map();
@@ -177,7 +149,7 @@ export function cardsPdf(book, { qrBase = null } = {}) {
       const canvas = doc.page(layout.sheetW * MM, layout.sheetH * MM);
       for (let k = 0; k < count; k += 1) {
         const { x, y } = cardSlot(layout, k, side === 'back');
-        const face = side === 'front' ? cardFront(book, first + k) : qrBase ? cardBack(book, { qr: cardLink(book, first + k, qrBase) }) : back;
+        const face = side === 'front' ? cardFront(book, first + k) : back;
         drawCard(canvas, face, x, y, layout, W, images);
       }
       const bottom = cutMarks(canvas, layout, Math.max(1, count));

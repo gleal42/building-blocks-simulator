@@ -2289,40 +2289,6 @@ body[data-mode="packs"] .board-wrap > svg {
   gap: 8px;
 }
 
-.qr-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
-}
-
-.qr-item {
-  margin: 0;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #ffffff;
-  color: #1d1c19;
-}
-
-.qr-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: center;
-  gap: 6px;
-}
-
-.qr-pair svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.qr-item figcaption {
-  margin-top: 4px;
-  font-size: 12px;
-  text-align: center;
-}
-
 .box-view {
   display: flex;
   flex-direction: column;

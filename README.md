@@ -89,19 +89,17 @@ A pack is a named set of designs for one tray size (the book sizes: 2×2, 4×4, 
 
 In the Packs tab, **Sell this pack**:
 
-- **Where buyers open the app:** the address the QR codes point to.
+- **Where buyers open the app:** the address the unlock cards' QR codes point to.
 - **Unlock codes**, one per box (10 to 100 at a time, more can be added later). The pack is
   *locked*: its designs are encrypted, and each code opens it (see [`src/lock.js`](src/lock.js)).
   No server is needed, and nobody can read the designs without a code. The codes are kept only
   in the maker's browser and in copies: **Copy the codes** and keep them safe.
-- **QR codes and unlock cards:** every card's QR code (it opens that design as a challenge),
-  and a card for each box with its unlock code and QR code (**PDF of the unlock cards**).
+- **Unlock cards:** one for each box, with its unlock code and a QR code that opens the app
+  and unlocks the pack (**PDF of the unlock cards**). This is the only QR code: the challenge
+  cards don't have one, since every design is in the app once the pack is unlocked.
 - **Copy locked pack as code:** paste it into `LOCKED_PACKS` in
   [`src/builtinpacks.js`](src/builtinpacks.js) to build the pack into the buyer's app.
 - **Preview as a customer:** see the app as a buyer does.
-
-In Challenge book › Cards, **QR codes on the card backs** gives each card's back the QR code
-of its design.
 
 ### What a buyer gets (customer mode)
 
@@ -111,7 +109,7 @@ of its design.
 it keeps its own storage. The maker's app shows the same thing in **customer preview**
 (*Preview as a customer*, or open an unlock link), with a bar to go back to maker mode.
 
-Links the QR codes use (after `#`): `#d-4x4-1121…` opens a design, `#u-K7QM-3XTP-ZR8D` unlocks a pack.
+The unlock QR code is a link ending in `#u-K7QM-3XTP-ZR8D`: opening it unlocks that pack.
 
 ### Box
 
@@ -200,7 +198,7 @@ fails if `index.html` is out of date.
 | `src/packui.js`, `src/packcheck.js` | The Packs tab, and checking designs in a background worker. |
 | `src/photo.js` | Finding and reading designs in a photo. |
 | `src/game.js`, `src/playui.js` | Games: the deck, turns, timing and scores (also the solo deck for Build challenges), and the Play tab. |
-| `src/lock.js`, `src/links.js`, `src/qr.js` | Locked packs and unlock codes, the links in QR codes, and QR codes as drawings. |
+| `src/lock.js`, `src/links.js`, `src/qr.js` | Locked packs and unlock codes, unlock links, and QR codes as drawings. |
 | `src/customerui.js` | My packs: what a buyer sees (also the maker's customer preview). |
 | `src/box.js` | The game box: sizes, flat shapes to cut, PDF. |
 | `src/render2d.js`, `src/render3d.js` | Photo-style top view; 3D icons and the clickable 3D tray. |

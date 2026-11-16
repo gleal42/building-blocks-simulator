@@ -2300,40 +2300,6 @@ body[data-mode="packs"] .board-wrap > svg {
   gap: 8px;
 }
 
-.qr-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
-}
-
-.qr-item {
-  margin: 0;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #ffffff;
-  color: #1d1c19;
-}
-
-.qr-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: center;
-  gap: 6px;
-}
-
-.qr-pair svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.qr-item figcaption {
-  margin-top: 4px;
-  font-size: 12px;
-  text-align: center;
-}
-
 .box-view {
   display: flex;
   flex-direction: column;
@@ -4496,142 +4462,6 @@ ${xrefAt}
     return doc.toBytes();
   }
 
-  // src/builtinpacks.js
-  var BUILT_IN_PACKS = [
-    {
-      id: "starter-4x4",
-      name: "Starter 4×4",
-      rows: 4,
-      cols: 4,
-      designs: [
-        { looks: "1121/1122/1122/1122", stars: 1 },
-        { looks: "5111/2121/2223/1122", stars: 1 },
-        { looks: "2411/2221/5122/1124", stars: 2 },
-        { looks: "2212/2432/2416/1111", stars: 2 },
-        { looks: "6512/1322/1132/2141", stars: 3 },
-        { looks: "6113/1322/2266/2411", stars: 3 }
-      ]
-    }
-  ];
-  var LOCKED_PACKS = [];
-
-  // src/packs.js
-  var PACK_FORMAT = "building-blocks-pack";
-  var PACK_VERSION = 1;
-  var MAX_PACK_NAME = 60;
-  var PACK_SIZES = Object.freeze([
-    ...BOOK_SIZES.square.map((n) => ({ shape: "square", n, rows: n, cols: n })),
-    ...BOOK_SIZES.rect.map((n) => ({ shape: "rect", n, rows: n, cols: 2 * n }))
-  ]);
-  var sizeLabel = (rows, cols) => `${rows}×${cols}`;
-  var isPackSize = (rows, cols) => PACK_SIZES.some((s) => s.rows === rows && s.cols === cols);
-  function bookShapeFor(rows, cols) {
-    const s = PACK_SIZES.find((x) => x.rows === rows && x.cols === cols);
-    return s ? { shape: s.shape, n: s.n } : null;
-  }
-  var designKey = (rows, cols, looks) => `${rows}x${cols}:${looks.join("")}`;
-  function slugify(s) {
-    return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "pack";
-  }
-  function looksToText(looks, cols) {
-    const rows = [];
-    for (let i = 0; i < looks.length; i += cols) rows.push(looks.slice(i, i + cols).join(""));
-    return rows.join("/");
-  }
-  function textToLooks(text3, rows, cols) {
-    const digits = String(text3).replace(/[\s/,|]+/g, "");
-    if (!/^[1-6]*$/.test(digits)) throw new Error("A design may only use the digits 1 to 6.");
-    if (digits.length !== rows * cols) throw new Error(`A ${sizeLabel(rows, cols)} design needs ${rows * cols} squares; this one has ${digits.length}.`);
-    return [...digits].map(Number);
-  }
-  function newPack({ id, name = "New pack", rows = 4, cols = 4 } = {}) {
-    if (!isPackSize(rows, cols)) throw new Error(`Packs can be ${PACK_SIZES.map((s) => sizeLabel(s.rows, s.cols)).join(", ")}.`);
-    return { id: id ?? `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, rows, cols, builtIn: false, designs: [] };
-  }
-  function normalizePack(raw, { builtIn = false } = {}) {
-    if (!raw || typeof raw !== "object") throw new Error("That is not a pack.");
-    const rows = Number(raw.rows);
-    const cols = Number(raw.cols);
-    if (!isPackSize(rows, cols)) {
-      throw new Error(`The pack is ${raw.rows}×${raw.cols}; packs can be ${PACK_SIZES.map((s) => sizeLabel(s.rows, s.cols)).join(", ")}.`);
-    }
-    if (!Array.isArray(raw.designs)) throw new Error("The pack has no list of designs.");
-    const designs = raw.designs.map((d, i) => {
-      let looks;
-      try {
-        looks = Array.isArray(d?.looks) ? d.looks.map(Number) : textToLooks(d?.looks ?? "", rows, cols);
-      } catch (err) {
-        throw new Error(`Design ${i + 1}: ${err.message}`);
-      }
-      if (looks.length !== rows * cols || !looks.every((l) => Number.isInteger(l) && l >= LOOK.WHITE && l <= LOOK.BACK_BW)) {
-        throw new Error(`Design ${i + 1} does not fit a ${sizeLabel(rows, cols)} tray.`);
-      }
-      const stars2 = [1, 2, 3].includes(Number(d.stars)) ? Number(d.stars) : suggestDifficulty(looks);
-      return { looks, stars: stars2 };
-    });
-    const name = typeof raw.name === "string" && raw.name.trim() ? raw.name.trim().slice(0, MAX_PACK_NAME) : "Pack";
-    const id = typeof raw.id === "string" && raw.id ? raw.id : slugify(name);
-    return { id: builtIn ? `builtin:${id}` : id, name, rows, cols, builtIn, designs };
-  }
-  var builtInPacks = () => BUILT_IN_PACKS.map((p) => normalizePack(p, { builtIn: true }));
-  function packToCode(pack) {
-    const id = pack.builtIn ? pack.id.replace(/^builtin:/, "") : slugify(pack.name);
-    const lines = pack.designs.map((d) => `    { "looks": ${JSON.stringify(looksToText(d.looks, pack.cols))}, "stars": ${d.stars} }`);
-    return `{
-  "format": "${PACK_FORMAT}",
-  "version": ${PACK_VERSION},
-  "id": ${JSON.stringify(id)},
-  "name": ${JSON.stringify(pack.name)},
-  "rows": ${pack.rows},
-  "cols": ${pack.cols},
-  "designs": [
-${lines.join(",\n")}
-  ]
-}`;
-  }
-  function parsePacks(text3) {
-    const cleaned = String(text3).replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*export\s+const\s+\w+\s*=\s*/m, "").replace(/;\s*$/, "").replace(/,\s*([\]}])/g, "$1").replace(/,\s*$/, "").trim();
-    if (!cleaned) throw new Error("There is nothing to read.");
-    let data;
-    try {
-      data = JSON.parse(cleaned);
-    } catch {
-      try {
-        data = JSON.parse(cleaned.replace(/([{,]\s*)([A-Za-z_]\w*)\s*:/g, '$1"$2":').replace(/'([^'\\]*)'/g, '"$1"'));
-      } catch {
-        throw new Error("That text is not a pack (it should look like what “Copy as code” gives).");
-      }
-    }
-    if (data && data.format && data.format !== PACK_FORMAT) throw new Error("That file is not a pack from this app.");
-    if (data && data.version > PACK_VERSION) throw new Error("That pack was saved by a newer version of the app.");
-    const list = Array.isArray(data) ? data : data?.pack ? [data.pack] : Array.isArray(data?.packs) ? data.packs : [data];
-    if (!list.length) throw new Error("There are no packs in that text.");
-    return list.map((p) => normalizePack(p));
-  }
-  function addDesigns(pack, designs) {
-    const seen = new Set(pack.designs.map((d) => d.looks.join("")));
-    let added = 0;
-    let duplicates = 0;
-    for (const d of designs) {
-      const key = d.looks.join("");
-      if (seen.has(key)) {
-        duplicates += 1;
-        continue;
-      }
-      seen.add(key);
-      pack.designs.push({ looks: d.looks.slice(), stars: [1, 2, 3].includes(d.stars) ? d.stars : suggestDifficulty(d.looks) });
-      added += 1;
-    }
-    return { added, duplicates };
-  }
-  function packFromBook(book, id) {
-    const rows = book.n;
-    const cols = book.shape === "rect" ? 2 * book.n : book.n;
-    const pack = newPack({ id, name: book.title || "From the book", rows, cols });
-    addDesigns(pack, book.challenges.map((c) => ({ looks: c.looks, stars: c.difficulty })));
-    return pack;
-  }
-
   // src/links.js
   var CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
   function normalizeCode(text3) {
@@ -4642,22 +4472,12 @@ ${lines.join(",\n")}
   function baseAddress(url) {
     return String(url ?? "").trim().replace(/#.*$/, "");
   }
-  function designLink(base, rows, cols, looks) {
-    return `${baseAddress(base)}#d-${rows}x${cols}-${looks.join("")}`;
-  }
   function unlockLink(base, code) {
     return `${baseAddress(base)}#u-${code}`;
   }
   function parseLink(hash) {
     const h = String(hash ?? "").replace(/^#/, "");
-    let m = /^d-(\d{1,2})x(\d{1,2})-([1-6]+)$/.exec(h);
-    if (m) {
-      const rows = Number(m[1]);
-      const cols = Number(m[2]);
-      if (!isPackSize(rows, cols) || m[3].length !== rows * cols) return null;
-      return { kind: "design", rows, cols, looks: [...m[3]].map(Number) };
-    }
-    m = /^u-([0-9A-Za-z-]{12,20})$/.exec(h);
+    const m = /^u-([0-9A-Za-z-]{12,20})$/.exec(h);
     if (m) {
       const code = normalizeCode(m[1]);
       return isCode(code) ? { kind: "unlock", code } : null;
@@ -5021,30 +4841,30 @@ ${lines.join(",\n")}
       title.text = title.text || null;
       title.id = title.text ? title.id || "qrcode-title" : null;
       const size = _this.getModuleCount() * cellSize + margin * 2;
-      let c, mc, r, mr, qrSvg2 = "", rect;
+      let c, mc, r, mr, qrSvg = "", rect;
       rect = "l" + cellSize + ",0 0," + cellSize + " -" + cellSize + ",0 0,-" + cellSize + "z ";
-      qrSvg2 += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
-      qrSvg2 += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : "";
-      qrSvg2 += ' viewBox="0 0 ' + size + " " + size + '" ';
-      qrSvg2 += ' preserveAspectRatio="xMinYMin meet"';
-      qrSvg2 += title.text || alt.text ? ' role="img" aria-labelledby="' + escapeXml([title.id, alt.id].join(" ").trim()) + '"' : "";
-      qrSvg2 += ">";
-      qrSvg2 += title.text ? '<title id="' + escapeXml(title.id) + '">' + escapeXml(title.text) + "</title>" : "";
-      qrSvg2 += alt.text ? '<description id="' + escapeXml(alt.id) + '">' + escapeXml(alt.text) + "</description>" : "";
-      qrSvg2 += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>';
-      qrSvg2 += '<path d="';
+      qrSvg += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
+      qrSvg += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : "";
+      qrSvg += ' viewBox="0 0 ' + size + " " + size + '" ';
+      qrSvg += ' preserveAspectRatio="xMinYMin meet"';
+      qrSvg += title.text || alt.text ? ' role="img" aria-labelledby="' + escapeXml([title.id, alt.id].join(" ").trim()) + '"' : "";
+      qrSvg += ">";
+      qrSvg += title.text ? '<title id="' + escapeXml(title.id) + '">' + escapeXml(title.text) + "</title>" : "";
+      qrSvg += alt.text ? '<description id="' + escapeXml(alt.id) + '">' + escapeXml(alt.text) + "</description>" : "";
+      qrSvg += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>';
+      qrSvg += '<path d="';
       for (r = 0; r < _this.getModuleCount(); r += 1) {
         mr = r * cellSize + margin;
         for (c = 0; c < _this.getModuleCount(); c += 1) {
           if (_this.isDark(r, c)) {
             mc = c * cellSize + margin;
-            qrSvg2 += "M" + mc + "," + mr + rect;
+            qrSvg += "M" + mc + "," + mr + rect;
           }
         }
       }
-      qrSvg2 += '" stroke="transparent" fill="black"/>';
-      qrSvg2 += "</svg>";
-      return qrSvg2;
+      qrSvg += '" stroke="transparent" fill="black"/>';
+      qrSvg += "</svg>";
+      return qrSvg;
     };
     _this.createDataURL = function(cellSize, margin) {
       cellSize = cellSize || 2;
@@ -6328,15 +6148,6 @@ ${lines.join(",\n")}
     }
     return items;
   }
-  function qrSvg(text3, { className = "qr", label = "QR code" } = {}) {
-    const { size, dark } = qrMatrix(text3);
-    let d = "";
-    for (let r = 0; r < size; r += 1) {
-      for (let c = 0; c < size; c += 1) if (dark(r, c)) d += `M${c + 4} ${r + 4}h1v1h-1z`;
-    }
-    const total = size + 8;
-    return `<svg viewBox="0 0 ${total} ${total}" class="${className}" role="img" aria-label="${label}" shape-rendering="crispEdges"><rect width="${total}" height="${total}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
-  }
 
   // src/cards.js
   var CARD = {
@@ -6378,7 +6189,7 @@ ${lines.join(",\n")}
     items.push(...trayItems(ch.looks, rows, cols, fit.x, fit.y, fit.cell));
     return items;
   }
-  function cardBack(book, { qr = null } = {}) {
+  function cardBack(book) {
     const { rows, cols } = bookTray(book);
     const W2 = cardWidth(book);
     const items = [
@@ -6386,21 +6197,6 @@ ${lines.join(",\n")}
       { t: "rect", x: 50, y: 50, w: W2 - 100, h: 900, r: 56, stroke: BACK_EDGE, sw: 10 }
     ];
     const art = defaultArt(rows, cols);
-    if (qr) {
-      const side = W2 === 1e3 ? 300 : 360;
-      const qx = W2 - 110 - side;
-      const qy = 1e3 - 110 - side;
-      const fitArt = fitTray(rows, cols, { x: 140, y: 110, w: W2 - 280, h: qy - 160 });
-      items.push(...trayItems(art, rows, cols, fitArt.x, fitArt.y, fitArt.cell));
-      items.push({ t: "rect", x: qx - 14, y: qy - 14, w: side + 28, h: side + 28, r: 24, fill: "#ffffff" });
-      items.push(...qrItems(qr, qx, qy, side));
-      const width = qx - 140 - 40;
-      const lines = wrapText(book.title || "Block Challenges", 58, width, true).slice(0, 3);
-      lines.forEach((line, i) => items.push(text2(130, qy + 70 + i * 66, line, 58, { bold: true })));
-      items.push(text2(130, qy + 70 + lines.length * 66 + 10, "Scan to play it", 40, { fill: MUTED2 }));
-      items.push(text2(130, qy + 70 + lines.length * 66 + 58, "in the app", 40, { fill: MUTED2 }));
-      return items;
-    }
     const title = wrapText(book.title || "Block Challenges", 76, W2 - 220, true).slice(0, 2);
     const titleTop = 1e3 - 170 - (title.length - 1) * 84;
     const fit = fitTray(rows, cols, { x: 140, y: 110, w: W2 - 280, h: titleTop - 190 });
@@ -6409,15 +6205,11 @@ ${lines.join(",\n")}
     items.push(text2(W2 / 2, titleTop + (title.length - 1) * 84 + 72, `${rows}×${cols} tray`, 46, { fill: MUTED2, anchor: "middle" }));
     return items;
   }
-  function cardLink(book, index, base) {
-    const { rows, cols } = bookTray(book);
-    return designLink(base, rows, cols, book.challenges[index].looks);
-  }
-  function cardSvg(book, index, { back = index === null, qrBase = null } = {}) {
+  function cardSvg(book, index) {
     const W2 = cardWidth(book);
-    const qr = back && qrBase && index !== null ? cardLink(book, index, qrBase) : null;
-    const items = back ? cardBack(book, { qr }) : cardFront(book, index);
-    const label = back ? index === null ? "Back of the cards" : `Back of card ${index + 1}` : `Card ${index + 1}`;
+    const back = index === null;
+    const items = back ? cardBack(book) : cardFront(book, index);
+    const label = back ? "Back of the cards" : `Card ${index + 1}`;
     return `<svg viewBox="0 0 ${W2} 1000" xmlns="http://www.w3.org/2000/svg" class="card-svg" role="img" aria-label="${label}"><rect width="${W2}" height="1000" fill="#ffffff"/>${itemsSvg(items)}</svg>`;
   }
   function drawCard(canvas, items, xMm, yMm, layout, width, images) {
@@ -6449,7 +6241,7 @@ ${lines.join(",\n")}
     }
     return y1;
   }
-  function cardsPdf(book, { qrBase = null } = {}) {
+  function cardsPdf(book) {
     const layout = cardSheet(book);
     const doc = new PdfDocument();
     const images = /* @__PURE__ */ new Map();
@@ -6464,7 +6256,7 @@ ${lines.join(",\n")}
         const canvas = doc.page(layout.sheetW * MM, layout.sheetH * MM);
         for (let k = 0; k < count; k += 1) {
           const { x, y } = cardSlot(layout, k, side === "back");
-          const face = side === "front" ? cardFront(book, first + k) : qrBase ? cardBack(book, { qr: cardLink(book, first + k, qrBase) }) : back;
+          const face = side === "front" ? cardFront(book, first + k) : back;
           drawCard(canvas, face, x, y, layout, W2, images);
         }
         const bottom = cutMarks(canvas, layout, Math.max(1, count));
@@ -7093,7 +6885,6 @@ ${slopes}
         book.challenges.map((c) => `${c.looks.join("")}:${c.difficulty}`),
         book.cover.front?.src.length ?? 0,
         book.cover.back?.src.length ?? 0,
-        ctx.cardQrBase(),
         state2().box
       ]);
     }
@@ -7140,9 +6931,8 @@ ${slopes}
       return `<div class="deck is-${book.shape}">
 <p class="muted">${n} card${n === 1 ? "" : "s"} of ${layout.w} × ${layout.h} mm: ${layout.perSheet} fit on a sheet of ${PAPER[book.paper].name}, so ${sheets} sheet${sheets === 1 ? "" : "s"}, printed on both sides.</p>
 ${n ? `<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book, i), "")).join("")}</div>` : '<p class="muted">No challenges yet: each challenge you add becomes a card.</p>'}
-${ctx.cardQrBase() && n ? `<h3 class="deck-h">The backs, each with the QR code of its card</h3>
-<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book, i, { back: true, qrBase: ctx.cardQrBase() }), `Back of ${i + 1}`)).join("")}</div>` : `<h3 class="deck-h">The back of every card</h3>
-<div class="deck-grid">${face(cardSvg(book, null), "")}</div>`}
+<h3 class="deck-h">The back of every card</h3>
+<div class="deck-grid">${face(cardSvg(book, null), "")}</div>
 </div>`;
     }
     function boxFor(book) {
@@ -7346,8 +7136,7 @@ ${coverRow("back", "Back cover")}
 <button type="button" class="btn primary" data-action="book-cards-pdf">${ICONS.download}PDF of the cards</button>
 <button type="button" class="btn" data-action="book-view" data-id="cards"${st.bookView === "cards" ? " disabled" : ""}>Show the cards</button>
 </div>
-<button type="button" class="chip${st.cardQr ? " is-on" : ""}" data-action="book-card-qr" aria-pressed="${!!st.cardQr}">QR codes on the card backs</button>
-<p class="hint">Print it on ${PAPER[book.paper].name}, both sides, <b>flip on the long edge</b>, so each card gets the back. Then cut along the marks.${st.cardQr ? " Each back then has the QR code of its card: scanning it opens that picture in the app." : ""}</p>
+<p class="hint">Print it on ${PAPER[book.paper].name}, both sides, <b>flip on the long edge</b>, so each card gets the back. Then cut along the marks.</p>
 </section>
 <section class="card" aria-labelledby="box-h">
 <h2 id="box-h">Box</h2>
@@ -7401,11 +7190,7 @@ ${coverRow("back", "Back cover")}
         ctx.setStatus("Add some challenges first: each one becomes a card.", true, "bad");
         return;
       }
-      if (state2().cardQr && !ctx.cardQrBase()) {
-        ctx.setStatus("Fill in where buyers open the app (Packs › Sell this pack) for the QR codes, or turn them off.", true, "bad");
-        return;
-      }
-      const bytes = cardsPdf(book, { qrBase: ctx.cardQrBase() });
+      const bytes = cardsPdf(book);
       const name = `${slug(book.title)}-cards.pdf`;
       const res = await ctx.saveFile(name, new Blob([bytes], { type: "application/pdf" }), "application/pdf");
       if (res === "saved") ctx.setStatus(`Saved ${name}.`);
@@ -7531,12 +7316,6 @@ ${coverRow("back", "Back cover")}
       "book-export": exportJson,
       "book-import": () => pickFile("application/json,.json", importFile),
       "book-copy": () => ctx.copyText(exportBook(currentBook()), "Book"),
-      "book-card-qr": () => {
-        const st = state2();
-        st.cardQr = !st.cardQr;
-        if (st.cardQr && !ctx.cardQrBase()) ctx.setStatus("The QR codes need the address where buyers open the app: fill it in under Packs › Sell this pack.", true, "bad");
-        changed();
-      },
       "box-layout": (el) => {
         state2().box.layout = el.dataset.id;
         changed();
@@ -7592,6 +7371,142 @@ ${coverRow("back", "Back cover")}
       ctx.scheduleSave();
     }
     return { renderStage: renderStage2, panelMarkup, actions, attach, onKey, currentBook, bookTraySize, addFromCheck, bookFor, invalidate };
+  }
+
+  // src/builtinpacks.js
+  var BUILT_IN_PACKS = [
+    {
+      id: "starter-4x4",
+      name: "Starter 4×4",
+      rows: 4,
+      cols: 4,
+      designs: [
+        { looks: "1121/1122/1122/1122", stars: 1 },
+        { looks: "5111/2121/2223/1122", stars: 1 },
+        { looks: "2411/2221/5122/1124", stars: 2 },
+        { looks: "2212/2432/2416/1111", stars: 2 },
+        { looks: "6512/1322/1132/2141", stars: 3 },
+        { looks: "6113/1322/2266/2411", stars: 3 }
+      ]
+    }
+  ];
+  var LOCKED_PACKS = [];
+
+  // src/packs.js
+  var PACK_FORMAT = "building-blocks-pack";
+  var PACK_VERSION = 1;
+  var MAX_PACK_NAME = 60;
+  var PACK_SIZES = Object.freeze([
+    ...BOOK_SIZES.square.map((n) => ({ shape: "square", n, rows: n, cols: n })),
+    ...BOOK_SIZES.rect.map((n) => ({ shape: "rect", n, rows: n, cols: 2 * n }))
+  ]);
+  var sizeLabel = (rows, cols) => `${rows}×${cols}`;
+  var isPackSize = (rows, cols) => PACK_SIZES.some((s) => s.rows === rows && s.cols === cols);
+  function bookShapeFor(rows, cols) {
+    const s = PACK_SIZES.find((x) => x.rows === rows && x.cols === cols);
+    return s ? { shape: s.shape, n: s.n } : null;
+  }
+  var designKey = (rows, cols, looks) => `${rows}x${cols}:${looks.join("")}`;
+  function slugify(s) {
+    return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "pack";
+  }
+  function looksToText(looks, cols) {
+    const rows = [];
+    for (let i = 0; i < looks.length; i += cols) rows.push(looks.slice(i, i + cols).join(""));
+    return rows.join("/");
+  }
+  function textToLooks(text3, rows, cols) {
+    const digits = String(text3).replace(/[\s/,|]+/g, "");
+    if (!/^[1-6]*$/.test(digits)) throw new Error("A design may only use the digits 1 to 6.");
+    if (digits.length !== rows * cols) throw new Error(`A ${sizeLabel(rows, cols)} design needs ${rows * cols} squares; this one has ${digits.length}.`);
+    return [...digits].map(Number);
+  }
+  function newPack({ id, name = "New pack", rows = 4, cols = 4 } = {}) {
+    if (!isPackSize(rows, cols)) throw new Error(`Packs can be ${PACK_SIZES.map((s) => sizeLabel(s.rows, s.cols)).join(", ")}.`);
+    return { id: id ?? `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, rows, cols, builtIn: false, designs: [] };
+  }
+  function normalizePack(raw, { builtIn = false } = {}) {
+    if (!raw || typeof raw !== "object") throw new Error("That is not a pack.");
+    const rows = Number(raw.rows);
+    const cols = Number(raw.cols);
+    if (!isPackSize(rows, cols)) {
+      throw new Error(`The pack is ${raw.rows}×${raw.cols}; packs can be ${PACK_SIZES.map((s) => sizeLabel(s.rows, s.cols)).join(", ")}.`);
+    }
+    if (!Array.isArray(raw.designs)) throw new Error("The pack has no list of designs.");
+    const designs = raw.designs.map((d, i) => {
+      let looks;
+      try {
+        looks = Array.isArray(d?.looks) ? d.looks.map(Number) : textToLooks(d?.looks ?? "", rows, cols);
+      } catch (err) {
+        throw new Error(`Design ${i + 1}: ${err.message}`);
+      }
+      if (looks.length !== rows * cols || !looks.every((l) => Number.isInteger(l) && l >= LOOK.WHITE && l <= LOOK.BACK_BW)) {
+        throw new Error(`Design ${i + 1} does not fit a ${sizeLabel(rows, cols)} tray.`);
+      }
+      const stars2 = [1, 2, 3].includes(Number(d.stars)) ? Number(d.stars) : suggestDifficulty(looks);
+      return { looks, stars: stars2 };
+    });
+    const name = typeof raw.name === "string" && raw.name.trim() ? raw.name.trim().slice(0, MAX_PACK_NAME) : "Pack";
+    const id = typeof raw.id === "string" && raw.id ? raw.id : slugify(name);
+    return { id: builtIn ? `builtin:${id}` : id, name, rows, cols, builtIn, designs };
+  }
+  var builtInPacks = () => BUILT_IN_PACKS.map((p) => normalizePack(p, { builtIn: true }));
+  function packToCode(pack) {
+    const id = pack.builtIn ? pack.id.replace(/^builtin:/, "") : slugify(pack.name);
+    const lines = pack.designs.map((d) => `    { "looks": ${JSON.stringify(looksToText(d.looks, pack.cols))}, "stars": ${d.stars} }`);
+    return `{
+  "format": "${PACK_FORMAT}",
+  "version": ${PACK_VERSION},
+  "id": ${JSON.stringify(id)},
+  "name": ${JSON.stringify(pack.name)},
+  "rows": ${pack.rows},
+  "cols": ${pack.cols},
+  "designs": [
+${lines.join(",\n")}
+  ]
+}`;
+  }
+  function parsePacks(text3) {
+    const cleaned = String(text3).replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*export\s+const\s+\w+\s*=\s*/m, "").replace(/;\s*$/, "").replace(/,\s*([\]}])/g, "$1").replace(/,\s*$/, "").trim();
+    if (!cleaned) throw new Error("There is nothing to read.");
+    let data;
+    try {
+      data = JSON.parse(cleaned);
+    } catch {
+      try {
+        data = JSON.parse(cleaned.replace(/([{,]\s*)([A-Za-z_]\w*)\s*:/g, '$1"$2":').replace(/'([^'\\]*)'/g, '"$1"'));
+      } catch {
+        throw new Error("That text is not a pack (it should look like what “Copy as code” gives).");
+      }
+    }
+    if (data && data.format && data.format !== PACK_FORMAT) throw new Error("That file is not a pack from this app.");
+    if (data && data.version > PACK_VERSION) throw new Error("That pack was saved by a newer version of the app.");
+    const list = Array.isArray(data) ? data : data?.pack ? [data.pack] : Array.isArray(data?.packs) ? data.packs : [data];
+    if (!list.length) throw new Error("There are no packs in that text.");
+    return list.map((p) => normalizePack(p));
+  }
+  function addDesigns(pack, designs) {
+    const seen = new Set(pack.designs.map((d) => d.looks.join("")));
+    let added = 0;
+    let duplicates = 0;
+    for (const d of designs) {
+      const key = d.looks.join("");
+      if (seen.has(key)) {
+        duplicates += 1;
+        continue;
+      }
+      seen.add(key);
+      pack.designs.push({ looks: d.looks.slice(), stars: [1, 2, 3].includes(d.stars) ? d.stars : suggestDifficulty(d.looks) });
+      added += 1;
+    }
+    return { added, duplicates };
+  }
+  function packFromBook(book, id) {
+    const rows = book.n;
+    const cols = book.shape === "rect" ? 2 * book.n : book.n;
+    const pack = newPack({ id, name: book.title || "From the book", rows, cols });
+    addDesigns(pack, book.challenges.map((c) => ({ looks: c.looks, stars: c.difficulty })));
+    return pack;
   }
 
   // src/solver.js
@@ -8961,10 +8876,10 @@ ${stale ? `<p class="hint is-bad">The pack has changed since. Lock it again so b
 <p class="muted">Each box gets a card with its own code. The code unlocks this pack, and only this pack, in the buyer's app; nobody can read the designs without one.</p>
 <label class="field-label" for="appUrl">Where buyers open the app</label>
 <input class="text-input" id="appUrl" value="${esc3(state2().sale.appUrl)}" placeholder="https://your-site.com/blocks/" autocomplete="off" spellcheck="false">
-<p class="hint">The QR codes on the cards point to this address.${appBase() ? "" : " Fill it in before printing anything with QR codes."}</p>
+<p class="hint">The QR code on each unlock card points to this address.${appBase() ? "" : " Fill it in before printing the unlock cards."}</p>
 ${codesPart}
 <div class="row-buttons">
-<button type="button" class="btn small" data-action="sale-qr">QR codes and unlock cards</button>
+<button type="button" class="btn small" data-action="sale-qr">Unlock cards</button>
 <button type="button" class="btn small" data-action="sale-preview">${ICONS.play}Preview as a customer</button>
 </div>
 <p class="hint">The codes are kept only in this browser and in copies you make: copy them somewhere safe. They never go into the app. To build a sold pack into the app, paste “Copy locked pack as code” into the locked list in <code>src/builtinpacks.js</code>.</p>
@@ -8974,16 +8889,11 @@ ${codesPart}
       const pack = currentPack();
       const sale = saleOf(pack);
       const base = appBase() || "https://example.com/";
-      const thumb = Math.max(4, Math.round(44 / Math.max(pack.rows, pack.cols)));
-      const cards = pack.designs.map((d, i) => `<figure class="qr-item"><div class="qr-pair"><span class="pk-thumb">${flatPicture(pack.rows, pack.cols, d.looks, { cell: thumb, gap: 1 })}</span>${qrSvg(designLink(base, pack.rows, pack.cols, d.looks), { label: `QR code for design ${i + 1}` })}</div><figcaption>Card ${i + 1} ${"★".repeat(d.stars)}</figcaption></figure>`).join("");
       const shown = sale ? sale.codes.slice(0, 6) : [];
       container.innerHTML = `<div class="qr-sheet">
-<div class="qr-head"><h2 class="pl-title">QR codes: ${esc3(pack.name)}</h2><button type="button" class="btn small" data-action="sale-qr-hide">${ICONS.prev}Back to the pack</button></div>
+<div class="qr-head"><h2 class="pl-title">Unlock cards: ${esc3(pack.name)}</h2><button type="button" class="btn small" data-action="sale-qr-hide">${ICONS.prev}Back to the pack</button></div>
 ${appBase() ? `<p class="muted">They open <b>${esc3(base)}</b>.</p>` : '<p class="hint is-bad">No app address yet (Sell this pack): these point to example.com, just to show them.</p>'}
-<h3 class="deck-h">On the back of each card</h3>
-<p class="hint">Scanning one opens that design as a challenge. To print them, turn on “QR codes on the card backs” in Challenge book › Cards.</p>
-<div class="qr-grid">${cards || '<p class="muted">No designs yet.</p>'}</div>
-<h3 class="deck-h">Unlock cards, one in each box</h3>
+<p class="hint">One card in each box. Its QR code, or the code typed in My packs, unlocks this pack in the buyer's app.</p>
 ${sale ? `<div class="deck-grid qr-unlock">${shown.map((c) => `<figure class="deck-card"><div class="card-face">${unlockCardSvg(c, base, pack.name)}</div></figure>`).join("")}</div>
 ${sale.codes.length > shown.length ? `<p class="hint">and ${sale.codes.length - shown.length} more in the PDF.</p>` : ""}
 <div class="row-buttons"><button type="button" class="btn primary" data-action="sale-unlock-pdf">${ICONS.download}PDF of the ${plural(sale.codes.length, "unlock card")}</button></div>` : '<p class="muted">Make the codes first (Sell this pack, in the panel).</p>'}
@@ -10600,9 +10510,8 @@ ${list.length ? `<ol class="cu-packs">${list.map(packCard).join("")}</ol>` : '<p
       // Build challenges drawn from packs: the packs chosen and the shuffled deck.
       soloPackIds: [],
       soloDeck: null,
-      // Selling: where the app lives (for QR codes), locked packs and their codes, card backs with QR.
+      // Selling: where the app lives (for QR codes), locked packs and their codes.
       sale: { appUrl: defaultAppUrl(), locked: {} },
-      cardQr: false,
       box: { layout: "beside", material: "carton", maker: "" },
       // What a buyer sees: the preview switch, and the packs unlocked on this device.
       customerPreview: CUSTOMER_BUILD,
@@ -10642,7 +10551,6 @@ ${list.length ? `<ol class="cu-packs">${list.map(packCard).join("")}</ol>` : '<p
       soloPackIds: state.soloPackIds,
       soloDeck: state.soloDeck,
       sale: CUSTOMER_BUILD ? void 0 : state.sale,
-      cardQr: state.cardQr,
       box: state.box,
       customerPreview: state.customerPreview,
       customer: state.customer
@@ -10699,7 +10607,6 @@ ${list.length ? `<ol class="cu-packs">${list.map(packCard).join("")}</ol>` : '<p
         soloPackIds: Array.isArray(data.soloPackIds) ? data.soloPackIds.filter((x) => typeof x === "string") : [],
         soloDeck: data.soloDeck && Array.isArray(data.soloDeck.cards) && data.soloDeck.cards.length && Number.isInteger(data.soloDeck.used) ? data.soloDeck : null,
         sale: reviveSale(data.sale),
-        cardQr: !!data.cardQr,
         box: {
           layout: LAYOUTS[data.box?.layout] ? data.box.layout : "beside",
           material: MATERIALS[data.box?.material] ? data.box.material : "carton",
@@ -11509,22 +11416,10 @@ ${sizeMarkup()}
     const link = parseLink(hash);
     if (!link) return;
     lastLink = hash;
-    if (link.kind === "unlock") {
-      if (!CUSTOMER_BUILD) state.customerPreview = true;
-      state.mode = "packs";
-      render();
-      await customerUI.unlock(link.code);
-      return;
-    }
-    const started = await startChallenge({ target: link.looks, answer: null, difficulty: suggestDifficulty(link.looks), label: "Card from a QR code", rows: link.rows, cols: link.cols });
-    if (!started) return;
-    const ch = state.challenge;
-    packUI.solve(link.rows, link.cols, link.looks).then((res) => {
-      if (res?.status === "possible" && state.challenge === ch && !ch.answer) {
-        ch.answer = res.pieces;
-        if (state.mode === "build") renderStageTop();
-      }
-    });
+    if (!CUSTOMER_BUILD) state.customerPreview = true;
+    state.mode = "packs";
+    render();
+    await customerUI.unlock(link.code);
   }
   async function drawSoloCard() {
     const packs = availablePacks();
@@ -12272,8 +12167,7 @@ ${sizeMarkup()}
       scheduleSave,
       packsFor: (rows, cols) => packUI.packsFor(rows, cols),
       addPackToBook: (id) => packUI.addPackById(id),
-      addingPack: () => packUI.isAdding(),
-      cardQrBase: () => state.cardQr && state.sale.appUrl ? state.sale.appUrl : null
+      addingPack: () => packUI.isAdding()
     });
     packUI = createPackUI({
       getState: () => state,

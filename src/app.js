@@ -2,7 +2,7 @@
 // several players around real trays), and Challenge book.
 
 import { Board, KINDS, MAX_SIZE, decodeBoard, encodeBoard, kindOf, occupancy, pieceCovers, pieceName, sizeProblem } from './board.js';
-import { DIFFICULTY, suggestDifficulty } from './book.js';
+import { DIFFICULTY } from './book.js';
 import { createBookUI } from './bookui.js';
 import { createPackUI, revivePacks } from './packui.js';
 import { normalizePack } from './packs.js';
@@ -143,9 +143,8 @@ function defaultState() {
     // Build challenges drawn from packs: the packs chosen and the shuffled deck.
     soloPackIds: [],
     soloDeck: null,
-    // Selling: where the app lives (for QR codes), locked packs and their codes, card backs with QR.
+    // Selling: where the app lives (for QR codes), locked packs and their codes.
     sale: { appUrl: defaultAppUrl(), locked: {} },
-    cardQr: false,
     box: { layout: 'beside', material: 'carton', maker: '' },
     // What a buyer sees: the preview switch, and the packs unlocked on this device.
     customerPreview: CUSTOMER_BUILD,
@@ -188,7 +187,6 @@ function snapshot() {
     soloPackIds: state.soloPackIds,
     soloDeck: state.soloDeck,
     sale: CUSTOMER_BUILD ? undefined : state.sale,
-    cardQr: state.cardQr,
     box: state.box,
     customerPreview: state.customerPreview,
     customer: state.customer,
@@ -248,7 +246,6 @@ function restore(data) {
       soloPackIds: Array.isArray(data.soloPackIds) ? data.soloPackIds.filter((x) => typeof x === 'string') : [],
       soloDeck: data.soloDeck && Array.isArray(data.soloDeck.cards) && data.soloDeck.cards.length && Number.isInteger(data.soloDeck.used) ? data.soloDeck : null,
       sale: reviveSale(data.sale),
-      cardQr: !!data.cardQr,
       box: {
         layout: LAYOUTS[data.box?.layout] ? data.box.layout : 'beside',
         material: MATERIALS[data.box?.material] ? data.box.material : 'carton',
@@ -1178,7 +1175,7 @@ function toggleSoloPack(id) {
 
 let lastLink = '';
 
-/** Open what a QR code points at: a design (as a challenge) or an unlock code. */
+/** Open what an unlock card's QR code points at. */
 async function handleLink() {
   let hash = '';
   try {
@@ -1190,22 +1187,10 @@ async function handleLink() {
   const link = parseLink(hash);
   if (!link) return;
   lastLink = hash;
-  if (link.kind === 'unlock') {
-    if (!CUSTOMER_BUILD) state.customerPreview = true;
-    state.mode = 'packs';
-    render();
-    await customerUI.unlock(link.code);
-    return;
-  }
-  const started = await startChallenge({ target: link.looks, answer: null, difficulty: suggestDifficulty(link.looks), label: 'Card from a QR code', rows: link.rows, cols: link.cols });
-  if (!started) return;
-  const ch = state.challenge;
-  packUI.solve(link.rows, link.cols, link.looks).then((res) => {
-    if (res?.status === 'possible' && state.challenge === ch && !ch.answer) {
-      ch.answer = res.pieces;
-      if (state.mode === 'build') renderStageTop();
-    }
-  });
+  if (!CUSTOMER_BUILD) state.customerPreview = true;
+  state.mode = 'packs';
+  render();
+  await customerUI.unlock(link.code);
 }
 
 /** Draw the next card from the chosen packs and play it as a challenge. */
@@ -2066,7 +2051,6 @@ export function start(hotData) {
     packsFor: (rows, cols) => packUI.packsFor(rows, cols),
     addPackToBook: (id) => packUI.addPackById(id),
     addingPack: () => packUI.isAdding(),
-    cardQrBase: () => (state.cardQr && state.sale.appUrl ? state.sale.appUrl : null),
   });
   packUI = createPackUI({
     getState: () => state,
