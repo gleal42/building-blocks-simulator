@@ -83,6 +83,14 @@ export function createBookUI(ctx) {
 
   const bookTraySize = () => bookTray(currentBook());
 
+  /** The book for a tray size (made if there is none yet). */
+  function bookFor(shape, n) {
+    const st = state();
+    const key = bookKey(shape, n);
+    if (!st.books[key]) st.books[key] = newBook(shape, n);
+    return st.books[key];
+  }
+
   function changed() {
     builtFor = '';
     ctx.scheduleSave();
@@ -277,6 +285,9 @@ ${n ? `<div class="deck-grid">${book.challenges.map((_, i) => face(cardSvg(book,
 <button type="button" class="icon-btn" data-action="book-down" data-index="${i}" ${i === book.challenges.length - 1 ? 'disabled' : ''} title="Move down">${ICONS.down}<span class="sr-only">Move challenge ${i + 1} down</span></button>
 <button type="button" class="icon-btn" data-action="book-delete" data-index="${i}" title="Delete">${ICONS.close}<span class="sr-only">Delete challenge ${i + 1}</span></button>
 </span></li>`).join('');
+    const packs = ctx.packsFor(rows, cols);
+    const adding = ctx.addingPack();
+    const packChips = packs.map((p) => `<button type="button" class="chip" data-action="book-add-pack" data-id="${esc(p.id)}" ${adding ? 'disabled' : ''}>+ ${esc(p.name)} <small>${p.count}</small></button>`).join('');
     const coverRow = (which, label) => {
       const custom = book.cover[which];
       const number = which === 'front' ? 1 : pages.length;
@@ -305,6 +316,8 @@ ${custom ? `<button type="button" class="btn small" data-action="book-cover-rese
 <button type="button" class="btn small" data-action="book-add-build" ${buildFits ? '' : 'disabled'} title="${buildFits ? 'Add the picture of the Build tray' : `Fill a ${rows}×${cols} Build tray first`}">+ Build tray</button>
 <button type="button" class="btn small" data-action="book-add-check" ${checkFits ? '' : 'disabled'} title="${checkFits ? 'Add the picture from Check a picture' : `Paint a possible ${rows}×${cols} picture in Check a picture first`}">+ Checked picture</button>
 </div>
+<p class="field-label">Add a pack of designs</p>
+${packs.length ? `<div class="chips tight" role="group" aria-label="Packs">${packChips}</div><p class="hint">Adds every design of the pack that can be built and is not in the book yet. Make and change packs in the Packs tab.</p>` : `<p class="hint">No ${rows}×${cols} packs yet. Make one in the Packs tab.</p>`}
 ${book.challenges.length ? `<ol class="ch-list">${list}</ol>` : '<p class="muted">No challenges yet. Add some above; they appear in the preview as you go.</p>'}
 </section>
 <section class="card" aria-labelledby="cov-h">
@@ -470,6 +483,7 @@ ${coverRow('back', 'Back cover')}
       addLooks(st.build.looks(), st.build.toJSON().pieces, 'the Build tray picture');
     },
     'book-add-check': addFromCheck,
+    'book-add-pack': (el) => ctx.addPackToBook(el.dataset.id),
     'book-stars': (el) => {
       currentBook().challenges[Number(el.dataset.index)].difficulty = Number(el.dataset.level);
       changed();
@@ -536,6 +550,12 @@ ${coverRow('back', 'Back cover')}
     else if (evt.key === 'End') goTo(leafCount);
   }
 
-  return { renderStage, panelMarkup, actions, attach, onKey, currentBook, bookTraySize, addFromCheck };
+  /** Something else changed a book: draw the preview again. */
+  function invalidate() {
+    builtFor = '';
+    ctx.scheduleSave();
+  }
+
+  return { renderStage, panelMarkup, actions, attach, onKey, currentBook, bookTraySize, addFromCheck, bookFor, invalidate };
 }
 

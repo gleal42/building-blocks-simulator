@@ -57,11 +57,37 @@ or *Impossible* with the reason. Possible pictures can be added to the challenge
 
 ![Every square split: impossible](docs/screenshots/check-impossible.jpg)
 
+### Packs
+
+A pack is a named set of designs for one tray size (the book sizes: 2×2, 4×4, 6×6, 8×8,
+2×4, 4×8, 6×12), to fill challenge books and card decks.
+
+- **Make and change packs**: start a new pack, copy one, or make one from the book. Tap a
+  design to show it in the tray and paint over it; every design is checked as you paint, and
+  only designs the pieces can build are saved. Add designs by painting, at random (★, ★★,
+  ★★★), or from the Build tray; set their stars, reorder, duplicate or delete them.
+- **Designs from a photo**: take a photo of a page of a book of designs. The designs are
+  found and read; each one is shown on the photo with its grid, and squares that were hard
+  to read are marked. Drag a design's corners to fix it, mark a missed one by hand, change
+  the size or the dark/light setting, then add the ones you want to a pack. Designs that
+  cannot be built are not ticked.
+- **Book and cards**: *Add the pack to the book* puts every buildable design of the pack in
+  the book of its size (with its stars and an answer), which also makes them cards. The
+  Challenge book tab can add packs too.
+- **Copy as code** gives the pack as text. Paste it into the list in
+  [`src/builtinpacks.js`](src/builtinpacks.js) to build it into the app (it then shows under
+  *Come with the app*); the tests check that every built-in design can be built. Packs can
+  also be saved as a `.json` file, opened, or pasted back in.
+
+![A pack of designs read from a photo](docs/screenshots/packs.jpg)
+
+![Designs found on a photo of a book page](docs/screenshots/packs-photo.jpg)
+
 ### Challenge book
 
 - Books for square trays (2×2 to 8×8, one challenge per page) and 2:1 trays (2×4 to 6×12,
   one challenge across two facing pages). Each tray size keeps its own book.
-- Add random challenges by difficulty, the Build tray, or a checked picture. Change the
+- Add random challenges by difficulty, the Build tray, a checked picture, or a whole pack. Change the
   stars (green easy, yellow medium, red hard), reorder, delete, or play a challenge in Build.
 - Default front and back covers (the back lists every challenge), or upload your own
   pictures.
@@ -97,7 +123,7 @@ the book.
 
 ```sh
 npm install
-npm test          # model, solver and book tests, including exhaustive cross-checks
+npm test          # model, solver, book, pack and photo tests, including exhaustive cross-checks
 npm run build     # bundles src/ into index.html
 npm run dev       # rebuilds index.html whenever src/ changes
 ```
@@ -114,6 +140,9 @@ fails if `index.html` is out of date.
 | `src/bookpages.js` | Page layouts, drawn as shapes that become SVG (preview) or PDF (printing). |
 | `src/pdf.js`, `src/fonts.js` | A small PDF writer (vector shapes, Helvetica text, JPEG covers) and font widths. |
 | `src/presets.js` | The two photos as layouts. |
+| `src/packs.js`, `src/builtinpacks.js` | Packs of designs: text format, checks, and the packs that come with the app. |
+| `src/packui.js`, `src/packcheck.js` | The Packs tab, and checking designs in a background worker. |
+| `src/photo.js` | Finding and reading designs in a photo. |
 | `src/render2d.js`, `src/render3d.js` | Photo-style top view; 3D icons and the clickable 3D tray. |
 | `src/app.js`, `src/bookui.js`, `src/styles.css`, `src/index.html` | The app. |
 | `src/worker.js` | Runs the solver in a Web Worker. |
@@ -130,3 +159,14 @@ randomised restarts; a sweep that finishes without an arrangement has ruled out 
 possibility. The tests compare it with a brute-force search over every arrangement of the
 real pieces on 2×2, 1×4 and 2×4 trays. Very large, busy pictures (12×12) can come back as
 "couldn't decide"; *Search longer* gives the search more time.
+
+### How designs are read from a photo
+
+The photo is turned grey and split into dark ink and light paper (Otsu's threshold, or the
+slider). Dark areas are joined into designs: a design drawn with a frame or grid lines is
+one area; one drawn as bare black squares breaks into parts, which are joined while they
+still fit in one tray. Each design gets four corners (from its most extreme ink, which
+follows a frame even in a slanted photo), and the corners are mapped onto the tray's rows and
+columns. Both diagonals cut each square into four triangles; how dark each triangle is tells
+white, black, or which of the four splits it shows. Squares that fit no look well are marked
+as unsure.
