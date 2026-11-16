@@ -1076,6 +1076,52 @@ kbd {
 
 .challenge-bar {
   scroll-margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.challenge-answer {
+  flex-basis: 100%;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+/* One way to build a picture: 3D, piece by piece (solutionview.js). */
+.sol {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 520px;
+}
+
+.sol-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 46vh;
+}
+
+.sol-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.sol-bar .tool span:not(.sr-only) {
+  display: none;
+}
+
+.sol-count {
+  min-width: 4.5em;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.sol-what {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
 }
 
 .challenge-info {
@@ -4582,14 +4628,7 @@ ${slopes}
     }
     function howMarkup(s, rows, cols) {
       if (!showHow || s.status !== "possible" || !s.pieces) return "";
-      try {
-        const view = boardMarkup(Board.fromJSON({ rows, cols, pieces: s.pieces }), { xray: true });
-        const markup = view.markup.replace(/(?<![-\w])id="([^"]+)"/g, 'id="how-$1"').replace(/url\(#([^)]+)\)/g, "url(#how-$1)");
-        return `<div class="pk-how"><svg viewBox="${view.viewBox}" class="pk-how-svg" role="img" aria-label="One way to build it, with x-ray">${markup}</svg>
-<p class="hint">One way to build it, seen from above. X-ray shows the pieces under the roofs (a ramp under each prism lying on its slope).</p></div>`;
-      } catch {
-        return "";
-      }
+      return `<div class="pk-how">${ctx.solutionMarkup(rows, cols, s.pieces)}</div>`;
     }
     function resultMarkup(s) {
       switch (s.status) {
@@ -8426,9 +8465,7 @@ ${xrefAt}
     function solutionMarkup(card, rows, cols) {
       if (!card.answer) return '<p class="muted">Working out a solution…</p>';
       try {
-        const view = boardMarkup(Board.fromJSON({ rows, cols, pieces: card.answer }), { xray: true });
-        const markup = view.markup.replace(/(?<![-\w])id="([^"]+)"/g, 'id="sol-$1"').replace(/url\(#([^)]+)\)/g, "url(#sol-$1)");
-        return `<svg viewBox="${view.viewBox}" class="pl-solution" role="img" aria-label="One way to build it, with x-ray">${markup}</svg><p class="hint">One way to build it. X-ray shows the ramps under the roofs.</p>`;
+        return ctx.solutionMarkup(rows, cols, card.answer);
       } catch {
         return '<p class="muted">No solution to show.</p>';
       }
@@ -9944,6 +9981,94 @@ ${all.length ? `<ul class="cu-box-list">${all.map(boxCard).join("")}</ul>` : '<p
     };
   }
 
+  // src/solutionview.js
+  var esc6 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  var hasRoof = (p) => occupancy(p).some((part) => !part.cube && isCap(part.h));
+  function buildOrder(pieces) {
+    return pieces.slice().sort((a, b) => Number(hasRoof(a)) - Number(hasRoof(b)) || a.r - b.r || a.c - b.c);
+  }
+  function describePiece(p) {
+    const prism2 = occupancy(p).find((part) => !part.cube);
+    const how = isUpright(prism2.h) ? "standing" : isRamp(prism2.h) ? "lying as a ramp" : "lying as a roof";
+    const color = p.color === "W" ? "White" : "Black";
+    return p.type === "mix" ? `${color} cube + prism, its prism ${how}` : `${color} prism, ${how}`;
+  }
+  function boardAfter(rows, cols, order, count) {
+    const board = new Board(rows, cols);
+    let last = 0;
+    for (const p of order.slice(0, count)) {
+      const res = board.place({ type: p.type, color: p.color, r: p.r, c: p.c, o: p.o });
+      if (!res.ok) return null;
+      last = res.id;
+    }
+    return { board, last };
+  }
+  var TURN_LEFT = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a8 8 0 1 1 2.3 5.7"/><path d="M4 4v7h7"/></svg>';
+  var TURN_RIGHT = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>';
+  function createSolutionView() {
+    let key = "";
+    let order = [];
+    let step = 0;
+    let azimuth = 0;
+    let args = null;
+    function markup(rows, cols, pieces) {
+      args = [rows, cols, pieces];
+      const k = `${rows}x${cols}:${pieces.map((p) => `${p.type}${p.color}${p.r},${p.c},${p.o}`).join(";")}`;
+      if (k !== key) {
+        key = k;
+        order = buildOrder(pieces);
+        step = order.length;
+      }
+      let shown = boardAfter(rows, cols, order, step);
+      if (!shown) {
+        order = pieces.slice();
+        step = order.length;
+        shown = boardAfter(rows, cols, order, step) ?? { board: Board.fromJSON({ rows, cols, pieces }), last: 0 };
+      }
+      const n = order.length;
+      const whole = step >= n;
+      const view = board3d(shown.board, { azimuth, selectedId: whole || step === 0 ? 0 : shown.last });
+      const piece = !whole && step > 0 ? order[step - 1] : null;
+      const caption = whole ? "The whole picture. Build it piece by piece to see the pieces under the roofs go in." : step === 0 ? "The empty tray." : `${esc6(describePiece(piece))}.${hasRoof(piece) ? "" : " Pieces on the floor go in first; roofs last."}`;
+      return `<div class="sol" id="solView">
+<svg viewBox="${view.viewBox}" class="sol-svg" role="img" aria-label="One way to build it, in 3D${whole ? "" : `, ${step} of ${n} pieces in`}">${view.markup}</svg>
+<div class="sol-bar">
+<button type="button" class="tool" data-action="sol-turn" data-dir="-1" title="Turn the view to the left">${TURN_LEFT}<span class="sr-only">Turn the view to the left</span></button>
+<button type="button" class="tool" data-action="sol-turn" data-dir="1" title="Turn the view to the right">${TURN_RIGHT}<span class="sr-only">Turn the view to the right</span></button>
+${whole ? `<button type="button" class="btn small primary" data-action="sol-start">Build it piece by piece</button>` : `<button type="button" class="btn small" data-action="sol-step" data-dir="-1" ${step <= 0 ? "disabled" : ""}>Back</button>
+<span class="sol-count">${step} of ${n}</span>
+<button type="button" class="btn small primary" data-action="sol-step" data-dir="1">Next piece</button>
+<button type="button" class="btn small" data-action="sol-whole">All</button>`}
+</div>
+<p class="sol-what" aria-live="polite">${caption}</p>
+</div>`;
+    }
+    function refresh() {
+      const el = typeof document !== "undefined" ? document.getElementById("solView") : null;
+      if (!el || !args) return;
+      el.outerHTML = markup(...args);
+    }
+    const actions = {
+      "sol-turn": (el) => {
+        azimuth = (azimuth + 45 * Number(el.dataset.dir) + 360) % 360;
+        refresh();
+      },
+      "sol-start": () => {
+        step = order.length ? 1 : 0;
+        refresh();
+      },
+      "sol-step": (el) => {
+        step = Math.max(0, Math.min(order.length, step + Number(el.dataset.dir)));
+        refresh();
+      },
+      "sol-whole": () => {
+        step = order.length;
+        refresh();
+      }
+    };
+    return { markup, actions };
+  }
+
   // src/app.js
   var STORAGE_KEY = "building-blocks-simulator:v2";
   var OLD_STORAGE_KEY = "building-blocks-simulator:v1";
@@ -10001,6 +10126,7 @@ ${all.length ? `<ul class="cu-box-list">${all.map(boxCard).join("")}</ul>` : '<p
   var playUI;
   var customerUI;
   var packStore;
+  var solutionView = createSolutionView();
   var pointer = { down: false, id: null, type: "mouse", erase: false, x: 0, y: 0, moved: false, dragging: false, grab: null };
   var hits3d = [];
   var outline3d = [];
@@ -10295,13 +10421,15 @@ ${all.length ? `<ul class="cu-box-list">${all.map(boxCard).join("")}</ul>` : '<p
       return;
     }
     const prog = challengeProgress();
-    const status = ch.solved ? `<p class="win">${ch.revealed ? "Answer shown." : `Solved in ${ch.moves} moves!`}</p>` : `<p><b>${prog.match}</b> of ${prog.total} squares match · ${ch.moves} moves</p>`;
+    const status = ch.solved ? `<p class="win">${ch.filled ? "The answer is in the tray." : `Solved in ${ch.moves} moves${ch.revealed ? ", with a look at the answer" : "!"}`}</p>` : `<p><b>${prog.match}</b> of ${prog.total} squares match · ${ch.moves} moves</p>`;
     const deckNote = ch.fromDeck && state.soloDeck ? ` <small class="muted">· card ${state.soloDeck.used} of ${state.soloDeck.cards.length} drawn</small>` : "";
     top.innerHTML = `<div class="challenge-bar" id="challengeBar">
 <div class="challenge-pic">${flatPicture(state.rows, state.cols, ch.target, { cell: 32, gap: 2.5, mismatches: prog.mismatch })}</div>
 <div class="challenge-info"><p class="challenge-title">${escapeHtml(ch.label ?? "Challenge")} ${starsHtml(ch.difficulty)}${deckNote}</p>
 ${ch.solved ? "" : '<p class="challenge-goal">Make this picture: put all the pieces in the tray so that, seen from above, it looks like this.</p>'}${status}
-<div class="row-buttons">${ch.solved ? `<button type="button" class="btn small primary" data-action="next-challenge">${ICONS.dice}${ch.fromDeck ? "Next card" : "Next challenge"}</button>` : `${ch.fromDeck ? `<button type="button" class="btn small" data-action="next-challenge">Skip this card</button>` : ""}${ch.answer ? `<button type="button" class="btn small" data-action="reveal">Show answer</button>` : ""}`}<button type="button" class="btn small" data-action="stop-challenge">End challenge</button></div></div>
+<div class="row-buttons">${ch.solved ? `<button type="button" class="btn small primary" data-action="next-challenge">${ICONS.dice}${ch.fromDeck ? "Next card" : "Next challenge"}</button>` : `${ch.fromDeck ? `<button type="button" class="btn small" data-action="next-challenge">Skip this card</button>` : ""}`}${ch.answer ? `<button type="button" class="btn small" data-action="reveal" aria-pressed="${!!ch.showAnswer}">${ch.showAnswer ? "Hide the answer" : "Show answer"}</button>` : ""}<button type="button" class="btn small" data-action="stop-challenge">End challenge</button></div></div>
+${ch.showAnswer && ch.answer ? `<div class="challenge-answer">${solutionView.markup(state.rows, state.cols, ch.answer)}
+${ch.solved ? "" : '<div class="row-buttons"><button type="button" class="btn small" data-action="answer-to-tray">Put the answer in my tray</button></div>'}</div>` : ""}
 </div>`;
   }
   function renderBoard() {
@@ -10861,17 +10989,27 @@ ${orientMarkup()}
       wrap.classList.add("is-win");
     }
   }
-  async function revealAnswer() {
+  function toggleAnswer() {
     const ch = state.challenge;
     if (!ch?.answer) return;
-    if (!ch.solved && !await confirmDialog("Show the answer? The pieces in the tray will be replaced.", "Show answer")) return;
+    ch.showAnswer = !ch.showAnswer;
+    if (ch.showAnswer) ch.revealed = true;
+    renderStageTop();
+    if (ch.showAnswer) document.getElementById("solView")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+  async function answerToTray() {
+    const ch = state.challenge;
+    if (!ch?.answer) return;
+    if (state.build.pieces.size && !await confirmDialog("Put the answer in the tray? The pieces in it now will be replaced (Undo brings them back).", "Put it in")) return;
     state.history.record(state.build);
     state.build = loadPieces(ch.answer, state.rows, state.cols);
     state.sel = null;
     ch.revealed = true;
+    ch.filled = true;
     ch.solved = true;
+    ch.showAnswer = false;
     render();
-    setStatus("This is the arrangement the picture was made from. Turn on X-ray to see the pieces under roofs.");
+    setStatus("The answer is in the tray. Turn the 3D view to look at it from every side.");
   }
   var downloadsPromise = null;
   function downloadsCapability() {
@@ -11314,7 +11452,8 @@ ${orientMarkup()}
       state.challenge = null;
       render();
     },
-    reveal: revealAnswer
+    reveal: toggleAnswer,
+    "answer-to-tray": answerToTray
   };
   function onClick(evt) {
     const side = evt.target.closest("button[data-side]");
@@ -11330,7 +11469,7 @@ ${orientMarkup()}
     const el = evt.target.closest("[data-action]");
     if (!el || el.disabled) return;
     const name = el.dataset.action;
-    const action = ACTIONS[name] ?? packUI.actions[name] ?? printUI.actions[name] ?? playUI.actions[name] ?? customerUI.actions[name];
+    const action = ACTIONS[name] ?? solutionView.actions[name] ?? packUI.actions[name] ?? printUI.actions[name] ?? playUI.actions[name] ?? customerUI.actions[name];
     if (action) action(el, evt);
   }
   function onTabKey(evt) {
@@ -11412,6 +11551,7 @@ ${orientMarkup()}
       paletteMarkup,
       workerSource: true ? '(() => {\n  // src/geometry.js\n  var N = 0;\n  var E = 1;\n  var S = 2;\n  var W = 3;\n  var SIDE_NAMES = ["N", "E", "S", "W"];\n  var opposite = (side) => (side + 2) % 4;\n  var HALVES = [\n    "U_NW",\n    "U_NE",\n    "U_SE",\n    "U_SW",\n    "R_N",\n    "R_E",\n    "R_S",\n    "R_W",\n    "O_N",\n    "O_E",\n    "O_S",\n    "O_W"\n  ];\n  var HALF = Object.freeze(Object.fromEntries(HALVES.map((name, i) => [name, i])));\n  var COMPLEMENT = Object.freeze([2, 3, 0, 1, 10, 11, 8, 9, 6, 7, 4, 5]);\n  var PAIRS = Object.freeze([\n    [0, 2],\n    // upright, split along "/" (NW + SE)\n    [1, 3],\n    // upright, split along "\\" (NE + SW)\n    [4, 10],\n    // lying, ramp high at N + overhang thick at S\n    [5, 11],\n    [6, 8],\n    [7, 9]\n  ]);\n  var isUpright = (h) => h < 4;\n  var isRamp = (h) => h >= 4 && h < 8;\n  var isCap = (h) => h >= 8;\n  var SOURCE_SIDES = Object.freeze([\n    [N, W],\n    [N, E],\n    [S, E],\n    [S, W],\n    [N],\n    [E],\n    [S],\n    [W],\n    [N],\n    [E],\n    [S],\n    [W]\n  ]);\n  var HALVES_FROM_SIDE = Object.freeze(\n    [0, 1, 2, 3].map((side) => HALVES.map((_, h) => h).filter((h) => SOURCE_SIDES[h].includes(side)))\n  );\n  function cornerOf(a, b) {\n    const has = (s) => a === s || b === s;\n    if (has(N) && has(W)) return 0;\n    if (has(N) && has(E)) return 1;\n    if (has(S) && has(E)) return 2;\n    return 3;\n  }\n  function mixWedgeHalf(dir, pose) {\n    const shared = opposite(dir);\n    if (pose === 2) return 4 + shared;\n    if (pose === 3) return 8 + shared;\n    const side = pose === 0 ? (dir + 3) % 4 : (dir + 1) % 4;\n    return cornerOf(shared, side);\n  }\n  var MIX_ORIENTS = Object.freeze(\n    Array.from({ length: 16 }, (_, o) => {\n      const dir = o >> 2;\n      const pose = o & 3;\n      return Object.freeze({ o, dir, pose, half: mixWedgeHalf(dir, pose) });\n    })\n  );\n  function mixOrientFor(dir, half) {\n    const found = MIX_ORIENTS.find((m) => m.dir === dir && m.half === half);\n    if (!found) throw new Error(`No cube+prism orientation puts half ${HALVES[half]} towards ${SIDE_NAMES[dir]}`);\n    return found.o;\n  }\n  var LOOK = Object.freeze({\n    ANY: 0,\n    WHITE: 1,\n    BLACK: 2,\n    SLASH_WB: 3,\n    // split along "/" : white top-left, black bottom-right\n    SLASH_BW: 4,\n    // split along "/" : black top-left, white bottom-right\n    BACK_WB: 5,\n    // split along "\\" : white top-right, black bottom-left\n    BACK_BW: 6\n    // split along "\\" : black top-right, white bottom-left\n  });\n  var isDiagonalLook = (look) => look >= 3;\n  var solidLook = (color) => color === 0 ? LOOK.WHITE : LOOK.BLACK;\n  function splitLook(h1, c1, h2, c2) {\n    if (COMPLEMENT[h1] !== h2) throw new Error(`${HALVES[h1]} and ${HALVES[h2]} do not fill a square`);\n    if (isUpright(h1)) {\n      if (h1 === 0 || h1 === 2) {\n        const nw = h1 === 0 ? c1 : c2;\n        const se = h1 === 0 ? c2 : c1;\n        if (nw === se) return solidLook(nw);\n        return nw === 0 ? LOOK.SLASH_WB : LOOK.SLASH_BW;\n      }\n      const ne = h1 === 1 ? c1 : c2;\n      const sw = h1 === 1 ? c2 : c1;\n      if (ne === sw) return solidLook(ne);\n      return ne === 0 ? LOOK.BACK_WB : LOOK.BACK_BW;\n    }\n    return solidLook(isCap(h1) ? c1 : c2);\n  }\n  function diagonalHalfColor(look, h) {\n    switch (look) {\n      case LOOK.SLASH_WB:\n        return h === 0 ? 0 : h === 2 ? 1 : -1;\n      case LOOK.SLASH_BW:\n        return h === 0 ? 1 : h === 2 ? 0 : -1;\n      case LOOK.BACK_WB:\n        return h === 1 ? 0 : h === 3 ? 1 : -1;\n      case LOOK.BACK_BW:\n        return h === 1 ? 1 : h === 3 ? 0 : -1;\n      default:\n        return -1;\n    }\n  }\n  function halfFitsLook(look, h, color) {\n    if (look === LOOK.ANY) return true;\n    if (isUpright(h)) {\n      if (look === LOOK.WHITE || look === LOOK.BLACK) return solidLook(color) === look;\n      return diagonalHalfColor(look, h) === color;\n    }\n    if (isRamp(h)) return look === LOOK.WHITE || look === LOOK.BLACK;\n    return solidLook(color) === look;\n  }\n  var cubeFitsLook = (look, color) => look === LOOK.ANY || look === solidLook(color);\n  var FULL = [[0, 0], [1, 0], [1, 1], [0, 1]];\n  var HALF_OUTLINE = Object.freeze([\n    [[0, 0], [1, 0], [0, 1]],\n    // U_NW\n    [[0, 0], [1, 0], [1, 1]],\n    // U_NE\n    [[1, 0], [1, 1], [0, 1]],\n    // U_SE\n    [[0, 0], [1, 1], [0, 1]],\n    // U_SW\n    FULL,\n    FULL,\n    FULL,\n    FULL,\n    FULL,\n    FULL,\n    FULL,\n    FULL\n  ]);\n\n  // src/board.js\n  var KINDS = Object.freeze(["mixW", "mixB", "triW", "triB"]);\n  var colorOf = (bit) => bit === 0 ? "W" : "B";\n  var MIN_SIZE = 1;\n  var MAX_SIZE = 12;\n  function sizeProblem(rows, cols) {\n    if (!Number.isInteger(rows) || !Number.isInteger(cols)) return "Rows and columns must be whole numbers.";\n    if (rows < MIN_SIZE || cols < MIN_SIZE || rows > MAX_SIZE || cols > MAX_SIZE) {\n      return `Rows and columns must be between ${MIN_SIZE} and ${MAX_SIZE}.`;\n    }\n    if (rows * cols % 4 !== 0) {\n      return "The number of squares must be a multiple of 4: every 2 squares take one cube + prism and one loose prism, and white and black get the same number of each.";\n    }\n    return null;\n  }\n\n  // src/solver.js\n  var WEDGE = 1;\n  var WANT = 2;\n  var message = (type, h, color) => type << 5 | h << 1 | color;\n  var msgType = (m) => m >> 5;\n  var msgHalf = (m) => m >> 1 & 15;\n  var msgColor = (m) => m & 1;\n  var BudgetExceeded = class extends Error {\n  };\n  function patternStats(looks) {\n    const stats = { white: 0, black: 0, diagonal: 0, any: 0 };\n    for (const t of looks) {\n      if (t === LOOK.WHITE) stats.white += 1;\n      else if (t === LOOK.BLACK) stats.black += 1;\n      else if (isDiagonalLook(t)) stats.diagonal += 1;\n      else stats.any += 1;\n    }\n    return stats;\n  }\n  function quickCheck(rows, cols, looks, inventory) {\n    const problem = sizeProblem(rows, cols);\n    if (problem) return { ok: false, code: "size", reason: problem };\n    if (looks.length !== rows * cols) return { ok: false, code: "size", reason: "The pattern does not match the board size." };\n    const { mixW, mixB, triW, triB } = inventory;\n    const cubes = mixW + mixB;\n    const st = patternStats(looks);\n    const maxDiagonal = rows * cols - cubes;\n    if (st.diagonal > maxDiagonal) {\n      return {\n        ok: false,\n        code: "too-many-diagonals",\n        reason: `This pattern has ${st.diagonal} split squares, but at most ${maxDiagonal} are possible. Each of the ${cubes} cube + prism pieces always shows its cube as a full square, so ${cubes} squares can never be split.`\n      };\n    }\n    if (mixW > st.white + st.any) {\n      return {\n        ok: false,\n        code: "white-cubes",\n        reason: `The ${mixW} white cubes always show as full white squares, but the pattern only has ${st.white + st.any} squares that can be fully white.`\n      };\n    }\n    if (mixB > st.black + st.any) {\n      return {\n        ok: false,\n        code: "black-cubes",\n        reason: `The ${mixB} black cubes always show as full black squares, but the pattern only has ${st.black + st.any} squares that can be fully black.`\n      };\n    }\n    const needWhite = Math.max(0, st.white - mixW) + st.diagonal;\n    if (needWhite > mixW + triW) {\n      return {\n        ok: false,\n        code: "white-halves",\n        reason: `Not enough white: the pattern needs at least ${needWhite} white prism halves on top, but there are only ${mixW + triW} white prisms (loose or attached to a cube).`\n      };\n    }\n    const needBlack = Math.max(0, st.black - mixB) + st.diagonal;\n    if (needBlack > mixB + triB) {\n      return {\n        ok: false,\n        code: "black-halves",\n        reason: `Not enough black: the pattern needs at least ${needBlack} black prism halves on top, but there are only ${mixB + triB} black prisms (loose or attached to a cube).`\n      };\n    }\n    return { ok: true };\n  }\n  function weightedShuffle(list, rng, weight) {\n    const keyed = list.map((item) => ({ item, key: Math.pow(rng(), 1 / Math.max(1e-6, weight(item))) }));\n    keyed.sort((a, b) => b.key - a.key);\n    return keyed.map((x) => x.item);\n  }\n  function solvePattern(rows, cols, looks, inventory, options = {}) {\n    const quick = quickCheck(rows, cols, looks, inventory);\n    if (!quick.ok) return { status: "impossible", code: quick.code, reason: quick.reason, nodes: 0 };\n    const budget = options.maxNodes ?? 15e5;\n    const frames = [\n      { tr: false, fv: false },\n      { tr: false, fv: true },\n      { tr: true, fv: false },\n      { tr: true, fv: true }\n    ].map((f) => ({ ...f, width: f.tr ? rows : cols }));\n    frames.sort((a, b) => a.width - b.width);\n    const plan = [\n      ...frames.map((frame) => ({ frame, nodes: 6e4, seed: 0 })),\n      ...Array.from({ length: 16 }, (_, k) => ({ frame: frames[k % 4], nodes: 3e4, seed: 101 + k * 37 }))\n    ];\n    let used = 0;\n    for (const step of plan) {\n      if (used >= budget) break;\n      const run = solveInFrame(rows, cols, looks, inventory, step.frame, Math.min(step.nodes, budget - used), step.seed);\n      used += run.nodes;\n      if (run.status !== "unknown") return { ...run, nodes: used };\n    }\n    if (used < budget) {\n      const run = solveInFrame(rows, cols, looks, inventory, frames[0], budget - used, 0);\n      used += run.nodes;\n      if (run.status !== "unknown") return { ...run, nodes: used };\n    }\n    return {\n      status: "unknown",\n      reason: "This picture is too complex to decide in the time allowed. Try a smaller board, or fix more squares.",\n      nodes: used\n    };\n  }\n  var T_DIR = [W, S, E, N];\n  var T_HALF = [0, 3, 2, 1, 7, 6, 5, 4, 11, 10, 9, 8];\n  var T_LOOK = [LOOK.ANY, LOOK.WHITE, LOOK.BLACK, LOOK.SLASH_WB, LOOK.SLASH_BW, LOOK.BACK_BW, LOOK.BACK_WB];\n  var V_DIR = [S, E, N, W];\n  var V_HALF = [3, 2, 1, 0, 6, 5, 4, 7, 10, 9, 8, 11];\n  var V_LOOK = [LOOK.ANY, LOOK.WHITE, LOOK.BLACK, LOOK.BACK_BW, LOOK.BACK_WB, LOOK.SLASH_BW, LOOK.SLASH_WB];\n  function mapPiece(p, dirMap, halfMap, r, c) {\n    if (p.type === "tri") return { ...p, r, c, o: halfMap[p.o] };\n    const m = MIX_ORIENTS[p.o];\n    return { ...p, r, c, o: mixOrientFor(dirMap[m.dir], halfMap[m.half]) };\n  }\n  function solveInFrame(rows, cols, looks, inventory, frame, maxNodes, seed) {\n    let R = rows;\n    let C = cols;\n    let L = looks;\n    if (frame.tr) {\n      const next = [];\n      for (let c = 0; c < C; c += 1) for (let r = 0; r < R; r += 1) next.push(T_LOOK[L[r * C + c]]);\n      L = next;\n      [R, C] = [C, R];\n    }\n    if (frame.fv) {\n      const next = [];\n      for (let r = R - 1; r >= 0; r -= 1) for (let c = 0; c < C; c += 1) next.push(V_LOOK[L[r * C + c]]);\n      L = next;\n    }\n    const run = searchOnce(R, C, L, inventory, maxNodes, seed ? makeRng(seed) : null);\n    if (run.pieces) {\n      let pieces = run.pieces;\n      if (frame.fv) pieces = pieces.map((p) => mapPiece(p, V_DIR, V_HALF, R - 1 - p.r, p.c));\n      if (frame.tr) pieces = pieces.map((p) => mapPiece(p, T_DIR, T_HALF, p.c, p.r));\n      run.pieces = pieces;\n    }\n    return run;\n  }\n  function searchOnce(rows, cols, looks, inventory, maxNodes, rng) {\n    const total = rows * cols;\n    const res = [inventory.mixW, inventory.mixB, inventory.triW, inventory.triB, 0];\n    const down = new Uint8Array(cols);\n    let right = 0;\n    const chosen = new Array(total);\n    const deadEnds = /* @__PURE__ */ new Set();\n    let nodes = 0;\n    const sufWhite = new Int32Array(total + 1);\n    const sufBlack = new Int32Array(total + 1);\n    const sufAny = new Int32Array(total + 1);\n    const sufDiag = new Int32Array(total + 1);\n    for (let i = total - 1; i >= 0; i -= 1) {\n      const t = looks[i];\n      sufWhite[i] = sufWhite[i + 1] + (t === LOOK.WHITE ? 1 : 0);\n      sufBlack[i] = sufBlack[i + 1] + (t === LOOK.BLACK ? 1 : 0);\n      sufAny[i] = sufAny[i + 1] + (t === LOOK.ANY ? 1 : 0);\n      sufDiag[i] = sufDiag[i + 1] + (isDiagonalLook(t) ? 1 : 0);\n    }\n    const fits = (uses) => res[0] >= uses[0] && res[1] >= uses[1] && res[2] >= uses[2] && res[3] >= uses[3] && res[4] + uses[4] <= res[2] - uses[2] + res[3] - uses[3];\n    function fillersFor(h, r, c) {\n      const out = [];\n      if (isRamp(h)) out.push({ src: "tri", color: -1 });\n      else {\n        out.push({ src: "tri", color: 0 });\n        out.push({ src: "tri", color: 1 });\n      }\n      const sides = SOURCE_SIDES[h];\n      if (c + 1 < cols && sides.includes(E)) {\n        const t = looks[r * cols + c + 1];\n        for (const color of [0, 1]) if (res[color] > 0 && cubeFitsLook(t, color)) out.push({ src: "E", color });\n      }\n      if (r + 1 < rows && sides.includes(S)) {\n        const t = looks[(r + 1) * cols + c];\n        for (const color of [0, 1]) if (res[color] > 0 && cubeFitsLook(t, color)) out.push({ src: "S", color });\n      }\n      return out;\n    }\n    function splitOption(t, a, b) {\n      if (a.src === b.src && (a.src === "E" || a.src === "S")) return null;\n      const look = splitLook(a.h, Math.max(0, a.color), b.h, Math.max(0, b.color));\n      if (t !== LOOK.ANY && look !== t) return null;\n      const uses = [0, 0, 0, 0, 0];\n      let outRight = 0;\n      let outDown = 0;\n      for (const p of [a, b]) {\n        if (p.src === "tri") {\n          if (p.color < 0) uses[4] += 1;\n          else uses[2 + p.color] += 1;\n        } else if (p.src === "E") outRight = message(WANT, p.h, p.color);\n        else if (p.src === "S") outDown = message(WANT, p.h, p.color);\n      }\n      if (!fits(uses)) return null;\n      const fromCubes = (a.src === "tri" ? 0 : 1) + (b.src === "tri" ? 0 : 1);\n      const score = fromCubes === 1 ? a.src === "in" || b.src === "in" ? 0 : 1 : fromCubes === 2 && a.src === "in" && b.src === "in" ? 0 : 3;\n      return { kind: "split", parts: [a, b], uses, outRight, outDown, score };\n    }\n    function optionsAt(r, c) {\n      const i = r * cols + c;\n      const t = looks[i];\n      const up = r > 0 ? down[c] : 0;\n      const left = c > 0 ? right : 0;\n      const upType = msgType(up);\n      const leftType = msgType(left);\n      const out = [];\n      if (upType !== WANT && leftType !== WANT) {\n        const incoming = [];\n        if (upType === WEDGE) incoming.push({ h: msgHalf(up), src: "in", color: msgColor(up) });\n        if (leftType === WEDGE) incoming.push({ h: msgHalf(left), src: "in", color: msgColor(left) });\n        if (incoming.length === 2) {\n          if (COMPLEMENT[incoming[0].h] === incoming[1].h) {\n            const op = splitOption(t, incoming[0], incoming[1]);\n            if (op) out.push(op);\n          }\n        } else if (incoming.length === 1) {\n          const h1 = COMPLEMENT[incoming[0].h];\n          for (const f of fillersFor(h1, r, c)) {\n            const op = splitOption(t, incoming[0], { h: h1, ...f });\n            if (op) out.push(op);\n          }\n        } else {\n          for (const [ha, hb] of PAIRS) {\n            const fb = fillersFor(hb, r, c);\n            for (const fa of fillersFor(ha, r, c)) {\n              for (const f2 of fb) {\n                const op = splitOption(t, { h: ha, ...fa }, { h: hb, ...f2 });\n                if (op) out.push(op);\n              }\n            }\n          }\n        }\n      }\n      if (upType !== WEDGE && leftType !== WEDGE && !(upType === WANT && leftType === WANT)) {\n        if (upType === WANT || leftType === WANT) {\n          const m = upType === WANT ? up : left;\n          const color = msgColor(m);\n          if (res[color] > 0 && cubeFitsLook(t, color)) {\n            const uses = [0, 0, 0, 0, 0];\n            uses[color] = 1;\n            out.push({ kind: "cube", color, dir: upType === WANT ? N : W, h: msgHalf(m), uses, outRight: 0, outDown: 0, score: 0 });\n          }\n        } else {\n          for (const color of [0, 1]) {\n            if (res[color] === 0 || !cubeFitsLook(t, color)) continue;\n            const uses = [0, 0, 0, 0, 0];\n            uses[color] = 1;\n            if (c + 1 < cols) {\n              const tr = looks[i + 1];\n              for (const h of HALVES_FROM_SIDE[W]) {\n                if (halfFitsLook(tr, h, color)) out.push({ kind: "cube", color, dir: E, h, uses, outRight: message(WEDGE, h, color), outDown: 0, score: 1 });\n              }\n            }\n            if (r + 1 < rows) {\n              const td = looks[i + cols];\n              for (const h of HALVES_FROM_SIDE[N]) {\n                if (halfFitsLook(td, h, color)) out.push({ kind: "cube", color, dir: S, h, uses, outRight: 0, outDown: message(WEDGE, h, color), score: 1 });\n              }\n            }\n          }\n        }\n      }\n      return out;\n    }\n    function hopeful(i, c) {\n      const left = total - i;\n      const cw = res[0];\n      const cb = res[1];\n      if (cw + cb > left) return false;\n      if (cw > sufWhite[i] + sufAny[i] || cb > sufBlack[i] + sufAny[i]) return false;\n      if (sufDiag[i] > left - cw - cb) return false;\n      let inW = 0;\n      let inB = 0;\n      let wantW = 0;\n      let wantB = 0;\n      const tally = (m) => {\n        const type = msgType(m);\n        if (type === WEDGE) {\n          if (msgColor(m)) inB += 1;\n          else inW += 1;\n        } else if (type === WANT) {\n          if (msgColor(m)) wantB += 1;\n          else wantW += 1;\n        }\n      };\n      for (let k = 0; k < cols; k += 1) tally(down[k]);\n      if (c > 0) tally(right);\n      if (wantW > cw || wantB > cb) return false;\n      const needW = Math.max(0, sufWhite[i] - cw) + sufDiag[i];\n      if (needW > res[2] + cw - wantW + inW) return false;\n      const needB = Math.max(0, sufBlack[i] - cb) + sufDiag[i];\n      if (needB > res[3] + cb - wantB + inB) return false;\n      return true;\n    }\n    function dfs(i) {\n      if (i === total) return true;\n      nodes += 1;\n      if (nodes > maxNodes) throw new BudgetExceeded();\n      const r = Math.floor(i / cols);\n      const c = i - r * cols;\n      if (!hopeful(i, c)) return false;\n      const key = `${i}|${c > 0 ? right : 0}|${down.join(",")}|${res.join(",")}`;\n      if (deadEnds.has(key)) return false;\n      let opts = optionsAt(r, c);\n      const t = looks[i];\n      let lean = 0;\n      if (t === LOOK.WHITE) lean = res[0] / Math.max(1, sufWhite[i] + sufAny[i]) - 0.5;\n      else if (t === LOOK.BLACK) lean = res[1] / Math.max(1, sufBlack[i] + sufAny[i]) - 0.5;\n      else if (t === LOOK.ANY) lean = (res[0] + res[1]) / Math.max(1, total - i) - 0.5;\n      for (const op of opts) op.rank = op.score + (op.kind === "cube" ? -4 : 4) * lean;\n      if (rng) opts = weightedShuffle(opts, rng, (op) => 1 / (1 + Math.max(0, 3 * op.rank + 6)));\n      else opts.sort((a, b) => a.rank - b.rank);\n      const savedDown = down[c];\n      const savedRight = right;\n      for (const op of opts) {\n        for (let k = 0; k < 5; k += 1) res[k] -= k < 4 ? op.uses[k] : -op.uses[k];\n        down[c] = op.outDown;\n        right = op.outRight;\n        chosen[i] = op;\n        if (dfs(i + 1)) return true;\n        for (let k = 0; k < 5; k += 1) res[k] += k < 4 ? op.uses[k] : -op.uses[k];\n      }\n      down[c] = savedDown;\n      right = savedRight;\n      deadEnds.add(key);\n      return false;\n    }\n    try {\n      if (!dfs(0)) {\n        return {\n          status: "impossible",\n          code: "search",\n          reason: "No arrangement of the pieces gives this picture (every possibility was checked).",\n          nodes\n        };\n      }\n    } catch (err) {\n      if (err instanceof BudgetExceeded) return { status: "unknown", nodes };\n      throw err;\n    }\n    let whiteLeft = res[2];\n    const pieces = [];\n    chosen.forEach((op, i) => {\n      const r = Math.floor(i / cols);\n      const c = i % cols;\n      if (op.kind === "cube") {\n        pieces.push({ type: "mix", color: colorOf(op.color), r, c, o: mixOrientFor(op.dir, op.h) });\n        return;\n      }\n      for (const p of op.parts) {\n        if (p.src !== "tri") continue;\n        let color = p.color;\n        if (color < 0) {\n          color = whiteLeft > 0 ? 0 : 1;\n          if (color === 0) whiteLeft -= 1;\n        }\n        pieces.push({ type: "tri", color: colorOf(color), r, c, o: p.h });\n      }\n    });\n    const rank = (p) => p.type === "mix" ? 0 : isCap(p.o) ? 2 : 1;\n    pieces.sort((a, b) => rank(a) - rank(b));\n    return { status: "possible", pieces, nodes };\n  }\n  function makeRng(seed = Date.now()) {\n    let a = seed >>> 0;\n    return () => {\n      a = a + 1831565813 >>> 0;\n      let t = a;\n      t = Math.imul(t ^ t >>> 15, t | 1);\n      t ^= t + Math.imul(t ^ t >>> 7, t | 61);\n      return ((t ^ t >>> 14) >>> 0) / 4294967296;\n    };\n  }\n\n  // src/worker.js\n  self.onmessage = (event) => {\n    const { id, rows, cols, looks, inventory, maxNodes } = event.data;\n    let result;\n    try {\n      result = solvePattern(rows, cols, looks, inventory, { maxNodes });\n    } catch (err) {\n      result = { status: "unknown", reason: `The check stopped with an error: ${err.message}` };\n    }\n    self.postMessage({ id, result });\n  };\n})();\n' : null,
       tryDesign,
+      solutionMarkup: solutionView.markup,
       packDeleted: (id) => packStore.deleted(id),
       storeStatus: () => packStore.status()
     });
@@ -11462,6 +11602,7 @@ ${orientMarkup()}
       scheduleSave,
       packs: availablePacks,
       gameName: () => state.print.game,
+      solutionMarkup: solutionView.markup,
       solve: (rows, cols, looks) => packUI.solve(rows, cols, looks)
     });
     window.claude?.hot?.snapshot?.(() => snapshot());

@@ -13,6 +13,7 @@ import { createPlayUI } from './playui.js';
 import { createPrintUI, defaultPrint, revivePrint } from './printui.js';
 import { normalizeSetup, reviveGame, soloDeck, soloNext } from './game.js';
 import { createCustomerUI } from './customerui.js';
+import { createSolutionView } from './solutionview.js';
 import { LOOK, MIX_ORIENTS, flipMix, flipTri, isRamp, rotateMix, rotateTri, thickSide, tipMix, tipTri } from './geometry.js';
 import { ICONS } from './icons.js';
 import { boardMarkup, cellFromPoint, flatPicture, pictureMarkup } from './render2d.js';
@@ -88,6 +89,8 @@ let printUI;
 let playUI;
 let customerUI;
 let packStore;
+// One way to build a picture, in 3D and piece by piece (Packs, Play alone, Play together).
+const solutionView = createSolutionView();
 // The press in progress on the board: where it started, whether it has moved, and whether it
 // grabbed the selected piece (grab: offset from the piece's square to the square grabbed).
 const pointer = { down: false, id: null, type: 'mouse', erase: false, x: 0, y: 0, moved: false, dragging: false, grab: null };
@@ -418,14 +421,16 @@ function renderStageTop() {
   }
   const prog = challengeProgress();
   const status = ch.solved
-    ? `<p class="win">${ch.revealed ? 'Answer shown.' : `Solved in ${ch.moves} moves!`}</p>`
+    ? `<p class="win">${ch.filled ? 'The answer is in the tray.' : `Solved in ${ch.moves} moves${ch.revealed ? ', with a look at the answer' : '!'}`}</p>`
     : `<p><b>${prog.match}</b> of ${prog.total} squares match · ${ch.moves} moves</p>`;
   const deckNote = ch.fromDeck && state.soloDeck ? ` <small class="muted">· card ${state.soloDeck.used} of ${state.soloDeck.cards.length} drawn</small>` : '';
   top.innerHTML = `<div class="challenge-bar" id="challengeBar">
 <div class="challenge-pic">${flatPicture(state.rows, state.cols, ch.target, { cell: 32, gap: 2.5, mismatches: prog.mismatch })}</div>
 <div class="challenge-info"><p class="challenge-title">${escapeHtml(ch.label ?? 'Challenge')} ${starsHtml(ch.difficulty)}${deckNote}</p>
 ${ch.solved ? '' : '<p class="challenge-goal">Make this picture: put all the pieces in the tray so that, seen from above, it looks like this.</p>'}${status}
-<div class="row-buttons">${ch.solved ? `<button type="button" class="btn small primary" data-action="next-challenge">${ICONS.dice}${ch.fromDeck ? 'Next card' : 'Next challenge'}</button>` : `${ch.fromDeck ? `<button type="button" class="btn small" data-action="next-challenge">Skip this card</button>` : ''}${ch.answer ? `<button type="button" class="btn small" data-action="reveal">Show answer</button>` : ''}`}<button type="button" class="btn small" data-action="stop-challenge">End challenge</button></div></div>
+<div class="row-buttons">${ch.solved ? `<button type="button" class="btn small primary" data-action="next-challenge">${ICONS.dice}${ch.fromDeck ? 'Next card' : 'Next challenge'}</button>` : `${ch.fromDeck ? `<button type="button" class="btn small" data-action="next-challenge">Skip this card</button>` : ''}`}${ch.answer ? `<button type="button" class="btn small" data-action="reveal" aria-pressed="${!!ch.showAnswer}">${ch.showAnswer ? 'Hide the answer' : 'Show answer'}</button>` : ''}<button type="button" class="btn small" data-action="stop-challenge">End challenge</button></div></div>
+${ch.showAnswer && ch.answer ? `<div class="challenge-answer">${solutionView.markup(state.rows, state.cols, ch.answer)}
+${ch.solved ? '' : '<div class="row-buttons"><button type="button" class="btn small" data-action="answer-to-tray">Put the answer in my tray</button></div>'}</div>` : ''}
 </div>`;
 }
 
@@ -1085,17 +1090,30 @@ function afterMove(countMove = true) {
   }
 }
 
-async function revealAnswer() {
+/** Show or hide the answer: one way to build the card, in 3D, piece by piece. */
+function toggleAnswer() {
   const ch = state.challenge;
   if (!ch?.answer) return;
-  if (!ch.solved && !(await confirmDialog('Show the answer? The pieces in the tray will be replaced.', 'Show answer'))) return;
+  ch.showAnswer = !ch.showAnswer;
+  if (ch.showAnswer) ch.revealed = true;
+  renderStageTop();
+  if (ch.showAnswer) document.getElementById('solView')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+/** Put the answer in the tray, in place of the pieces there. */
+async function answerToTray() {
+  const ch = state.challenge;
+  if (!ch?.answer) return;
+  if (state.build.pieces.size && !(await confirmDialog('Put the answer in the tray? The pieces in it now will be replaced (Undo brings them back).', 'Put it in'))) return;
   state.history.record(state.build);
   state.build = loadPieces(ch.answer, state.rows, state.cols);
   state.sel = null;
   ch.revealed = true;
+  ch.filled = true;
   ch.solved = true;
+  ch.showAnswer = false;
   render();
-  setStatus('This is the arrangement the picture was made from. Turn on X-ray to see the pieces under roofs.');
+  setStatus('The answer is in the tray. Turn the 3D view to look at it from every side.');
 }
 
 // ---- Files -------------------------------------------------------------------------------
@@ -1616,7 +1634,8 @@ const ACTIONS = {
     state.challenge = null;
     render();
   },
-  reveal: revealAnswer,
+  reveal: toggleAnswer,
+  'answer-to-tray': answerToTray,
 };
 
 function onClick(evt) {
@@ -1633,7 +1652,7 @@ function onClick(evt) {
   const el = evt.target.closest('[data-action]');
   if (!el || el.disabled) return;
   const name = el.dataset.action;
-  const action = ACTIONS[name] ?? packUI.actions[name] ?? printUI.actions[name] ?? playUI.actions[name] ?? customerUI.actions[name];
+  const action = ACTIONS[name] ?? solutionView.actions[name] ?? packUI.actions[name] ?? printUI.actions[name] ?? playUI.actions[name] ?? customerUI.actions[name];
   if (action) action(el, evt);
 }
 
@@ -1725,6 +1744,7 @@ export function start(hotData) {
     paletteMarkup,
     workerSource: typeof __WORKER_SOURCE__ === 'string' ? __WORKER_SOURCE__ : null,
     tryDesign,
+    solutionMarkup: solutionView.markup,
     packDeleted: (id) => packStore.deleted(id),
     storeStatus: () => packStore.status(),
   });
@@ -1775,6 +1795,7 @@ export function start(hotData) {
     scheduleSave,
     packs: availablePacks,
     gameName: () => state.print.game,
+    solutionMarkup: solutionView.markup,
     solve: (rows, cols, looks) => packUI.solve(rows, cols, looks),
   });
   window.claude?.hot?.snapshot?.(() => snapshot());

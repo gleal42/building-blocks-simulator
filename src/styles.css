@@ -1065,6 +1065,52 @@ kbd {
 
 .challenge-bar {
   scroll-margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.challenge-answer {
+  flex-basis: 100%;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+/* One way to build a picture: 3D, piece by piece (solutionview.js). */
+.sol {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 520px;
+}
+
+.sol-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 46vh;
+}
+
+.sol-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.sol-bar .tool span:not(.sr-only) {
+  display: none;
+}
+
+.sol-count {
+  min-width: 4.5em;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.sol-what {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
 }
 
 .challenge-info {

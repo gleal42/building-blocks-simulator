@@ -41,7 +41,7 @@ A pack is a named set of designs for one tray (4×4 or 4×8): the cards of one b
 
 - **Make and change packs**: start a new pack, or copy one. Tap a design to show it in the tray
   and paint over it. Every design is checked as you paint, and only designs the pieces can
-  build are saved. **How to build it** shows one way, from above with x-ray. Add designs by
+  build are saved. **How to build it** shows one way in 3D (see below). Add designs by
   painting or at random (★, ★★, ★★★), set their stars, reorder, duplicate or delete them.
   **Try it as a buyer** opens the design on the customer side.
 - **Designs from a photo**: take a photo of a page of a book of designs. The designs are
@@ -91,7 +91,8 @@ A preview of the buyer's app, in its own colour:
   (one tap here) or type its code, and the pack's cards appear. The code box takes the code in
   any form, with or without hyphens, in lower case, or pasted along with other text.
 - **Play alone**: draw a card from your packs and build its picture in the tray: wrong squares
-  are outlined in red, *Show answer* builds one solution. Drag pieces onto the tray, **Rotate**,
+  are outlined in red, *Show answer* opens the 3D guide below the card (and can put the answer
+  in your tray). Drag pieces onto the tray, **Rotate**,
   **Flip** or **Tip over** them, then **Place**; tap a piece in the tray to select it (tap again
   for the one under it). There is a 3D view, x-ray (ramps under roofs), undo and redo.
 - **Play together**: the app is the game master while everyone builds on real trays.
@@ -104,6 +105,11 @@ A preview of the buyer's app, in its own colour:
   Choose the players (up to 8), the packs, the rounds and the time per card. The game keeps the
   screen awake, beeps when time runs out, shows a solution after each card, and survives a page
   reload.
+
+**One way to build it**, wherever a solution is shown (Packs, Play alone, Play together): a 3D
+tray you can turn in 45° steps, and **Build it piece by piece**: the pieces go in one at a
+time, those that lie on the floor first and the roofs last, so the ramps hidden under the roofs
+are seen going in. Each step names the piece and how it lies.
 
 To sell for real (the buyer's app online, one code per box), see
 [docs/going-live.md](docs/going-live.md).
@@ -150,6 +156,7 @@ fails if `index.html` is out of date.
 | `src/drawing.js`, `src/pdf.js`, `src/fonts.js` | Shapes that become SVG or PDF, a small PDF writer (vector shapes, Helvetica text, JPEG pictures) and font widths. |
 | `src/links.js`, `src/qr.js` | Unlock codes (sample codes, reading a code out of any text), unlock links, and QR codes as drawings. |
 | `src/customerui.js` | My packs, on the customer side. |
+| `src/solutionview.js` | One way to build a picture: 3D, piece by piece, in the order the pieces can go in. |
 | `src/game.js`, `src/playui.js` | Games: the deck, turns, timing and scores (also the deck for playing alone), and Play together. |
 | `src/render2d.js`, `src/render3d.js` | Photo-style top view; 3D icons and the clickable 3D tray. |
 | `src/presets.js` | The two photos as layouts (used by the tests). |

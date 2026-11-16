@@ -7,7 +7,7 @@
 //   * The packs are saved by the pack store (packstore.js): in the artifact's database when
 //     there is one. They can also be saved and opened as files.
 
-import { Board, defaultInventory } from './board.js';
+import { defaultInventory } from './board.js';
 import { LOOK } from './geometry.js';
 import { ICONS } from './icons.js';
 import { createChecker } from './packcheck.js';
@@ -26,7 +26,7 @@ import {
   suggestDifficulty,
 } from './packs.js';
 import { defaultQuad, findPatterns, insideQuad, otsu, readPattern, squareToQuad, toGray } from './photo.js';
-import { boardMarkup, flatPicture } from './render2d.js';
+import { flatPicture } from './render2d.js';
 import { quickCheck } from './solver.js';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -180,18 +180,10 @@ export function createPackUI(ctx) {
     }
   }
 
-  /** One way to build the design: the tray from above, with x-ray (ramps under roofs). */
+  /** One way to build the design, in 3D, piece by piece (solutionview.js). */
   function howMarkup(s, rows, cols) {
     if (!showHow || s.status !== 'possible' || !s.pieces) return '';
-    try {
-      const view = boardMarkup(Board.fromJSON({ rows, cols, pieces: s.pieces }), { xray: true });
-      // Its own names for gradients and filters: the tray on the page has the same ones.
-      const markup = view.markup.replace(/(?<![-\w])id="([^"]+)"/g, 'id="how-$1"').replace(/url\(#([^)]+)\)/g, 'url(#how-$1)');
-      return `<div class="pk-how"><svg viewBox="${view.viewBox}" class="pk-how-svg" role="img" aria-label="One way to build it, with x-ray">${markup}</svg>
-<p class="hint">One way to build it, seen from above. X-ray shows the pieces under the roofs (a ramp under each prism lying on its slope).</p></div>`;
-    } catch {
-      return '';
-    }
+    return `<div class="pk-how">${ctx.solutionMarkup(rows, cols, s.pieces)}</div>`;
   }
 
   function resultMarkup(s) {

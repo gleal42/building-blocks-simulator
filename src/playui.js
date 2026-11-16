@@ -2,7 +2,6 @@
 // cards from the buyer's packs, times each turn and keeps the score. (Playing alone is the
 // tray on screen, which draws from the same packs.)
 
-import { Board } from './board.js';
 import { cardSvg } from './cards.js';
 import {
   LOOK_TIMES,
@@ -31,7 +30,6 @@ import {
 } from './game.js';
 import { ICONS } from './icons.js';
 import { sizeLabel } from './packs.js';
-import { boardMarkup } from './render2d.js';
 import { makeRng } from './solver.js';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -199,10 +197,7 @@ export function createPlayUI(ctx) {
   function solutionMarkup(card, rows, cols) {
     if (!card.answer) return '<p class="muted">Working out a solution…</p>';
     try {
-      const view = boardMarkup(Board.fromJSON({ rows, cols, pieces: card.answer }), { xray: true });
-      // Its own names for the gradients and filters: the tray's (hidden in this tab) has the same ones.
-      const markup = view.markup.replace(/(?<![-\w])id="([^"]+)"/g, 'id="sol-$1"').replace(/url\(#([^)]+)\)/g, 'url(#sol-$1)');
-      return `<svg viewBox="${view.viewBox}" class="pl-solution" role="img" aria-label="One way to build it, with x-ray">${markup}</svg><p class="hint">One way to build it. X-ray shows the ramps under the roofs.</p>`;
+      return ctx.solutionMarkup(rows, cols, card.answer);
     } catch {
       return '<p class="muted">No solution to show.</p>';
     }
