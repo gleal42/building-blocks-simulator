@@ -1,9 +1,8 @@
-// The Play tab: games for several players around real trays. The app deals cards from the
-// chosen packs, times each turn and keeps the score. (Playing alone is the Build tab's
-// challenge, which draws from packs too.)
+// Play together (customer side): games for several players around real trays. The app deals
+// cards from the buyer's packs, times each turn and keeps the score. (Playing alone is the
+// tray on screen, which draws from the same packs.)
 
 import { Board } from './board.js';
-import { DIFFICULTY } from './book.js';
 import { cardSvg } from './cards.js';
 import {
   LOOK_TIMES,
@@ -31,7 +30,7 @@ import {
   timeUp,
 } from './game.js';
 import { ICONS } from './icons.js';
-import { PACK_SIZES, bookShapeFor, sizeLabel } from './packs.js';
+import { sizeLabel } from './packs.js';
 import { boardMarkup } from './render2d.js';
 import { makeRng } from './solver.js';
 
@@ -71,13 +70,25 @@ export function createPlayUI(ctx) {
   /** Packs of the setup's size, with designs. */
   const packsForSize = (s) => ctx.packs().filter((p) => p.rows === s.rows && p.cols === s.cols && p.designs.length);
 
+  /** Tray sizes the buyer has packs for. */
+  function sizes() {
+    const seen = new Map();
+    for (const p of ctx.packs()) if (p.designs.length) seen.set(`${p.rows}x${p.cols}`, { rows: p.rows, cols: p.cols });
+    return [...seen.values()];
+  }
+
   function setup() {
     const st = state();
     const s = normalizeSetup(st.gameSetup);
-    if (!ctx.allowRandom()) s.random = [];
-    // An empty deck cannot be played: start from every pack of the tray size.
+    s.random = [];
+    // A tray size there are packs for, and a deck that is not empty.
+    const have = sizes();
+    if (have.length && !have.some((x) => x.rows === s.rows && x.cols === s.cols)) {
+      s.rows = have[0].rows;
+      s.cols = have[0].cols;
+    }
     const sized = packsForSize(s);
-    if (!s.random.length && !sized.some((p) => s.packIds.includes(p.id))) s.packIds = sized.map((p) => p.id);
+    if (!sized.some((p) => s.packIds.includes(p.id))) s.packIds = sized.map((p) => p.id);
     st.gameSetup = s;
     return s;
   }
@@ -175,16 +186,14 @@ export function createPlayUI(ctx) {
   // ---- Stage -----------------------------------------------------------------------------
 
   function cardFace(game, card) {
-    const shape = bookShapeFor(game.setup.rows, game.setup.cols);
-    const challenges = [];
+    const cards = [];
     const number = card.number || game.used;
-    challenges[number - 1] = { looks: card.looks, difficulty: card.stars };
-    return cardSvg({ shape: shape.shape, n: shape.n, title: '', challenges }, number - 1);
+    cards[number - 1] = { looks: card.looks, stars: card.stars };
+    return cardSvg({ rows: game.setup.rows, cols: game.setup.cols, title: '', cards }, number - 1);
   }
 
   function cardBackFace(game, title) {
-    const shape = bookShapeFor(game.setup.rows, game.setup.cols);
-    return cardSvg({ shape: shape.shape, n: shape.n, title, challenges: [] }, null);
+    return cardSvg({ rows: game.setup.rows, cols: game.setup.cols, title, subtitle: ctx.gameName(), cards: [] }, null);
   }
 
   function solutionMarkup(card, rows, cols) {
@@ -279,7 +288,7 @@ ${solution}
 
   function lobbyMarkup() {
     const s = setup();
-    const deck = packCards(s) + (s.random.length ? s.random.length * Math.min(30, cardsNeeded(s)) : 0);
+    const deck = packCards(s);
     const problem = setupProblem(s, deck);
     const tiles = Object.entries(MODES).map(([id, m]) => `<button type="button" class="pl-mode${s.mode === id ? ' is-on' : ''}" data-action="game-mode" data-id="${id}" aria-pressed="${s.mode === id}"><span class="pl-mode-name">${m.name}</span><span class="pl-mode-text">${m.short}</span></button>`).join('');
     const players = playersOf(s);
@@ -311,8 +320,8 @@ ${problem ? `<p class="hint is-bad">${esc(problem)}</p>` : ''}
 <button type="button" class="icon-btn" data-action="game-remove-player" data-index="${i}" ${s.players.length <= 1 ? 'disabled' : ''} title="Remove">${ICONS.close}<span class="sr-only">Remove player ${i + 1}</span></button></div>`).join('');
     const packs = packsForSize(s);
     const packChips = packs.map((p) => chip('game-pack', esc(p.id), `${esc(p.name)} <small>${p.designs.length}</small>`, s.packIds.includes(p.id))).join('');
-    const randomChips = [1, 2, 3].map((level) => chip('game-random', level, `Random <span class="stars level-${level}"><span aria-hidden="true">${starsText(level)}</span><span class="sr-only">${DIFFICULTY[level].name}</span></span>`, s.random.includes(level))).join('');
-    const sizes = PACK_SIZES.map((x) => chip('game-size', `${x.rows}x${x.cols}`, sizeLabel(x.rows, x.cols), x.rows === s.rows && x.cols === s.cols)).join('');
+    const trays = sizes();
+    const sizeChips = trays.map((x) => chip('game-size', `${x.rows}x${x.cols}`, sizeLabel(x.rows, x.cols), x.rows === s.rows && x.cols === s.cols)).join('');
     const rounds = ROUNDS.map((n) => chip('game-rounds', n, n, s.rounds === n)).join('');
     const times = TIMES.map((t) => chip('game-seconds', t, t ? formatTime(t * 1000) : 'No limit', s.seconds === t)).join('');
     const looks = LOOK_TIMES.map((t) => chip('game-look', t, `${t} s`, s.lookSeconds === t)).join('');
@@ -325,13 +334,11 @@ ${problem ? `<p class="hint is-bad">${esc(problem)}</p>` : ''}
 </section>
 <section class="card" aria-labelledby="pl-deck-h">
 <h2 id="pl-deck-h">Deck</h2>
-<p class="field-label">Tray</p>
-<div class="chips tight" role="group" aria-label="Tray size">${sizes}</div>
+${trays.length > 1 ? `<p class="field-label">Tray</p>
+<div class="chips tight" role="group" aria-label="Tray size">${sizeChips}</div>` : ''}
 <p class="field-label">Packs to shuffle in</p>
-${packChips ? `<div class="chips tight" role="group" aria-label="Packs">${packChips}</div>` : `<p class="muted">No ${sizeLabel(s.rows, s.cols)} packs yet. ${ctx.allowRandom() ? 'Make one in the Packs tab, or add random designs.' : 'Unlock yours in My packs.'}</p>`}
-${ctx.allowRandom() ? `<p class="field-label">Random designs (always buildable)</p>
-<div class="chips tight" role="group" aria-label="Random designs">${randomChips}</div>` : ''}
-<p class="hint">${inDeck ? `${plural(inDeck, 'card')} from packs` : 'No pack cards'}${s.random.length ? ' + random designs' : ''}. This game deals ${need}; ${inDeck && !s.random.length && inDeck < need ? 'the deck is shuffled again when it runs out.' : 'every card is dealt once.'}</p>
+${packChips ? `<div class="chips tight" role="group" aria-label="Packs">${packChips}</div>` : '<p class="muted">No packs yet: unlock yours in My packs.</p>'}
+<p class="hint">${inDeck ? plural(inDeck, 'card') : 'No cards'} in the deck. This game deals ${need}; ${inDeck && inDeck < need ? 'the deck is shuffled again when it runs out.' : 'every card is dealt once.'}</p>
 </section>
 <section class="card" aria-labelledby="pl-rules-h">
 <h2 id="pl-rules-h">Rounds and time</h2>
@@ -374,15 +381,7 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ''}
 
   async function start() {
     const s = setup();
-    const random = [];
-    for (const level of s.random) {
-      const count = Math.min(30, cardsNeeded(s));
-      for (let k = 0; k < count; k += 1) {
-        const { target, answer } = ctx.randomChallenge(s.rows, s.cols, level);
-        random.push({ looks: target, stars: level, answer });
-      }
-    }
-    const deck = buildDeck(s, ctx.packs(), random, rng());
+    const deck = buildDeck(s, ctx.packs(), [], rng());
     const problem = setupProblem(s, deck.length);
     if (problem) {
       ctx.setStatus(problem, true, 'bad');
@@ -440,10 +439,6 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ''}
     'game-pack': (el) => editSetup((s) => {
       const id = el.dataset.value;
       s.packIds = s.packIds.includes(id) ? s.packIds.filter((x) => x !== id) : [...s.packIds, id];
-    }),
-    'game-random': (el) => editSetup((s) => {
-      const level = Number(el.dataset.value);
-      s.random = s.random.includes(level) ? s.random.filter((x) => x !== level) : [...s.random, level].sort();
     }),
     'game-rounds': (el) => editSetup((s) => { s.rounds = Number(el.dataset.value); }),
     'game-seconds': (el) => editSetup((s) => { s.seconds = Number(el.dataset.value); }),

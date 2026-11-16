@@ -4,11 +4,13 @@
 // Sizes in millimetres. The 4×4 and 4×8 trays are measured; the other sizes are worked out
 // from them (24 mm squares and an 8 mm rim) and marked as estimates.
 //
-// The flat shapes to cut (dielines) are drawn with the same items as the book and the cards:
-// solid red lines are cuts, dashed blue lines are folds.
+// The flat shapes to cut (dielines) are drawn with the same shapes as the cards (drawing.js):
+// solid red lines are cuts, dashed blue lines are folds, the shaded areas are printed.
+// Everything is laid out except the cover art on top of the lid, which is added as a picture.
 
 import { CARD } from './cards.js';
-import { defaultArt, drawItemsPdf, trayItems } from './bookpages.js';
+import { defaultArt, drawItemsPdf, trayItems } from './drawing.js';
+import { wrapText } from './fonts.js';
 import { MM, PdfDocument } from './pdf.js';
 
 export const TRAYS = {
@@ -18,7 +20,7 @@ export const TRAYS = {
 export const TRAY_HEIGHT = 15; // the tray alone
 export const LOADED_HEIGHT = 25; // the tray with its pieces in it (the pieces stand 10 mm above the rim)
 export const CARD_THICKNESS = 0.32; // one printed card (guess for 330 g card; measure a proof deck)
-export const BOOKLET = { w: 100, d: 100, h: 2 }; // the rules booklet (guess)
+export const BOOKLET = { w: 95, d: 95, h: 1 }; // the rules leaflet, folded (see leaflet.js)
 const GAP = 3; // between the tray and the deck
 const CLEAR = 2; // room to lift things out, on each of length, width and height
 const BLEED = 3;
@@ -108,7 +110,28 @@ const INK = '#1d1c19';
 const MUTED = '#6f6a5c';
 const ART = '#efe7d6';
 
-const txt = (x, y, text, size, opts = {}) => ({ t: 'text', x, y, text, size, fill: opts.fill ?? INK, bold: !!opts.bold, anchor: opts.anchor ?? 'middle' });
+const txt = (x, y, text, size, opts = {}) => ({ t: 'text', x, y, text, size, fill: opts.fill ?? INK, bold: !!opts.bold, anchor: opts.anchor ?? 'middle', rot: opts.rot ?? 0 });
+
+/**
+ * Lines of text centred on (cx, cy), turned by rot degrees (clockwise): for a wall, the turn
+ * that puts the top of the letters against the lid's top once it is folded.
+ * lines: [{ text, size, bold?, fill? }]
+ */
+function textBlock(cx, cy, rot, lines) {
+  const lead = 1.25;
+  const total = lines.reduce((a, l, i) => a + l.size * (i ? lead : 1), 0);
+  const a = (rot * Math.PI) / 180;
+  // "Down" for the letters, turned with them.
+  const down = [-Math.sin(a), Math.cos(a)];
+  const items = [];
+  let along = -total / 2;
+  lines.forEach((l, i) => {
+    along += l.size * (i ? lead : 1);
+    const off = along - l.size * 0.14;
+    items.push(txt(cx + down[0] * off, cy + down[1] * off, l.text, l.size, { bold: l.bold, fill: l.fill, rot }));
+  });
+  return items;
+}
 const cut = (x1, y1, x2, y2) => ({ t: 'line', x1, y1, x2, y2, stroke: CUT, sw: 0.35 });
 const fold = (x1, y1, x2, y2) => ({ t: 'line', x1, y1, x2, y2, stroke: FOLD, sw: 0.35, dash: [3, 2] });
 
@@ -132,6 +155,8 @@ export function dieline(kind, plan, opts = {}) {
   const Y = (y) => oy + y;
 
   // Printed areas first (under the lines), with bleed past the cut edges.
+  const title = opts.title || 'Notan';
+  const subtitle = opts.subtitle ?? '';
   if (kind === 'lid') {
     items.push({ t: 'rect', x: X(h - BLEED), y: Y(-BLEED), w: a + 2 * BLEED, h: H + 2 * BLEED, fill: ART });
     items.push({ t: 'rect', x: X(-BLEED), y: Y(h - BLEED), w: W + 2 * BLEED, h: b + 2 * BLEED, fill: ART });
@@ -141,18 +166,41 @@ export function dieline(kind, plan, opts = {}) {
       items.push(txt(X(h + a / 2), Y(h + b / 2 - 6), 'Cover art goes here', Math.min(9, a / 18), { bold: true, fill: MUTED }));
       items.push(txt(X(h + a / 2), Y(h + b / 2 + 4), `${a} × ${b} mm, plus ${BLEED} mm bleed on every side`, Math.min(5, a / 34), { fill: MUTED }));
     }
-    // The front wall (the bottom one on the sheet): the name of the game, upright when the lid is on.
-    const front = Y(h + b + h / 2);
-    items.push(txt(X(h + a / 2), front + Math.min(4, h / 6), opts.title ?? 'Building Blocks', Math.min(8, h / 2.6), { bold: true }));
-    if (opts.subtitle) items.push(txt(X(h + a / 2), front + Math.min(4, h / 6) + Math.min(6, h / 3.6), opts.subtitle, Math.min(4.5, h / 5.5), { fill: MUTED }));
+    // The walls, each turned so its letters stand upright when the lid is on the box.
+    const big = Math.min(9, h / 2.6);
+    const small = Math.min(4.5, h / 5.5);
+    const front = [{ text: title, size: big, bold: true }];
+    if (subtitle) front.push({ text: subtitle, size: small, fill: MUTED });
+    items.push(...textBlock(X(h + a / 2), Y(h + b + h / 2), 0, front));
+    items.push(...textBlock(X(h + a / 2), Y(h / 2), 180, [{ text: title, size: big * 0.8, bold: true }, ...(opts.tagline ? [{ text: opts.tagline, size: small, fill: MUTED }] : [])]));
+    items.push(...textBlock(X(h / 2), Y(h + b / 2), 90, [{ text: title, size: Math.min(big * 0.7, b / 8), bold: true }]));
+    items.push(...textBlock(X(h + a + h / 2), Y(h + b / 2), -90, [{ text: title, size: Math.min(big * 0.7, b / 8), bold: true }]));
   } else {
-    // The underside of the base: what is inside and who made it.
-    const lines = [opts.title ?? 'Building Blocks', ...(opts.contents ?? []), '', ...(opts.maker ?? [])];
-    const size = Math.min(4.2, b / 22);
-    lines.forEach((line, i) => {
-      if (line) items.push(txt(X(h + a / 2), Y(h + 10 + i * size * 1.5), line, i === 0 ? size * 1.4 : size, { bold: i === 0, fill: i === 0 ? INK : MUTED }));
-    });
-    items.push(txt(X(h + a / 2), Y(h + b - 6), 'This side is the outside of the bottom of the box', Math.min(3.4, b / 30), { fill: MUTED }));
+    // The underside of the base: what is inside, how to get the digital pack, who made it.
+    items.push({ t: 'rect', x: X(h), y: Y(h), w: a, h: b, fill: '#fbf8f1' });
+    const size = Math.min(3.6, b / 26);
+    const width = a - 16;
+    const lines = [{ text: title, size: size * 1.6, bold: true }];
+    if (subtitle) lines.push({ text: subtitle, size: size * 1.15, bold: true, fill: MUTED });
+    const wrap = (value, opt = {}) => {
+      for (const line of wrapText(value, size, width, !!opt.bold)) lines.push({ text: line, size, fill: opt.fill ?? INK, bold: !!opt.bold });
+    };
+    lines.push({ text: '', size: size * 0.6 });
+    for (const line of opts.contents ?? []) wrap(line);
+    if (opts.digital) {
+      lines.push({ text: '', size: size * 0.6 });
+      wrap(opts.digital);
+    }
+    if (opts.maker?.length) {
+      lines.push({ text: '', size: size * 0.6 });
+      for (const line of opts.maker) wrap(line, { fill: MUTED });
+    }
+    let y = Y(h + 8);
+    for (const line of lines) {
+      y += line.size * 1.3;
+      if (line.text) items.push(txt(X(h + a / 2), y, line.text, line.size, { bold: line.bold, fill: line.fill }));
+    }
+    items.push(txt(X(h + a / 2), Y(h + b - 4), 'The underside of the box', Math.min(3, b / 34), { fill: MUTED }));
   }
 
   // Folds: the edges of the floor (or top), and the hinges of the glue flaps.
@@ -207,7 +255,7 @@ export function contentsDrawing(plan) {
     const bx = top.x + places.booklet.x;
     const by = top.y + places.booklet.y;
     items.push({ t: 'rect', x: bx, y: by, w: booklet.w, h: booklet.d, stroke: MUTED, sw: 0.4, dash: [1.5, 1.5] });
-    items.push(txt(bx + booklet.w / 2, by + 6, `Rules booklet on top (${booklet.w} × ${booklet.d} mm)`, 3, { fill: MUTED }));
+    items.push(txt(bx + booklet.w / 2, by + 6, `Rules leaflet on top (${booklet.w} × ${booklet.d} mm)`, 3, { fill: MUTED }));
   }
 
   // A cut through the side, heights to scale.
@@ -224,11 +272,6 @@ export function contentsDrawing(plan) {
   const w = Math.max(inner.l + 2 * m + 22, 120);
   const h = side.y + inner.h + m;
   return { w, h, items };
-}
-
-/** SVG for a drawing in millimetres (fits the width it is given). */
-export function drawingSvg(drawing, itemsSvg, label) {
-  return `<svg viewBox="0 0 ${drawing.w.toFixed(1)} ${drawing.h.toFixed(1)}" xmlns="http://www.w3.org/2000/svg" class="box-svg" role="img" aria-label="${label}"><rect width="${drawing.w.toFixed(1)}" height="${drawing.h.toFixed(1)}" fill="#ffffff"/>${itemsSvg(drawing.items)}</svg>`;
 }
 
 /** The box as a PDF at full size: the lid, the base, then what goes inside. */

@@ -1,14 +1,14 @@
 {
   "name": "building-blocks-simulator",
   "version": "1.0.0",
-  "description": "Simulator for a black-and-white block puzzle: place cube + prism pieces and loose prisms in a tray, and check which pictures can be made.",
+  "description": "Notan, a black-and-white block puzzle: make packs of designs, print their cards, box and rules, and preview what a buyer gets.",
   "type": "module",
   "private": true,
   "scripts": {
     "test": "node --test tests/*.test.js",
     "build": "node scripts/build.mjs",
     "dev": "node scripts/build.mjs --watch",
-    "check-build": "node scripts/build.mjs && git diff --exit-code -- index.html customer.html"
+    "check-build": "node scripts/build.mjs && git diff --exit-code -- index.html"
   },
   "repository": {
     "type": "git",

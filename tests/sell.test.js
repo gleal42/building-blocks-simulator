@@ -2,9 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import jsQR from 'jsqr';
 
-import { baseAddress, isCode, normalizeCode, parseLink, unlockLink } from '../src/links.js';
-import { isLockedPack, lockPack, makeCodes, unlockAny, unlockPack } from '../src/lock.js';
-import { newPack } from '../src/packs.js';
+import { CODE_ALPHABET, baseAddress, findCode, isCode, normalizeCode, parseLink, sampleCode, unlockLink } from '../src/links.js';
 import { qrItems, qrMatrix } from '../src/qr.js';
 
 /** Paint QR items into RGBA pixels and read them back with a real QR reader. */
@@ -42,30 +40,24 @@ test('unlock links, and anything else is ignored', () => {
   assert.ok(!isCode('K7QM-3XTP-ZR8O'), 'O is not used, so it cannot be mistaken for 0');
 });
 
-test('codes are well formed and all different', () => {
-  const codes = makeCodes(200);
-  assert.equal(new Set(codes).size, 200);
-  assert.ok(codes.every(isCode));
+test('a code is found in whatever is typed or pasted', () => {
+  assert.equal(findCode('k7qm 3xtp zr8d'), 'K7QM-3XTP-ZR8D');
+  assert.equal(findCode('K7QM3XTPZR8D'), 'K7QM-3XTP-ZR8D');
+  // A whole list of codes pasted at once: the first one is used.
+  assert.equal(findCode('2D7W-DXP4-9CMC\nZ3R5-ELXB-6CWS\n7N3G-WW7V-YBUV'), '2D7W-DXP4-9CMC');
+  // The same list pasted into a one-line box (the line breaks dropped): still the first one.
+  assert.equal(findCode('2D7W-DXP4-9CMCZ3R5-ELXB-6CWS7N3G-WW7V-YBUV'), '2D7W-DXP4-9CMC');
+  assert.equal(findCode('Your code: 2d7w-dxp4-9cmc. Enjoy!'), '2D7W-DXP4-9CMC');
+  assert.equal(findCode('https://example.com/#u-2D7W-DXP4-9CMC'), '2D7W-DXP4-9CMC');
+  assert.equal(findCode('hello'), '');
+  assert.equal(findCode('K7QM-3XTP-ZR80'), '', '0 is not used in codes');
 });
 
-test('a locked pack opens with any of its codes and nothing else', async () => {
-  const pack = newPack({ id: 'p1', name: 'Secret 2×2', rows: 2, cols: 2 });
-  pack.designs = [{ looks: [1, 2, 2, 1], stars: 2 }, { looks: [2, 1, 1, 2], stars: 3 }];
-  const codes = makeCodes(5);
-  const locked = await lockPack(pack, codes, { iterations: 1000 });
-  assert.ok(isLockedPack(locked));
-  assert.equal(locked.keys.length, 5);
-  assert.equal(locked.count, 2);
-  const json = JSON.stringify(locked);
-  assert.ok(!json.includes('1221') && !json.includes('Secret 2×2 design'), 'designs are not readable');
-  for (const code of codes) {
-    const open = await unlockPack(JSON.parse(json), code.toLowerCase().replace(/-/g, ' '));
-    assert.deepEqual(open.designs, pack.designs);
-    assert.equal(open.name, 'Secret 2×2');
-  }
-  assert.equal(await unlockPack(locked, makeCodes(1)[0]), null);
-  const other = await lockPack({ ...pack, id: 'p2', name: 'Other' }, makeCodes(2), { iterations: 1000 });
-  const found = await unlockAny([other, locked], codes[3]);
-  assert.equal(found.locked.id, 'p1');
-  assert.equal(await unlockAny([other], codes[3]), null);
+test('sample codes: one per pack, always the same, well formed', () => {
+  const a = sampleCode('builtin:starter-4x4');
+  assert.ok(isCode(a));
+  assert.equal(sampleCode('builtin:starter-4x4'), a);
+  const many = new Set(Array.from({ length: 500 }, (_, i) => sampleCode(`p${i}`)));
+  assert.equal(many.size, 500);
+  for (const c of many) assert.ok([...c.replace(/-/g, '')].every((ch) => CODE_ALPHABET.includes(ch)));
 });

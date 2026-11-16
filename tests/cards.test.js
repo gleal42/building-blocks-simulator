@@ -1,19 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { PAPER, addChallenge, bookTray, newBook } from '../src/book.js';
-import { CARD, cardBack, cardFront, cardSheet, cardSlot, cardSvg, cardsPdf } from '../src/cards.js';
+import { CARD, PAPER, cardBack, cardFront, cardSheet, cardSlot, cardSvg, cardsPdf, packDeck } from '../src/cards.js';
 import { LOOK } from '../src/geometry.js';
+import { newPack } from '../src/packs.js';
 
 function sampleBook(shape, count, paper = 'a4') {
-  const book = newBook(shape, 4);
-  book.paper = paper;
-  const { rows, cols } = bookTray(book);
+  const pack = newPack({ name: 'Animals', rows: 4, cols: shape === 'rect' ? 8 : 4 });
   const looks = [LOOK.WHITE, LOOK.SLASH_WB, LOOK.BLACK, LOOK.BACK_BW];
   for (let i = 0; i < count; i += 1) {
-    addChallenge(book, { looks: Array.from({ length: rows * cols }, (_, k) => looks[(k + i) % 4]), difficulty: 1 + (i % 3) });
+    pack.designs.push({ looks: Array.from({ length: pack.rows * pack.cols }, (_, k) => looks[(k + i) % 4]), stars: 1 + (i % 3) });
   }
-  return book;
+  return packDeck(pack, { paper });
 }
 
 function pdfText(bytes) {
@@ -50,14 +48,15 @@ test('card backs are mirrored left to right, so each lands behind its front', ()
   }
 });
 
-test('a card shows its number, its stars and its picture; the back shows the title', () => {
+test('a card shows its number, its stars and its picture; the back shows the game and the pack', () => {
   const book = sampleBook('rect', 3);
   book.title = 'Desafios do Gonçalo';
   const front = cardFront(book, 2);
   assert.ok(front.some((it) => it.t === 'text' && it.text === '3'));
-  assert.equal(front.filter((it) => it.t === 'poly' && it.fill === '#e5b20f' && it.pts.length === 10).length, 0, 'challenge 3 is hard, not medium');
+  assert.equal(front.filter((it) => it.t === 'poly' && it.fill === '#e5b20f' && it.pts.length === 10).length, 0, 'card 3 is hard, not medium');
   assert.equal(front.filter((it) => it.t === 'poly' && it.fill === '#d5413a' && it.pts.length === 10).length, 3, 'three red stars');
   assert.ok(cardBack(book).some((it) => it.t === 'text' && it.text === 'Desafios do Gonçalo'));
+  assert.ok(cardBack(book).some((it) => it.t === 'text' && it.text === 'Animals'));
   assert.match(cardSvg(book, 0), /viewBox="0 0 2000 1000"/);
   assert.match(cardSvg(sampleBook('square', 1), null), /viewBox="0 0 1000 1000"/);
 });

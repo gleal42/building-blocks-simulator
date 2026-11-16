@@ -1,15 +1,21 @@
-# Building Blocks Simulator
+# Notan: Building Blocks Simulator
 
-A simulator for the black-and-white block puzzle: a tan tray filled with white and black
-**cube + prism** pieces and loose **prisms** (half cubes). Place and turn the pieces every
-way the real ones can go, check whether a picture can be made, and make a printable
-challenge book.
+The app behind **Notan**, a black-and-white block puzzle: a tan tray filled with white and black
+**cube + prism** pieces and loose **prisms** (half cubes), and cards of pictures to build with
+them. It has two sides:
+
+- **Maker** (yours): make the **packs** of designs you sell, one pack per box, and **print**
+  everything that goes in the box: the cards, the box itself, the rules leaflet and the unlock
+  card.
+- **Customer** (a preview of what a buyer gets): unlock the pack in the box, then play it
+  **alone** (build the cards in a tray on screen, every way the real pieces turn) or
+  **together** (the app deals the cards, keeps time and score while everyone builds on real
+  trays).
 
 ![The 4×4 tray from the first photo, with a piece about to be placed](docs/screenshots/build.jpg)
 
 **Try it:** open [`index.html`](index.html) in a browser. It is one self-contained file
-(no install, works offline, fonts fall back to system fonts). To publish it with GitHub
-Pages, turn Pages on for the `master` branch, root folder.
+(no install, works offline, fonts fall back to system fonts).
 
 ## How the pieces work
 
@@ -27,159 +33,104 @@ a diagonal split**. A picture made only of triangles can never be built.
 
 ## What you can do
 
-### Build
+Switch between **Maker** and **Customer** at the top of the app.
 
-- **Drag** a piece from under the tray onto it. It shows where it would go (outlined in red
-  if it does not fit, with the reason under the tray). **Rotate**, **Flip** or **Tip over**
-  it there, drag it again or tap another square, then press **Place**. Tapping a piece under
-  the tray and then a square works too. All 16 or 12 orientations are also shown as
-  pictures in the panel.
-- **Tap or click a piece in the tray to select it.** Where a roof lies on a ramp, the first
-  tap selects the roof, the next one the ramp under it, then the roof again. With a piece
-  selected: **Remove** takes it out; turning or dragging it shows it at its new place (it
-  stays faded where it was) until you press **Place**; **Cancel** leaves everything as it
-  was. Right-click (or Ctrl + click) removes a piece straight away.
-- **3D view** works the same way, on phones too. The buttons above the tray turn the view in
-  45° steps. On a phone, a swipe that starts beside or above the 3D tray scrolls the page;
-  one that starts on the tray stays with the tray.
-- *X-ray* shows ramps hidden under roofs. Undo/redo, the two photo layouts, random fill,
-  tray sizes from 1 to 12 rows and columns (a multiple of 4 squares), and board codes.
-- **Challenges** (the solo game): pick one or more packs and **draw a card**: its picture
-  stays above the tray and wrong squares are outlined in red. *Next card* draws the next one
-  from the shuffled deck; *Show answer* builds one solution. Random pictures (easy ★, medium
-  ★★, hard ★★★) made from a real arrangement of the pieces are there too.
+### Maker › Packs
 
-![The same tray in 3D, turned 45°](docs/screenshots/build-3d.jpg)
+A pack is a named set of designs for one tray (4×4 or 4×8): the cards of one box.
 
-### Check a picture
-
-Paint squares white, black, split (4 ways) or erase them (right-click erases). The answer
-appears as you paint: *Possible* (with a button that builds one arrangement in the tray),
-or *Impossible* with the reason. Possible pictures can be added to the challenge book.
-
-![Every square split: impossible](docs/screenshots/check-impossible.jpg)
-
-### Packs
-
-A pack is a named set of designs for one tray size (the book sizes: 2×2, 4×4, 6×6, 8×8,
-2×4, 4×8, 6×12), to fill challenge books and card decks.
-
-- **Make and change packs**: start a new pack, copy one, or make one from the book. Tap a
-  design to show it in the tray and paint over it; every design is checked as you paint, and
-  only designs the pieces can build are saved. Add designs by painting, at random (★, ★★,
-  ★★★), or from the Build tray; set their stars, reorder, duplicate or delete them.
+- **Make and change packs**: start a new pack, or copy one. Tap a design to show it in the tray
+  and paint over it. Every design is checked as you paint, and only designs the pieces can
+  build are saved. **How to build it** shows one way, from above with x-ray. Add designs by
+  painting or at random (★, ★★, ★★★), set their stars, reorder, duplicate or delete them.
+  **Try it as a buyer** opens the design on the customer side.
 - **Designs from a photo**: take a photo of a page of a book of designs. The designs are
   found and read; each one is shown on the photo with its grid, and squares that were hard
   to read are marked. Drag a design's corners to fix it, mark a missed one by hand, change
   the size or the dark/light setting, then add the ones you want to a pack. Designs that
   cannot be built are not ticked.
-- **Book and cards**: *Add the pack to the book* puts every buildable design of the pack in
-  the book of its size (with its stars and an answer), which also makes them cards. The
-  Challenge book tab can add packs too.
-- **Copy as code** gives the pack as text. Paste it into the list in
-  [`src/builtinpacks.js`](src/builtinpacks.js) to build it into the app (it then shows under
-  *Come with the app*); the tests check that every built-in design can be built. Packs can
-  also be saved as a `.json` file, opened, or pasted back in.
+- **Saved to your account**: when the app runs as a Claude artifact, the packs are kept in the
+  artifact's database ([`src/packstore.js`](src/packstore.js)). They survive a cleared browser,
+  show on every device, and Claude can read them, so "add my packs to the app" needs no copying.
+  Elsewhere they stay in the browser. Packs can also be saved as `.json` files and opened again.
+- **Packs that come with the app** are the files in [`packs/`](packs), one pack per file,
+  read when the app is built. The tests check that every design in them can be built.
 
 ![A pack of designs read from a photo](docs/screenshots/packs.jpg)
 
 ![Designs found on a photo of a book page](docs/screenshots/packs-photo.jpg)
 
-### Selling packs: unlock codes and QR codes
+### Maker › Print
 
-In the Packs tab, **Sell this pack**:
+Everything that goes in the box of a pack, as PDFs:
 
-- **Where buyers open the app:** the address the unlock cards' QR codes point to.
-- **Unlock codes**, one per box (10 to 100 at a time, more can be added later). The pack is
-  *locked*: its designs are encrypted, and each code opens it (see [`src/lock.js`](src/lock.js)).
-  No server is needed, and nobody can read the designs without a code. The codes are kept only
-  in the maker's browser and in copies: **Copy the codes** and keep them safe.
-- **Unlock cards:** one for each box, with its unlock code and a QR code that opens the app
-  and unlocks the pack (**PDF of the unlock cards**). This is the only QR code: the challenge
-  cards don't have one, since every design is in the app once the pack is unlocked.
-- **Copy locked pack as code:** paste it into `LOCKED_PACKS` in
-  [`src/builtinpacks.js`](src/builtinpacks.js) to build the pack into the buyer's app.
-- **Preview as a customer:** see the app as a buyer does.
+- **Cards**: one card per design, in the shape of the tray (6.3 × 6.3 cm for 4×4, 8.8 × 4.4 cm
+  for 4×8) with its number, stars and picture. 12 cards on a portrait sheet with cut marks, and
+  the card back (the game's name and the pack's) on the next page. Print on both sides, flip on
+  the long edge, cut.
+- **Box**: a base and a full-depth lid that hold the tray with its pieces, the cards and the
+  rules, sized from the measured trays (4×4: 112 × 112 mm, 4×8: 205 × 112 mm, 25 mm high with
+  the pieces in). The name is on all four sides of the lid, upright once folded; the underside
+  of the base says what is inside, how to get the digital pack, and who made it. Only the
+  **cover art** (top of the lid) is left to add: upload it and it fills the top with 3 mm bleed.
+  Cards beside the tray or on top; folding carton or rigid board. Full-size PDF: lid, base, and
+  what goes where (red: cut, blue dashed: fold).
+- **Rules**: the leaflet that replaces the book (the cards hold the pictures): four 95 mm pages
+  folded from one strip: the cover, the pieces and the goal, the ways to play, and the digital
+  pack with your details. Two leaflets per sheet.
+- **Unlock card**: the card with the code that unlocks the pack in the app, and its QR code.
+  For now a sample code; a list of real codes (one per box) can be opened once they exist.
 
-### What a buyer gets (customer mode)
+![The box of a pack, flat, with the name on every side](docs/screenshots/print-box.jpg)
 
-`npm run build` also writes **`customer.html`**: the app as a buyer gets it, with three tabs:
-**My packs** (unlock the pack from the box by scanning its QR code or typing the code), **Build**
-(play alone, card after card) and **Play** (play together). Only unlocked packs are there, and
-it keeps its own storage. The maker's app shows the same thing in **customer preview**
-(*Preview as a customer*, or open an unlock link), with a bar to go back to maker mode.
+### Customer › My packs, Play alone, Play together
 
-The unlock QR code is a link ending in `#u-K7QM-3XTP-ZR8D`: opening it unlocks that pack.
+A preview of the buyer's app, in its own colour:
 
-### Box
+- **My packs**: every pack you have is a "box on the table" with its unlock card. Scan the card
+  (one tap here) or type its code, and the pack's cards appear. The code box takes the code in
+  any form, with or without hyphens, in lower case, or pasted along with other text.
+- **Play alone**: draw a card from your packs and build its picture in the tray: wrong squares
+  are outlined in red, *Show answer* builds one solution. Drag pieces onto the tray, **Rotate**,
+  **Flip** or **Tip over** them, then **Place**; tap a piece in the tray to select it (tap again
+  for the one under it). There is a 3D view, x-ray (ramps under roofs), undo and redo.
+- **Play together**: the app is the game master while everyone builds on real trays.
+  - **Time trial:** players take turns drawing a card and building it before the clock runs
+    out; a card built in time scores its stars.
+  - **Memory:** the card is shown for a few seconds, then hidden; build it from memory, then
+    compare.
+  - **Race:** one card for everyone, each on their own tray; the first to finish scores it.
 
-Challenge book › **Box**: a base and a full-depth lid that hold the tray with its pieces, the
-deck and the rules booklet, sized from the measured trays (4×4: 112 × 112 mm, 4×8: 205 × 112 mm,
-25 mm high with the pieces in). Choose the cards beside the tray or on top, and folding carton
-or rigid board. It shows what goes where and the flat shapes to cut (red: cut, blue dashed:
-fold); the lid's top carries the book's front cover as cover art. **PDF of the box** is full
-size: print at 100%.
+  Choose the players (up to 8), the packs, the rounds and the time per card. The game keeps the
+  screen awake, beeps when time runs out, shows a solution after each card, and survives a page
+  reload.
 
-### Play (games for several players)
+To sell for real (the buyer's app online, one code per box), see
+[docs/going-live.md](docs/going-live.md).
 
-The app is the game master while everyone builds on real trays: it shuffles a deck from the
-chosen packs (and/or random designs), deals the cards, times each turn and keeps the score.
-
-- **Time trial:** players take turns drawing a card and building it before the clock runs out;
-  a card built in time scores its stars.
-- **Memory:** the card is shown for a few seconds, then hidden; build it from memory, then
-  compare with the card.
-- **Race:** one card for everyone, each on their own tray; the first to finish scores it.
-
-Choose the players (up to 8), the tray size, the packs, the number of rounds and the time per
-card. The game keeps the screen awake, beeps when time runs out, shows a solution after each
-card, and survives a page reload.
+![My packs, in the customer preview](docs/screenshots/customer.jpg)
 
 <img src="docs/screenshots/play-race.jpg" alt="A race: one card for everyone, then tap who finished first" width="280">
 
-### Challenge book
+![The same tray in 3D, turned 45°](docs/screenshots/build-3d.jpg)
 
-- Books for square trays (2×2 to 8×8, one challenge per page) and 2:1 trays (2×4 to 6×12,
-  one challenge across two facing pages). Each tray size keeps its own book.
-- Add random challenges by difficulty, the Build tray, a checked picture, or a whole pack. Change the
-  stars (green easy, yellow medium, red hard), reorder, delete, or play a challenge in Build.
-- Default front and back covers (the back lists every challenge), or upload your own
-  pictures.
-- Preview as a **3D book** with pages to turn, as flat **spreads**, as the **print sheets**,
-  or as **cards**.
-- **PDF to print as a booklet**: square pages (14 cm on A4, 13 cm on US Letter), two per
-  sheet side, in saddle-stitch order. Sheet 1 has the back and front covers on the outside
-  and the first and last pages on the inside. Print on both sides (flip on the short edge),
-  stack, fold, staple on the fold, and trim to the corner marks. There is also a PDF with one
-  page per page, for a print shop or a screen.
-- **Cards**: a deck with one card per challenge, in the shape of the tray (6.3 × 6.3 cm for
-  square trays, 8.8 × 4.4 cm for 2:1 trays) with its number, stars and picture, for players
-  to draw a card and build it. The PDF puts 12 cards on a portrait sheet (10 for 2:1 cards on
-  US Letter) with cut marks, and the shared card back on the next page: print on both sides,
-  flip on the long edge, and cut.
-- **Save book (.json)** keeps the challenges, stars, answers, title and covers;
-  **Open a saved book** carries on where you left off.
-
-![A 4×8 challenge across two facing pages](docs/screenshots/book.jpg)
-
-![Challenge cards for a 4×4 tray, and the back they share](docs/screenshots/cards.jpg)
-
-<img src="docs/screenshots/phone.jpg" alt="The app on a phone" width="280">
-
-Keys: <kbd>1</kbd>–<kbd>4</kbd> take a piece, <kbd>R</kbd> rotate, <kbd>F</kbd> flip,
-<kbd>T</kbd> tip over, <kbd>Enter</kbd> place, <kbd>Delete</kbd> remove the selected piece,
-<kbd>Esc</kbd> cancel, <kbd>X</kbd> x-ray, <kbd>V</kbd> 3D, <kbd>Ctrl</kbd>+<kbd>Z</kbd> /
+Keys (Play alone): <kbd>1</kbd>–<kbd>4</kbd> take a piece, <kbd>R</kbd> rotate, <kbd>F</kbd>
+flip, <kbd>T</kbd> tip over, <kbd>Enter</kbd> place, <kbd>Delete</kbd> remove the selected
+piece, <kbd>Esc</kbd> cancel, <kbd>X</kbd> x-ray, <kbd>V</kbd> 3D, <kbd>Ctrl</kbd>+<kbd>Z</kbd> /
 <kbd>Ctrl</kbd>+<kbd>Y</kbd> undo/redo. On the tray, the arrow keys move the selected piece
-(or a cursor, and <kbd>Enter</kbd> selects the piece under it). Arrow keys turn the pages of
-the book.
+(or a cursor, and <kbd>Enter</kbd> selects the piece under it).
+
+The earlier version, with a free building sandbox, a *Check a picture* tab, the challenge book
+and encrypted unlock codes, is kept in the
+[`full-version`](https://github.com/gleal42/building-blocks-simulator/tree/full-version) branch.
 
 ## Development
 
 ```sh
 npm install
-npm test          # model, solver, book, pack, photo, game, box and selling tests (QR codes are read back with a QR reader)
-npm run build     # bundles src/ into index.html (maker) and customer.html (buyer)
-npm run dev       # rebuilds index.html whenever src/ changes
+npm test          # model, solver, pack, pack store, photo, game, print and code tests (QR codes are read back with a QR reader)
+npm run build     # bundles src/ and the packs in packs/ into index.html
+npm run dev       # rebuilds index.html whenever src/ or packs/ changes
 ```
 
 `index.html` is generated: edit the files in `src/` and rebuild. CI runs the tests and
@@ -190,19 +141,19 @@ fails if `index.html` is out of date.
 | `src/geometry.js` | The 12 half-cube shapes, the 16 cube + prism orientations, what a square looks like from above, 3D solids. |
 | `src/board.js` | Tray model: placing (no overlap, only complementary halves share a square, loose roofs need a ramp), removing, top-view looks, board codes. |
 | `src/solver.js` | Decides whether a picture can be built and returns an arrangement; random arrangements. |
-| `src/book.js` | Challenge books: pages, saddle-stitch imposition, saving and opening. |
-| `src/bookpages.js` | Page layouts, drawn as shapes that become SVG (preview) or PDF (printing). |
-| `src/pdf.js`, `src/fonts.js` | A small PDF writer (vector shapes, Helvetica text, JPEG covers) and font widths. |
-| `src/presets.js` | The two photos as layouts. |
-| `src/packs.js`, `src/builtinpacks.js` | Packs of designs: text format, checks, and the packs that come with the app. |
+| `src/packs.js`, `src/builtinpacks.js`, `packs/` | Packs of designs: the file format, checks, stars, and the packs that come with the app. |
+| `src/packstore.js` | Keeps the packs in the artifact's database, in step across devices. |
 | `src/packui.js`, `src/packcheck.js` | The Packs tab, and checking designs in a background worker. |
 | `src/photo.js` | Finding and reading designs in a photo. |
-| `src/game.js`, `src/playui.js` | Games: the deck, turns, timing and scores (also the solo deck for Build challenges), and the Play tab. |
-| `src/lock.js`, `src/links.js`, `src/qr.js` | Locked packs and unlock codes, unlock links, and QR codes as drawings. |
-| `src/customerui.js` | My packs: what a buyer sees (also the maker's customer preview). |
-| `src/box.js` | The game box: sizes, flat shapes to cut, PDF. |
+| `src/printui.js` | The Print tab. |
+| `src/cards.js`, `src/box.js`, `src/leaflet.js` | The cards and unlock cards, the box (sizes, flat shapes to cut), the rules leaflet; each as a preview and a PDF. |
+| `src/drawing.js`, `src/pdf.js`, `src/fonts.js` | Shapes that become SVG or PDF, a small PDF writer (vector shapes, Helvetica text, JPEG pictures) and font widths. |
+| `src/links.js`, `src/qr.js` | Unlock codes (sample codes, reading a code out of any text), unlock links, and QR codes as drawings. |
+| `src/customerui.js` | My packs, on the customer side. |
+| `src/game.js`, `src/playui.js` | Games: the deck, turns, timing and scores (also the deck for playing alone), and Play together. |
 | `src/render2d.js`, `src/render3d.js` | Photo-style top view; 3D icons and the clickable 3D tray. |
-| `src/app.js`, `src/bookui.js`, `src/styles.css`, `src/index.html` | The app. |
+| `src/presets.js` | The two photos as layouts (used by the tests). |
+| `src/app.js`, `src/styles.css`, `src/index.html` | The app: the two sides, Play alone, saving. |
 | `src/worker.js` | Runs the solver in a Web Worker. |
 
 ### How the checker works
@@ -215,8 +166,8 @@ here" and "a prism must come from there" messages between neighbouring squares a
 remembering dead ends. It tries the board in several mirrored and turned directions plus
 randomised restarts; a sweep that finishes without an arrangement has ruled out every
 possibility. The tests compare it with a brute-force search over every arrangement of the
-real pieces on 2×2, 1×4 and 2×4 trays. Very large, busy pictures (12×12) can come back as
-"couldn't decide"; *Search longer* gives the search more time.
+real pieces on 2×2, 1×4 and 2×4 trays. Very large, busy pictures can come back as
+"couldn't decide"; the Packs tab then searches longer in the background.
 
 ### How designs are read from a photo
 

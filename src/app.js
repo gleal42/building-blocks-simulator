@@ -1,37 +1,28 @@
-// The app: Build (with challenges, alone), Check a picture, Packs of designs, Play (games for
-// several players around real trays), and Challenge book.
+// The app has two sides.
+//   Maker     Packs (the designs of each box sold) and Print (cards, box, rules leaflet and
+//             unlock card of a pack).
+//   Customer  a preview of what a buyer gets: My packs (unlock the pack in the box), Play
+//             alone (build the cards in the tray on screen) and Play together (games around
+//             real trays, with the app dealing the cards, timing and scoring).
 
-import { Board, KINDS, MAX_SIZE, decodeBoard, encodeBoard, kindOf, occupancy, pieceCovers, pieceName, sizeProblem } from './board.js';
-import { DIFFICULTY } from './book.js';
-import { createBookUI } from './bookui.js';
+import { Board, KINDS, decodeBoard, encodeBoard, kindOf, occupancy, pieceCovers, pieceName, sizeProblem } from './board.js';
 import { createPackUI, revivePacks } from './packui.js';
-import { normalizePack } from './packs.js';
+import { DIFFICULTY, normalizePack } from './packs.js';
+import { createPackStore } from './packstore.js';
 import { createPlayUI } from './playui.js';
+import { createPrintUI, defaultPrint, revivePrint } from './printui.js';
 import { normalizeSetup, reviveGame, soloDeck, soloNext } from './game.js';
 import { createCustomerUI } from './customerui.js';
-import { parseLink } from './links.js';
-import { isLockedPack } from './lock.js';
-import { LOCKED_PACKS } from './builtinpacks.js';
-import { LAYOUTS, MATERIALS } from './box.js';
-
-// The customer build (customer.html) is the app as a buyer gets it: only their packs, no
-// maker tools. The maker's app can show the same thing as a "customer preview".
-// eslint-disable-next-line no-undef
-const CUSTOMER_BUILD = typeof __CUSTOMER_BUILD__ !== 'undefined' && __CUSTOMER_BUILD__ === true;
 import { LOOK, MIX_ORIENTS, flipMix, flipTri, isRamp, rotateMix, rotateTri, thickSide, tipMix, tipTri } from './geometry.js';
 import { ICONS } from './icons.js';
-import { PRESETS } from './presets.js';
 import { boardMarkup, cellFromPoint, flatPicture, pictureMarkup } from './render2d.js';
 import { board3d, hitTest3d, insideAny, nearTray3d, pieceIcon } from './render3d.js';
-import { makeRng, quickCheck, randomArrangement, solvePattern } from './solver.js';
+import { makeRng, randomArrangement } from './solver.js';
 
-// The buyer's app keeps its own storage, apart from the maker's (they may share a site).
-const STORAGE_KEY = CUSTOMER_BUILD ? 'building-blocks-customer:v1' : 'building-blocks-simulator:v2';
+const STORAGE_KEY = 'building-blocks-simulator:v2';
 const OLD_STORAGE_KEY = 'building-blocks-simulator:v1';
 const MAX_HISTORY = 300;
-const CHECK_BUDGET = 1500000;
-const LONG_CHECK_BUDGET = 8000000;
-// Random challenges: how often pieces stand up, and the share of split squares to aim for.
+// Random designs (for packs): how often pieces stand up, and the share of split squares to aim for.
 const LEVEL_SPLIT = [0, 0.12, 0.45, 0.85];
 const LEVEL_TARGET = [0, 0.08, 0.25, 0.42];
 
@@ -46,6 +37,13 @@ const DIR_WORD = ['up', 'right', 'down', 'left'];
 const CORNER_WORD = ['top-left', 'top-right', 'bottom-right', 'bottom-left'];
 const SIDE_WORD = ['top', 'right', 'bottom', 'left'];
 const ARROW = ['↑', '→', '↓', '←'];
+
+/** The tabs of each side: [mode, label]. */
+const SIDES = {
+  maker: [['packs', 'Packs'], ['print', 'Print']],
+  customer: [['library', 'My packs'], ['build', 'Play alone'], ['play', 'Play together']],
+};
+const sideOf = (mode) => (SIDES.customer.some(([m]) => m === mode) ? 'customer' : 'maker');
 
 const PALETTE = [
   { look: LOOK.WHITE, label: 'White' },
@@ -85,10 +83,11 @@ class History {
 }
 
 let state;
-let bookUI;
 let packUI;
+let printUI;
 let playUI;
 let customerUI;
+let packStore;
 // The press in progress on the board: where it started, whether it has moved, and whether it
 // grabbed the selected piece (grab: offset from the piece's square to the square grabbed).
 const pointer = { down: false, id: null, type: 'mouse', erase: false, x: 0, y: 0, moved: false, dragging: false, grab: null };
@@ -104,18 +103,16 @@ let saveTimer = 0;
 const finePointer = () => typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches;
 
 function defaultState() {
-  const photo = PRESETS[0];
   return {
-    mode: 'build',
-    rows: photo.rows,
-    cols: photo.cols,
-    sizeDraft: { rows: photo.rows, cols: photo.cols },
-    build: Board.fromJSON(photo),
+    mode: 'packs',
+    // The tab last open on each side, to go back to it.
+    lastTab: { maker: 'packs', customer: 'library' },
+    rows: 4,
+    cols: 4,
+    build: new Board(4, 4),
     history: new History(),
     challenge: null,
-    pattern: [LOOK.WHITE, LOOK.SLASH_WB, LOOK.BACK_WB, LOOK.WHITE, LOOK.SLASH_WB, LOOK.BLACK, LOOK.BLACK, LOOK.BACK_WB, LOOK.BACK_BW, LOOK.BLACK, LOOK.BLACK, LOOK.SLASH_BW, LOOK.WHITE, LOOK.BACK_BW, LOOK.SLASH_BW, LOOK.WHITE],
     paint: LOOK.BLACK,
-    check: { status: 'idle' },
     selected: 'mixW',
     orient: { mix: 4, tri: 3 },
     // The piece being worked on (see "The selection" below), or null.
@@ -126,10 +123,6 @@ function defaultState() {
     hover: null,
     hoverCell: -1,
     fresh: new Set(),
-    books: {},
-    bookKey: 'square-4',
-    bookView: '3d',
-    bookLeaf: 0,
     // Packs tab: your packs, the pack and design shown, the design being painted.
     packs: [],
     packId: '',
@@ -137,94 +130,105 @@ function defaultState() {
     packDraft: null,
     packView: 'design',
     hiddenPacks: [], // packs that come with the app, hidden by the user
-    // Play tab: the game's setup and the game in progress (or just over).
+    packSync: null, // the pack store's memory of the database (packstore.js)
+    // Print tab.
+    print: defaultPrint(),
+    // Customer preview: the packs unlocked, the game together, the cards drawn alone.
+    customer: { unlocked: [] },
     gameSetup: normalizeSetup(null),
     game: null,
-    // Build challenges drawn from packs: the packs chosen and the shuffled deck.
     soloPackIds: [],
     soloDeck: null,
-    // Selling: where the app lives (for QR codes), locked packs and their codes.
-    sale: { appUrl: defaultAppUrl(), locked: {} },
-    box: { layout: 'beside', material: 'carton', maker: '' },
-    // What a buyer sees: the preview switch, and the packs unlocked on this device.
-    customerPreview: CUSTOMER_BUILD,
-    customer: { packs: [] },
   };
-}
-
-/** Where this page lives, when it is on the web (for QR codes); empty for a local file. */
-function defaultAppUrl() {
-  try {
-    return /^https?:$/.test(location.protocol) ? `${location.origin}${location.pathname}` : '';
-  } catch {
-    return '';
-  }
 }
 
 function snapshot() {
   return {
-    v: 2,
+    v: 3,
     mode: state.mode,
+    lastTab: state.lastTab,
     rows: state.rows,
     cols: state.cols,
     build: encodeBoard(state.build),
     challenge: state.challenge,
-    pattern: state.pattern,
     paint: state.paint,
     selected: state.selected,
     orient: state.orient,
     xray: state.xray,
-    books: state.books,
-    bookKey: state.bookKey,
-    bookView: state.bookView,
-    packs: state.packs.map((p) => ({ id: p.id, name: p.name, rows: p.rows, cols: p.cols, designs: p.designs })),
+    packs: state.packs.map((p) => ({ id: p.id, name: p.name, rows: p.rows, cols: p.cols, created: p.created, designs: p.designs })),
     packId: state.packId,
     packIndex: state.packIndex,
     packDraft: state.packDraft,
     hiddenPacks: state.hiddenPacks,
+    packSync: packStore ? packStore.saveState() : state.packSync,
+    print: state.print,
+    customer: state.customer,
     gameSetup: state.gameSetup,
     game: state.game,
     soloPackIds: state.soloPackIds,
     soloDeck: state.soloDeck,
-    sale: CUSTOMER_BUILD ? undefined : state.sale,
-    box: state.box,
-    customerPreview: state.customerPreview,
-    customer: state.customer,
   };
 }
 
-function reviveSale(raw) {
-  const sale = { appUrl: typeof raw?.appUrl === 'string' ? raw.appUrl.slice(0, 300) : defaultAppUrl(), locked: {} };
-  if (raw?.locked && typeof raw.locked === 'object') {
-    for (const [id, entry] of Object.entries(raw.locked)) {
-      if (isLockedPack(entry?.locked) && Array.isArray(entry.codes) && entry.codes.every((c) => typeof c === 'string')) {
-        sale.locked[id] = { locked: entry.locked, codes: entry.codes, sig: typeof entry.sig === 'string' ? entry.sig : '', at: typeof entry.at === 'string' ? entry.at : '' };
-      }
+const MODES = ['packs', 'print', 'library', 'build', 'play'];
+
+/**
+ * From a version before the Print tab: the challenge books become packs (with their front
+ * cover as the box's cover art), and the box settings move to Print. Runs once: books are not
+ * saved again.
+ */
+function migrateOld(data, packs, print) {
+  for (const book of Object.values(data.books ?? {})) {
+    if (!book || !Array.isArray(book.challenges) || !book.challenges.length) continue;
+    const rows = Number(book.n);
+    const cols = book.shape === 'rect' ? 2 * rows : rows;
+    try {
+      const pack = normalizePack({
+        id: `book-${book.shape}-${rows}`,
+        name: (typeof book.title === 'string' && book.title.trim()) || 'From the book',
+        rows,
+        cols,
+        designs: book.challenges.map((c) => ({ looks: c.looks, stars: c.difficulty })),
+      });
+      const sig = (p) => p.designs.map((d) => d.looks.join('')).join('|');
+      if (packs.some((p) => p.id === pack.id || sig(p) === sig(pack))) continue;
+      pack.created = Date.now();
+      packs.push(pack);
+      const front = book.cover?.front;
+      if (front && typeof front.src === 'string' && front.src.startsWith('data:image/jpeg')) print.covers[pack.id] = { src: front.src, width: front.width, height: front.height };
+    } catch {
+      // a book that does not make a pack is left behind
     }
   }
-  return sale;
+  if (data.box && typeof data.box === 'object') {
+    if (data.box.layout === 'top' || data.box.layout === 'beside') print.layout = data.box.layout;
+    if (data.box.material === 'board' || data.box.material === 'carton') print.material = data.box.material;
+    if (typeof data.box.maker === 'string' && !print.maker) print.maker = data.box.maker.slice(0, 400);
+  }
 }
 
 function restore(data) {
   const base = defaultState();
-  if (!data || (data.v !== 1 && data.v !== 2)) return base;
+  if (!data || ![1, 2, 3].includes(data.v)) return base;
   try {
     const { rows, cols } = data;
     if (sizeProblem(rows, cols)) return base;
     const build = decodeBoard(data.build);
     if (build.rows !== rows || build.cols !== cols) return base;
-    const pattern = Array.isArray(data.pattern) && data.pattern.length === rows * cols ? data.pattern.map(Number) : new Array(rows * cols).fill(LOOK.ANY);
-    const ch = data.v === 2 ? data.challenge : null;
+    const ch = data.v >= 2 ? data.challenge : null;
     const challenge = ch && Array.isArray(ch.target) && ch.target.length === rows * cols ? ch : null;
+    const tab = (side, value) => (SIDES[side].some(([m]) => m === value) ? value : base.lastTab[side]);
+    const packs = revivePacks(data.packs, normalizePack);
+    const print = revivePrint(data.print);
+    if (data.v < 3) migrateOld(data, packs, print);
     return {
       ...base,
-      mode: ['build', 'check', 'packs', 'play', 'book'].includes(data.mode) ? data.mode : 'build',
+      mode: data.v === 3 && MODES.includes(data.mode) ? data.mode : 'packs',
+      lastTab: { maker: tab('maker', data.lastTab?.maker), customer: tab('customer', data.lastTab?.customer) },
       rows,
       cols,
-      sizeDraft: { rows, cols },
       build,
       challenge,
-      pattern,
       paint: Number.isInteger(data.paint) ? data.paint : LOOK.BLACK,
       selected: KINDS.includes(data.selected) ? data.selected : 'mixW',
       orient: {
@@ -232,34 +236,33 @@ function restore(data) {
         tri: Number.isInteger(data.orient?.tri) ? data.orient.tri % 12 : 3,
       },
       xray: !!data.xray,
-      books: data.books && typeof data.books === 'object' ? data.books : {},
-      bookKey: typeof data.bookKey === 'string' ? data.bookKey : base.bookKey,
-      bookView: ['3d', 'spreads', 'sheets', 'cards'].includes(data.bookView) ? data.bookView : '3d',
-      packs: revivePacks(data.packs, normalizePack),
+      packs,
       packId: typeof data.packId === 'string' ? data.packId : '',
       packIndex: Number.isInteger(data.packIndex) ? data.packIndex : 0,
       packDraft: data.packDraft && typeof data.packDraft.packId === 'string' && Number.isInteger(data.packDraft.index) && Array.isArray(data.packDraft.looks)
         && data.packDraft.looks.every((l) => Number.isInteger(l) && l >= 0 && l <= 6) ? data.packDraft : null,
       hiddenPacks: Array.isArray(data.hiddenPacks) ? data.hiddenPacks.filter((x) => typeof x === 'string') : [],
+      packSync: data.packSync && typeof data.packSync === 'object' ? data.packSync : null,
+      print,
+      customer: { unlocked: Array.isArray(data.customer?.unlocked) ? data.customer.unlocked.filter((x) => typeof x === 'string') : [] },
       gameSetup: normalizeSetup(data.gameSetup),
       game: reviveGame(data.game),
       soloPackIds: Array.isArray(data.soloPackIds) ? data.soloPackIds.filter((x) => typeof x === 'string') : [],
       soloDeck: data.soloDeck && Array.isArray(data.soloDeck.cards) && data.soloDeck.cards.length && Number.isInteger(data.soloDeck.used) ? data.soloDeck : null,
-      sale: reviveSale(data.sale),
-      box: {
-        layout: LAYOUTS[data.box?.layout] ? data.box.layout : 'beside',
-        material: MATERIALS[data.box?.material] ? data.box.material : 'carton',
-        maker: typeof data.box?.maker === 'string' ? data.box.maker.slice(0, 400) : '',
-      },
-      customerPreview: CUSTOMER_BUILD || !!data.customerPreview,
-      customer: { packs: revivePacks(data.customer?.packs, normalizePack).map((p, i) => ({ ...p, id: typeof data.customer.packs[i]?.id === 'string' ? data.customer.packs[i].id : p.id })) },
     };
   } catch {
     return base;
   }
 }
 
+/** Save soon: in this browser, and the packs to the database (if any changed). */
 function scheduleSave() {
+  packStore?.changed();
+  scheduleLocalSave();
+}
+
+/** Save this browser's copy soon. */
+function scheduleLocalSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try {
@@ -267,7 +270,7 @@ function scheduleSave() {
     } catch {
       // Storage can be missing or full (large cover pictures); the app works without it.
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...snapshot(), books: {} }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...snapshot(), print: { ...state.print, covers: {} } }));
       } catch {
         /* ignore */
       }
@@ -338,79 +341,62 @@ function render() {
   scheduleSave();
 }
 
-const isCustomer = () => CUSTOMER_BUILD || state.customerPreview;
-
-/** Packs a player can use here: the maker's packs, or a buyer's unlocked packs. */
-const availablePacks = () => (isCustomer() ? state.customer.packs : packUI.allPacks());
-
-/** Locked packs a code can open: those built into the app and, for the maker, those just made. */
-function lockedPacks() {
-  const made = CUSTOMER_BUILD ? [] : Object.values(state.sale.locked).map((x) => x.locked);
-  return [...LOCKED_PACKS.filter(isLockedPack), ...made];
-}
-
-const CUSTOMER_TABS = ['build', 'packs', 'play'];
+/** The packs a buyer has: those unlocked in the customer preview. */
+const availablePacks = () => customerUI.unlockedPacks();
 
 function renderTabs() {
-  const customer = isCustomer();
-  if (customer && !CUSTOMER_TABS.includes(state.mode)) state.mode = 'packs';
-  document.querySelectorAll('[data-tab]').forEach((tab) => {
+  const side = sideOf(state.mode);
+  document.querySelectorAll('button[data-side]').forEach((btn) => {
+    const on = btn.dataset.side === side;
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.classList.toggle('is-on', on);
+  });
+  const nav = $('#tabs');
+  const want = SIDES[side].map(([mode]) => mode).join();
+  if (nav.dataset.side !== side || nav.dataset.modes !== want) {
+    nav.dataset.side = side;
+    nav.dataset.modes = want;
+    nav.setAttribute('aria-label', side === 'maker' ? 'Maker' : 'Customer preview');
+    nav.innerHTML = SIDES[side].map(([mode, label]) => `<button type="button" role="tab" data-tab="${mode}">${label}</button>`).join('');
+  }
+  nav.querySelectorAll('[data-tab]').forEach((tab) => {
     const on = tab.dataset.tab === state.mode;
     tab.setAttribute('aria-selected', on ? 'true' : 'false');
     tab.tabIndex = on ? 0 : -1;
-    tab.hidden = customer && !CUSTOMER_TABS.includes(tab.dataset.tab);
-    if (tab.dataset.tab === 'packs') tab.textContent = customer ? 'My packs' : 'Packs';
   });
   document.body.dataset.mode = state.mode;
-  document.body.dataset.audience = customer ? 'customer' : 'maker';
-  const bar = $('#previewBar');
-  bar.hidden = !state.customerPreview || CUSTOMER_BUILD;
-  if (!bar.hidden) {
-    bar.innerHTML = `<p><b>Customer preview:</b> the app as a buyer sees it, with only the packs unlocked here (${state.customer.packs.length}).</p>
-<div class="row-buttons"><button type="button" class="btn small" data-action="customer-reset">Forget unlocked packs</button><button type="button" class="btn small primary" data-action="maker-mode">Back to maker mode</button></div>`;
-  }
+  document.body.dataset.side = side;
+  const note = $('#sideNote');
+  note.hidden = side !== 'customer';
+  if (!note.hidden) note.innerHTML = '<p><b>Customer preview:</b> what a buyer sees after opening the box.</p>';
 }
 
 function renderStage() {
-  const book = state.mode === 'book';
-  const library = state.mode === 'packs' && isCustomer();
-  const photo = state.mode === 'packs' && !library && packUI.showingPhoto();
-  const sheet = state.mode === 'packs' && !library && packUI.showingQr();
-  const play = state.mode === 'play';
-  $('#boardWrap').hidden = book || photo || play || library || sheet;
-  $('#bookStage').hidden = !book;
+  const mode = state.mode;
+  const print = mode === 'print';
+  const library = mode === 'library';
+  const photo = mode === 'packs' && packUI.showingPhoto();
+  const play = mode === 'play';
+  $('#boardWrap').hidden = print || photo || play || library;
+  $('#printStage').hidden = !print;
   $('#photoStage').hidden = !photo;
   $('#playStage').hidden = !play;
-  $('#libraryStage').hidden = !library && !sheet;
-  if (library || sheet) {
+  $('#libraryStage').hidden = !library;
+  if (!play) playUI.stop();
+  if (library || print || play) {
     if (library) customerUI.renderStage($('#libraryStage'));
-    else packUI.renderQrStage($('#libraryStage'));
-    $('#stageTop').innerHTML = '';
-    $('#stageBar').innerHTML = '';
-    $('#status').hidden = false;
-    playUI.stop();
-    return;
-  }
-  if (play) {
-    playUI.renderStage($('#playStage'));
+    else if (print) printUI.renderStage($('#printStage'));
+    else playUI.renderStage($('#playStage'));
     $('#stageTop').innerHTML = '';
     $('#stageBar').innerHTML = '';
     $('#status').hidden = false;
     return;
   }
-  playUI.stop();
   if (photo) {
     packUI.renderPhotoStage($('#photoStage'));
     $('#stageTop').innerHTML = '';
     $('#status').hidden = false;
     renderStageBar();
-    return;
-  }
-  if (book) {
-    bookUI.renderStage($('#bookStage'));
-    $('#stageTop').innerHTML = '';
-    $('#stageBar').innerHTML = '';
-    $('#status').hidden = true;
     return;
   }
   $('#status').hidden = false;
@@ -446,10 +432,7 @@ ${ch.solved ? '' : '<p class="challenge-goal">Make this picture: put all the pie
 function renderBoard() {
   const svg = $('#board');
   let view;
-  if (state.mode === 'check') {
-    view = pictureMarkup(state.rows, state.cols, state.pattern, { hoverCell: state.hoverCell });
-    svg.setAttribute('aria-label', `Picture to check, ${state.rows} by ${state.cols}.`);
-  } else if (state.mode === 'packs') {
+  if (state.mode === 'packs') {
     const grid = packUI.paintGrid();
     view = pictureMarkup(grid.rows, grid.cols, grid.looks, { hoverCell: grid.editable ? state.hoverCell : -1 });
     svg.setAttribute('aria-label', `Design, ${grid.rows} by ${grid.cols}${grid.editable ? ', to paint' : ''}.`);
@@ -514,12 +497,6 @@ function renderStageBar() {
   const bar = $('#stageBar');
   if (state.mode === 'packs') {
     bar.innerHTML = packUI.stageBarMarkup();
-    return;
-  }
-  if (state.mode === 'check') {
-    bar.innerHTML = `<div class="check-result" id="checkResult" aria-live="polite">${checkResultMarkup()}</div>
-${paletteMarkup()}
-<p class="hint">${finePointer() ? '<b>Left-click</b> paints a square, <b>right-click</b> erases it. Drag to paint several.' : 'Tap or drag to paint. Choose <b>Erase</b> to clear squares.'}</p>`;
     return;
   }
   const board = state.build;
@@ -595,31 +572,9 @@ function orientMarkup() {
   return `<div class="orient-grid ${info.type}">${grid}</div><p class="orient-now">${subject}: ${describeOrientation(info.type, cur).toLowerCase()}</p>`;
 }
 
-function sizeMarkup() {
-  const d = state.sizeDraft;
-  const problem = sizeProblem(d.rows, d.cols);
-  const changed = d.rows !== state.rows || d.cols !== state.cols;
-  const stepper = (key, label) => `<div class="stepper"><span class="stepper-label" id="lbl-${key}">${label}</span>
-<button type="button" data-action="size-dec" data-key="${key}" aria-label="Fewer ${label.toLowerCase()}" ${d[key] <= 1 ? 'disabled' : ''}>−</button>
-<output aria-labelledby="lbl-${key}">${d[key]}</output>
-<button type="button" data-action="size-inc" data-key="${key}" aria-label="More ${label.toLowerCase()}" ${d[key] >= MAX_SIZE ? 'disabled' : ''}>+</button></div>`;
-  const n = d.rows * d.cols;
-  const note = problem
-    ? `<p class="size-note is-bad">${problem}</p>`
-    : `<p class="size-note">${n} squares: ${n / 4} of each piece (cube + prism and prism, in white and black).</p>`;
-  const quick = [[4, 4], [8, 4], [4, 8], [6, 6], [8, 8]]
-    .map(([r, c]) => `<button type="button" class="chip${r === state.rows && c === state.cols ? ' is-on' : ''}" data-action="quick-size" data-rows="${r}" data-cols="${c}">${r}×${c}</button>`)
-    .join('');
-  return `<div class="size-row">${stepper('rows', 'Rows')}${stepper('cols', 'Columns')}
-<button type="button" class="btn" data-action="apply-size" ${!problem && changed ? '' : 'disabled'}>Use ${d.rows}×${d.cols}</button></div>
-${note}<div class="chips" role="group" aria-label="Common sizes">${quick}</div>`;
-}
-
+/** Play alone (customer): draw cards from the unlocked packs and build them in the tray. */
 function buildPanel() {
   const ch = state.challenge;
-  const levels = [1, 2, 3]
-    .map((level) => `<button type="button" class="btn level level-${level}" data-action="new-challenge" data-level="${level}">${starsHtml(level)}</button>`)
-    .join('');
   const soloPacks = availablePacks().filter((p) => p.designs.length);
   const soloChips = soloPacks.map((p) => {
     const on = state.soloPackIds.includes(p.id);
@@ -629,55 +584,19 @@ function buildPanel() {
   const challengeCard = ch
     ? ''
     : `<section class="card" aria-labelledby="ch-h">
-<h2 id="ch-h">Play a challenge</h2>
-<p class="muted">Draw a card from your packs and rebuild its picture in the tray, card after card.</p>
+<h2 id="ch-h">Play a card</h2>
+<p class="muted">Draw a card from your packs and build its picture in the tray, card after card.</p>
 ${soloChips ? `<div class="chips tight" role="group" aria-label="Packs to draw from">${soloChips}</div>
-<div class="row-buttons"><button type="button" class="btn primary" data-action="solo-draw" ${soloCount ? '' : 'disabled'}>${ICONS.dice}Draw a card${soloCount ? ` <small>(${soloCount} in the deck)</small>` : ''}</button></div>` : `<p class="hint">${isCustomer() ? 'No packs yet: unlock yours in My packs.' : 'No packs yet: make one in the Packs tab.'}</p>`}
-${isCustomer() ? '' : `<p class="field-label">Or a random picture</p>
-<div class="row-buttons">${levels}</div>`}
-<p class="hint">Playing with friends? The Play tab deals cards to several players, with a timer and scores.</p>
+<div class="row-buttons"><button type="button" class="btn primary" data-action="solo-draw" ${soloCount ? '' : 'disabled'}>${ICONS.dice}Draw a card${soloCount ? ` <small>(${soloCount} in the deck)</small>` : ''}</button></div>`
+    : `<p class="hint">No packs yet: unlock the one in your box first.</p>
+<div class="row-buttons"><button type="button" class="btn primary" data-tab="library">Go to My packs</button></div>`}
+${state.build.pieces.size ? `<div class="row-buttons"><button type="button" class="btn small" data-action="clear-board">${ICONS.trash}Empty the tray</button></div>` : ''}
+<p class="hint">Playing with friends? Play together deals the cards to everyone, with a timer and scores.</p>
 </section>`;
-  const presets = PRESETS.map((p) => `<button type="button" class="chip" data-action="preset" data-id="${p.id}">${p.name}</button>`).join('');
   return `${challengeCard}
 <section class="card" aria-labelledby="turn-h">
-<h2 id="turn-h">Every way to turn the piece</h2>
+<h2 id="turn-h">Every way to turn a piece</h2>
 ${orientMarkup()}
-</section>
-<section class="card" aria-labelledby="tray-h">
-<h2 id="tray-h">Tray</h2>
-${sizeMarkup()}
-<div class="chips" role="group" aria-label="Fill the tray">${presets}
-<button type="button" class="chip" data-action="random-fill">${ICONS.dice}Random fill</button>
-<button type="button" class="chip" data-action="clear-board">${ICONS.trash}Empty tray</button></div>
-<details class="share"><summary>Board code (save or share a layout)</summary>
-<div class="code-row"><label class="sr-only" for="codeOut">Code of the tray</label><input id="codeOut" readonly value="${encodeBoard(state.build)}"><button type="button" class="btn" data-action="copy-code">${ICONS.copy}Copy</button></div>
-<div class="code-row"><label class="sr-only" for="codeIn">Paste a board code</label><input id="codeIn" placeholder="Paste a code like 4x4:…" autocomplete="off" spellcheck="false"><button type="button" class="btn" data-action="load-code">Load</button></div>
-</details>
-</section>`;
-}
-
-function checkPanel() {
-  const book = bookUI.currentBook();
-  const { rows, cols } = bookUI.bookTraySize();
-  const sameSize = rows === state.rows && cols === state.cols;
-  return `<section class="card" aria-labelledby="start-h">
-<h2 id="start-h">Start from</h2>
-<div class="chips" role="group" aria-label="Start from">
-<button type="button" class="chip" data-action="from-build">${ICONS.copy}The Build tray</button>
-<button type="button" class="chip" data-action="random-picture">${ICONS.dice}A random possible picture</button>
-<button type="button" class="chip" data-action="clear-picture">${ICONS.trash}An empty picture</button></div>
-</section>
-<section class="card" aria-labelledby="addbook-h">
-<h2 id="addbook-h">Challenge book</h2>
-<p class="muted">${sameSize
-    ? `When the picture is possible you can add it to your ${rows}×${cols} book “${escapeHtml(book.title)}” (${book.challenges.length} challenge${book.challenges.length === 1 ? '' : 's'} so far).`
-    : `Your current book is for ${rows}×${cols} trays. Switch the tray to ${rows}×${cols} below, or pick another book in the Challenge book tab.`}</p>
-<button type="button" class="btn" data-action="add-picture-to-book" ${canAddPicture() ? '' : 'disabled'}>${ICONS.book}Add this picture to the book</button>
-${sameSize && state.pattern.includes(LOOK.ANY) ? '<p class="hint">Paint every square (no “any”) to add the picture.</p>' : ''}
-</section>
-<section class="card" aria-labelledby="tray2-h">
-<h2 id="tray2-h">Tray size</h2>
-${sizeMarkup()}
 </section>`;
 }
 
@@ -685,10 +604,11 @@ function renderPanel() {
   const panel = $('#panel');
   const focused = document.activeElement && panel.contains(document.activeElement) ? focusKey(document.activeElement) : null;
   const openDetails = panel.querySelector('details[open]') !== null;
-  if (state.mode === 'book') panel.innerHTML = bookUI.panelMarkup();
-  else if (state.mode === 'packs') panel.innerHTML = isCustomer() ? customerUI.panelMarkup() : packUI.panelMarkup();
+  if (state.mode === 'print') panel.innerHTML = printUI.panelMarkup();
+  else if (state.mode === 'packs') panel.innerHTML = packUI.panelMarkup();
+  else if (state.mode === 'library') panel.innerHTML = customerUI.panelMarkup();
   else if (state.mode === 'play') panel.innerHTML = playUI.panelMarkup();
-  else panel.innerHTML = state.mode === 'check' ? checkPanel() : buildPanel();
+  else panel.innerHTML = buildPanel();
   if (openDetails) panel.querySelector('details')?.setAttribute('open', '');
   if (focused) panel.querySelector(focused)?.focus({ preventScroll: true });
 }
@@ -999,17 +919,20 @@ const flip = () => changeOrientation((type, o) => (type === 'mix' ? flipMix(o) :
 const tip = () => changeOrientation((type, o) => (type === 'mix' ? tipMix(o) : tipTri(o)));
 
 function setMode(mode) {
-  if (state.mode === mode) return;
+  if (!MODES.includes(mode) || state.mode === mode) return;
   state.mode = mode;
+  state.lastTab[sideOf(mode)] = mode;
   state.hover = null;
   state.hoverCell = -1;
   resetStatus();
-  if (mode === 'check') scheduleCheck(0);
   render();
 }
 
-function emptyPicture(rows, cols) {
-  return new Array(rows * cols).fill(LOOK.ANY);
+/** Switch between the maker's side and the customer preview, back to the tab last open there. */
+function setSide(side) {
+  if (!SIDES[side] || sideOf(state.mode) === side) return;
+  setMode(state.lastTab[side] ?? SIDES[side][0][0]);
+  window.scrollTo?.({ top: 0 });
 }
 
 /** Switch to a new tray size; asks first when that would throw work away. */
@@ -1020,17 +943,14 @@ async function setSize(rows, cols, { ask = true } = {}) {
     return false;
   }
   if (rows === state.rows && cols === state.cols) return true;
-  const busy = state.build.pieces.size || state.pattern.some((l) => l !== LOOK.ANY);
-  if (ask && busy && !(await confirmDialog(`Use a ${rows}×${cols} tray? The pieces in the tray and the painted picture will be cleared.`, `Use ${rows}×${cols}`))) return false;
+  const busy = state.build.pieces.size && !state.challenge;
+  if (ask && busy && !(await confirmDialog(`Use a ${rows}×${cols} tray? The pieces in the tray will be cleared.`, `Use ${rows}×${cols}`))) return false;
   state.rows = rows;
   state.cols = cols;
-  state.sizeDraft = { rows, cols };
   state.build = new Board(rows, cols);
   state.sel = null;
   state.history = new History();
   state.challenge = null;
-  state.pattern = emptyPicture(rows, cols);
-  state.check = { status: 'idle' };
   render();
   setStatus(`New ${rows}×${cols} tray with ${(rows * cols) / 4} of each piece.`);
   return true;
@@ -1045,30 +965,6 @@ function loadPieces(pieces, rows, cols) {
   return board;
 }
 
-async function usePreset(id) {
-  const preset = PRESETS.find((p) => p.id === id);
-  if (!preset) return;
-  if (preset.rows !== state.rows || preset.cols !== state.cols) {
-    if (!(await setSize(preset.rows, preset.cols))) return;
-  }
-  state.history.record(state.build);
-  state.build = Board.fromJSON(preset);
-  state.sel = null;
-  state.challenge = null;
-  render();
-  setStatus(`Loaded ${preset.name}: each cube + prism lies as a ramp with a prism on top, so every square looks full.`);
-}
-
-function randomFill() {
-  state.history.record(state.build);
-  const pieces = randomArrangement(state.rows, state.cols, state.build.inventory, makeRng(Date.now() >>> 0), 0.5);
-  state.build = loadPieces(pieces, state.rows, state.cols);
-  state.sel = null;
-  afterMove();
-  render();
-  setStatus('Filled the tray with a random arrangement.');
-}
-
 async function clearBoard() {
   if (!state.build.pieces.size) return;
   if (!(await confirmDialog('Take every piece out of the tray?', 'Empty tray'))) return;
@@ -1078,42 +974,6 @@ async function clearBoard() {
   afterMove(false);
   render();
   setStatus('The tray is empty. Undo brings the pieces back.');
-}
-
-async function copyText(text, what) {
-  try {
-    await navigator.clipboard.writeText(text);
-    setStatus(`${what} copied.`);
-    return true;
-  } catch {
-    setStatus(`Could not copy the ${what.toLowerCase()} here.`, true, 'bad');
-    return false;
-  }
-}
-
-function loadCode() {
-  const text = $('#codeIn')?.value ?? '';
-  try {
-    const board = decodeBoard(text);
-    if (board.rows !== state.rows || board.cols !== state.cols) {
-      state.rows = board.rows;
-      state.cols = board.cols;
-      state.sizeDraft = { rows: board.rows, cols: board.cols };
-      state.pattern = emptyPicture(board.rows, board.cols);
-      state.check = { status: 'idle' };
-      state.history = new History();
-    } else {
-      state.history.record(state.build);
-    }
-    state.build = board;
-    state.sel = null;
-    state.challenge = null;
-    state.mode = 'build';
-    render();
-    setStatus('Loaded the board code.');
-  } catch (err) {
-    setStatus(err.message, true, 'bad');
-  }
 }
 
 // ---- Challenges --------------------------------------------------------------------------
@@ -1171,28 +1031,6 @@ function toggleSoloPack(id) {
   render();
 }
 
-// ---- Links from QR codes ----------------------------------------------------------------
-
-let lastLink = '';
-
-/** Open what an unlock card's QR code points at. */
-async function handleLink() {
-  let hash = '';
-  try {
-    hash = location.hash;
-  } catch {
-    return;
-  }
-  if (!hash || hash === lastLink) return;
-  const link = parseLink(hash);
-  if (!link) return;
-  lastLink = hash;
-  if (!CUSTOMER_BUILD) state.customerPreview = true;
-  state.mode = 'packs';
-  render();
-  await customerUI.unlock(link.code);
-}
-
 /** Draw the next card from the chosen packs and play it as a challenge. */
 async function drawSoloCard() {
   const packs = availablePacks();
@@ -1217,11 +1055,6 @@ async function drawSoloCard() {
       if (state.mode === 'build') renderStageTop();
     }
   });
-}
-
-function newChallenge(level) {
-  const { target, answer } = randomChallenge(state.rows, state.cols, level);
-  startChallenge({ target, answer, difficulty: level, label: 'Challenge' });
 }
 
 function challengeProgress() {
@@ -1263,172 +1096,6 @@ async function revealAnswer() {
   ch.solved = true;
   render();
   setStatus('This is the arrangement the picture was made from. Turn on X-ray to see the pieces under roofs.');
-}
-
-// ---- Check a picture ---------------------------------------------------------------------
-
-let worker = null;
-let workerBroken = false;
-let pendingCheck = null;
-let checkSeq = 0;
-let checkTimer = 0;
-let spinnerTimer = 0;
-
-function getWorker() {
-  if (worker || workerBroken) return worker;
-  try {
-    // eslint-disable-next-line no-undef
-    const source = typeof __WORKER_SOURCE__ === 'string' ? __WORKER_SOURCE__ : null;
-    if (!source) throw new Error('no worker source');
-    worker = new Worker(URL.createObjectURL(new Blob([source], { type: 'text/javascript' })));
-    worker.onmessage = (event) => {
-      if (pendingCheck && event.data.id === pendingCheck.id) {
-        const { resolve } = pendingCheck;
-        pendingCheck = null;
-        resolve(event.data.result);
-      }
-    };
-    worker.onerror = () => {
-      workerBroken = true;
-      worker = null;
-      if (pendingCheck) {
-        const { resolve, args } = pendingCheck;
-        pendingCheck = null;
-        resolve(solvePattern(...args));
-      }
-    };
-  } catch {
-    workerBroken = true;
-    worker = null;
-  }
-  return worker;
-}
-
-function stopWorker() {
-  if (pendingCheck && worker) {
-    worker.terminate();
-    worker = null;
-  }
-  pendingCheck = null;
-}
-
-function runSolver(rows, cols, looks, inventory, maxNodes) {
-  const args = [rows, cols, looks, inventory, { maxNodes }];
-  stopWorker();
-  const w = getWorker();
-  if (!w) return new Promise((resolve) => setTimeout(() => resolve(solvePattern(...args)), 20));
-  checkSeq += 1;
-  const id = checkSeq;
-  return new Promise((resolve) => {
-    pendingCheck = { id, resolve, args };
-    w.postMessage({ id, rows, cols, looks, inventory, maxNodes });
-  });
-}
-
-function scheduleCheck(delay = 220) {
-  clearTimeout(checkTimer);
-  checkTimer = setTimeout(() => runCheck(CHECK_BUDGET), delay);
-}
-
-/** Decide the current picture: instantly for the counting rules, otherwise in the worker. */
-async function runCheck(budget) {
-  const looks = state.pattern.slice();
-  const key = `${state.rows}x${state.cols}:${looks.join('')}`;
-  if (state.check.key === key && state.check.status !== 'unknown' && budget === CHECK_BUDGET) return;
-  const inventory = state.build.inventory;
-  clearTimeout(spinnerTimer);
-  if (looks.every((l) => l === LOOK.ANY)) {
-    stopWorker();
-    state.check = { status: 'empty', key };
-    updateCheckResult();
-    return;
-  }
-  const quick = quickCheck(state.rows, state.cols, looks, inventory);
-  if (!quick.ok) {
-    stopWorker();
-    state.check = { status: 'impossible', reason: quick.reason, key };
-    updateCheckResult();
-    return;
-  }
-  state.check = { status: 'running', key };
-  // Show the spinner only if the answer takes a moment.
-  spinnerTimer = setTimeout(updateCheckResult, 160);
-  const res = await runSolver(state.rows, state.cols, looks, inventory, budget);
-  clearTimeout(spinnerTimer);
-  if (state.check.key !== key) return;
-  state.check = { ...res, key };
-  updateCheckResult();
-}
-
-function checkResultMarkup() {
-  const ck = state.check;
-  if (ck.status === 'running') return '<div class="result is-running"><span class="spinner" aria-hidden="true"></span><p>Checking every way to place the pieces…</p></div>';
-  if (ck.status === 'possible') {
-    return `<div class="result is-possible"><span class="pill ok">Possible</span><p>The pieces can make this picture.</p>
-<button type="button" class="btn small primary" data-action="show-solution">${ICONS.play}Build it in the tray</button></div>`;
-  }
-  if (ck.status === 'impossible') return `<div class="result is-impossible"><span class="pill bad">Impossible</span><p>${escapeHtml(ck.reason)}</p></div>`;
-  if (ck.status === 'unknown') {
-    return `<div class="result is-unknown"><span class="pill warn">Couldn't decide</span><p>${escapeHtml(ck.reason)}</p>
-<button type="button" class="btn small" data-action="check-longer">Search longer</button></div>`;
-  }
-  if (ck.status === 'empty') return '<div class="result"><p class="muted">Paint some squares. The answer appears here as you paint.</p></div>';
-  return '<div class="result"><p class="muted">Checking…</p></div>';
-}
-
-function updateCheckResult() {
-  const box = $('#checkResult');
-  if (box) box.innerHTML = checkResultMarkup();
-  if (state.mode === 'check') {
-    const btn = document.querySelector('[data-action="add-picture-to-book"]');
-    if (btn) btn.disabled = !canAddPicture();
-  }
-}
-
-function canAddPicture() {
-  const { rows, cols } = bookUI.bookTraySize();
-  return state.check.status === 'possible' && rows === state.rows && cols === state.cols && !state.pattern.includes(LOOK.ANY);
-}
-
-function setPattern(looks) {
-  state.pattern = looks;
-  scheduleCheck(state.check.status === 'idle' ? 0 : 220);
-}
-
-function paintCell(index, look) {
-  if (index < 0 || state.pattern[index] === look) return;
-  const next = state.pattern.slice();
-  next[index] = look;
-  setPattern(next);
-  renderBoard();
-}
-
-function showSolution() {
-  if (state.check.status !== 'possible') return;
-  state.history.record(state.build);
-  state.build = loadPieces(state.check.pieces, state.rows, state.cols);
-  state.challenge = null;
-  state.mode = 'build';
-  state.view = 'top';
-  render();
-  setStatus('Here is one way to build the picture. Turn on X-ray to see the pieces hidden under roofs.');
-}
-
-function pictureFromBuild() {
-  setPattern(state.build.looks().map((l) => (l < 0 ? LOOK.ANY : l)));
-  render();
-  setStatus('Copied the Build tray. Squares that are not full became “any”.');
-}
-
-function randomPicture() {
-  const pieces = randomArrangement(state.rows, state.cols, state.build.inventory, makeRng(Date.now() >>> 0), 0.55);
-  setPattern(loadPieces(pieces, state.rows, state.cols).looks());
-  render();
-}
-
-function clearPicture() {
-  setPattern(emptyPicture(state.rows, state.cols));
-  render();
 }
 
 // ---- Files -------------------------------------------------------------------------------
@@ -1513,9 +1180,8 @@ function confirmDialog(message, okLabel) {
 
 // ---- Board events ------------------------------------------------------------------------
 
-/** The picture painted on the tray (Check a picture, Packs): { rows, cols, paint(i, look) } or null. */
+/** The picture painted on the tray (Packs): { rows, cols, paint(i, look) } or null. */
 function paintTarget() {
-  if (state.mode === 'check') return { rows: state.rows, cols: state.cols, paint: paintCell };
   if (state.mode === 'packs') {
     const grid = packUI.paintGrid();
     return grid?.editable ? grid : null;
@@ -1788,11 +1454,7 @@ function onBoardKey(evt) {
 function onGlobalKey(evt) {
   if (evt.defaultPrevented || !$('#modal').hidden) return;
   if (evt.target.closest?.('input, textarea, select')) return;
-  if (state.mode === 'book') {
-    bookUI.onKey(evt);
-    return;
-  }
-  if (state.mode === 'packs' || state.mode === 'play') return;
+  if (state.mode !== 'build') return;
   const key = evt.key.toLowerCase();
   if ((evt.ctrlKey || evt.metaKey) && key === 'z') {
     evt.preventDefault();
@@ -1942,54 +1604,14 @@ const ACTIONS = {
     state.azimuth = 0;
     renderBoard();
   },
-  'size-inc': (el) => {
-    state.sizeDraft = { ...state.sizeDraft, [el.dataset.key]: Math.min(MAX_SIZE, state.sizeDraft[el.dataset.key] + 1) };
-    renderPanel();
-  },
-  'size-dec': (el) => {
-    state.sizeDraft = { ...state.sizeDraft, [el.dataset.key]: Math.max(1, state.sizeDraft[el.dataset.key] - 1) };
-    renderPanel();
-  },
-  'apply-size': () => setSize(state.sizeDraft.rows, state.sizeDraft.cols),
-  'quick-size': (el) => setSize(Number(el.dataset.rows), Number(el.dataset.cols)),
-  preset: (el) => usePreset(el.dataset.id),
-  'random-fill': randomFill,
-  'clear-board': clearBoard,
-  'copy-code': () => copyText(encodeBoard(state.build), 'Board code'),
-  'load-code': loadCode,
   paint: (el) => {
     state.paint = Number(el.dataset.look);
     renderStageBar();
   },
-  'from-build': pictureFromBuild,
-  'random-picture': randomPicture,
-  'clear-picture': clearPicture,
-  'check-longer': () => runCheck(LONG_CHECK_BUDGET),
-  'show-solution': showSolution,
-  'add-picture-to-book': () => bookUI.addFromCheck(),
-  'new-challenge': (el) => newChallenge(Number(el.dataset.level)),
-  'next-challenge': () => (state.challenge?.fromDeck && state.soloPackIds.length ? drawSoloCard() : newChallenge(state.challenge?.difficulty ?? 2)),
+  'clear-board': clearBoard,
   'solo-pack': (el) => toggleSoloPack(el.dataset.id),
   'solo-draw': drawSoloCard,
-  'customer-preview': () => {
-    state.customerPreview = true;
-    state.mode = 'packs';
-    render();
-    setStatus('Customer preview: unlock a pack with one of its codes to see what a buyer gets.');
-  },
-  'maker-mode': () => {
-    if (CUSTOMER_BUILD) return;
-    state.customerPreview = false;
-    state.mode = 'packs';
-    render();
-  },
-  'customer-reset': async () => {
-    if (!(await confirmDialog('Forget the packs unlocked in this preview? You can unlock them again with their codes.', 'Forget them'))) return;
-    state.customer.packs = [];
-    state.soloPackIds = [];
-    state.soloDeck = null;
-    render();
-  },
+  'next-challenge': drawSoloCard,
   'stop-challenge': () => {
     state.challenge = null;
     render();
@@ -1998,6 +1620,11 @@ const ACTIONS = {
 };
 
 function onClick(evt) {
+  const side = evt.target.closest('button[data-side]');
+  if (side) {
+    setSide(side.dataset.side);
+    return;
+  }
   const tab = evt.target.closest('[data-tab]');
   if (tab) {
     setMode(tab.dataset.tab);
@@ -2005,7 +1632,8 @@ function onClick(evt) {
   }
   const el = evt.target.closest('[data-action]');
   if (!el || el.disabled) return;
-  const action = ACTIONS[el.dataset.action] ?? bookUI.actions[el.dataset.action] ?? packUI.actions[el.dataset.action] ?? playUI.actions[el.dataset.action] ?? customerUI.actions[el.dataset.action];
+  const name = el.dataset.action;
+  const action = ACTIONS[name] ?? packUI.actions[name] ?? printUI.actions[name] ?? playUI.actions[name] ?? customerUI.actions[name];
   if (action) action(el, evt);
 }
 
@@ -2025,9 +1653,43 @@ function onTabKey(evt) {
 
 // ---- Boot --------------------------------------------------------------------------------
 
+/** The artifact's database, when the app runs as a Claude artifact; otherwise null. */
+function connectDb() {
+  const use = window.claude?.use;
+  if (typeof use !== 'function') return Promise.resolve(null);
+  return Promise.race([
+    Promise.resolve(use.call(window.claude, 'db')).catch(() => null),
+    new Promise((resolve) => setTimeout(() => resolve(null), 10000)),
+  ]);
+}
+
+/** Open a file picker; onFile gets the chosen file. */
+function pickFile(accept, onFile) {
+  const input = $('#filePicker');
+  input.value = '';
+  input.accept = accept;
+  input.onchange = () => {
+    const file = input.files?.[0];
+    if (file) onFile(file);
+  };
+  input.click();
+}
+
+/** The maker tries a design as a buyer would: the pack unlocked, the card in the tray. */
+async function tryDesign(pack, index, answer) {
+  const d = pack.designs[index];
+  if (!d) return;
+  customerUI.grant(pack.id);
+  state.soloPackIds = [pack.id];
+  state.soloDeck = null;
+  state.lastTab.customer = 'build';
+  const started = await startChallenge({ target: d.looks.slice(), answer, difficulty: d.stars, label: `${pack.name}, card ${index + 1}`, rows: pack.rows, cols: pack.cols });
+  if (started) setStatus('Customer preview: this is how a buyer plays the card. Switch back to Maker at the top.', true);
+}
+
 export function start(hotData) {
   let saved = null;
-  if (hotData && (hotData.v === 1 || hotData.v === 2)) saved = hotData;
+  if (hotData && [1, 2, 3].includes(hotData.v)) saved = hotData;
   else {
     try {
       saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(OLD_STORAGE_KEY) ?? 'null');
@@ -2036,21 +1698,18 @@ export function start(hotData) {
     }
   }
   state = restore(saved);
-  bookUI = createBookUI({
-    getState: () => state,
-    render,
-    renderPanel,
-    setStatus,
-    confirmDialog,
-    saveFile,
-    copyText,
-    startChallenge,
-    randomChallenge,
-    setSize,
-    scheduleSave,
-    packsFor: (rows, cols) => packUI.packsFor(rows, cols),
-    addPackToBook: (id) => packUI.addPackById(id),
-    addingPack: () => packUI.isAdding(),
+  packStore = createPackStore({
+    getPacks: () => state.packs,
+    setPacks: (list) => {
+      state.packs = list;
+    },
+    onChange: () => {
+      if (state.mode === 'packs') renderPanel();
+      else if (state.mode !== 'build' && state.mode !== 'play') render();
+      scheduleLocalSave();
+    },
+    connect: connectDb,
+    saved: state.packSync,
   });
   packUI = createPackUI({
     getState: () => state,
@@ -2060,19 +1719,63 @@ export function start(hotData) {
     setStatus,
     confirmDialog,
     saveFile,
-    copyText,
     startChallenge,
     randomChallenge,
     scheduleSave,
     paletteMarkup,
-    // eslint-disable-next-line no-undef
     workerSource: typeof __WORKER_SOURCE__ === 'string' ? __WORKER_SOURCE__ : null,
-    currentBook: () => bookUI.currentBook(),
-    bookFor: (shape, n) => bookUI.bookFor(shape, n),
-    bookChanged: () => bookUI.invalidate(),
-    buildFits: (rows, cols) => state.rows === rows && state.cols === cols && state.build.isComplete(),
-    buildLooks: () => state.build.looks(),
-    enterCustomerPreview: () => ACTIONS['customer-preview'](),
+    tryDesign,
+    packDeleted: (id) => packStore.deleted(id),
+    storeStatus: () => packStore.status(),
+  });
+  printUI = createPrintUI({
+    getState: () => state,
+    render,
+    setStatus,
+    saveFile,
+    scheduleSave,
+    pickFile,
+    packs: () => packUI.allPacks(),
+    selectPack: (id) => packUI.selectPack(id),
+    statusOf: (rows, cols, looks) => packUI.statusOf(rows, cols, looks),
+  });
+  customerUI = createCustomerUI({
+    getState: () => state,
+    render,
+    scheduleSave,
+    confirmDialog,
+    packs: () => packUI.allPacks(),
+    playAlone: (id) => {
+      state.soloPackIds = [id];
+      state.soloDeck = null;
+      state.challenge = null;
+      setMode('build');
+      drawSoloCard();
+    },
+    playTogether: (id) => {
+      const pack = availablePacks().find((p) => p.id === id);
+      if (!pack) return;
+      state.gameSetup = { ...state.gameSetup, rows: pack.rows, cols: pack.cols, packIds: [id], random: [] };
+      if (state.game?.phase === 'over') state.game = null;
+      setMode('play');
+    },
+    resetGames: () => {
+      state.game = null;
+      state.challenge = null;
+      state.soloPackIds = [];
+      state.soloDeck = null;
+    },
+  });
+  playUI = createPlayUI({
+    getState: () => state,
+    render,
+    renderPanel,
+    setStatus,
+    confirmDialog,
+    scheduleSave,
+    packs: availablePacks,
+    gameName: () => state.print.game,
+    solve: (rows, cols, looks) => packUI.solve(rows, cols, looks),
   });
   window.claude?.hot?.snapshot?.(() => snapshot());
   downloadsCapability();
@@ -2107,49 +1810,12 @@ export function start(hotData) {
   document.addEventListener('pointercancel', onDockUp);
   document.addEventListener('click', onClick);
   document.addEventListener('keydown', onGlobalKey);
-  document.querySelector('.tabs').addEventListener('keydown', onTabKey);
-  $('#panel').addEventListener('keydown', (evt) => {
-    if (evt.key === 'Enter' && evt.target.id === 'codeIn') loadCode();
-  });
-  playUI = createPlayUI({
-    getState: () => state,
-    render,
-    renderPanel,
-    setStatus,
-    confirmDialog,
-    scheduleSave,
-    randomChallenge,
-    packs: availablePacks,
-    allowRandom: () => !isCustomer(),
-    solve: (rows, cols, looks) => packUI.solve(rows, cols, looks),
-  });
-  customerUI = createCustomerUI({
-    getState: () => state,
-    render,
-    scheduleSave,
-    lockedPacks,
-    playAlone: (id) => {
-      state.soloPackIds = [id];
-      state.soloDeck = null;
-      state.challenge = null;
-      setMode('build');
-      drawSoloCard();
-    },
-    playTogether: (id) => {
-      const pack = state.customer.packs.find((p) => p.id === id);
-      if (!pack) return;
-      state.gameSetup = { ...state.gameSetup, rows: pack.rows, cols: pack.cols, packIds: [id], random: [] };
-      if (state.game?.phase === 'over') state.game = null;
-      setMode('play');
-    },
-  });
-  bookUI.attach();
+  $('#tabs').addEventListener('keydown', onTabKey);
   packUI.attach();
+  printUI.attach();
   playUI.attach();
-  window.addEventListener('hashchange', handleLink);
-  if (state.mode === 'check') scheduleCheck(0);
   render();
-  handleLink();
+  packStore.start();
 }
 
 export const _test = { describeOrientation, failureText, KIND_INFO };
