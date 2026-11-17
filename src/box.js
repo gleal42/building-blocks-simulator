@@ -114,37 +114,28 @@ const PAPER_SHADE = '#d6ac72';
 const FRAME_RED = '#a13a1e';
 
 /**
- * The middle of a wall: a strip of the puzzle's split squares, black and white in a zigzag,
- * with a red dot at each end. Runs along the wall's long side.
+ * The middle of a wall: a band of the puzzle's split squares along its whole length, black
+ * halves joined into one zigzag (like a row of mountains), from one corner of the frame to
+ * the other, so the bands of the four walls meet at the corners.
  */
-function wallStrip(x, y, w, h) {
+function wallStrip(x, y, w, h, down = 1) {
   const across = w >= h;
   const long = across ? w : h;
   const short = across ? h : w;
   const t = Math.min(6, short * 0.3);
-  const n = Math.max(3, Math.min(9, Math.floor((long * 0.55) / t)));
+  const inset = Math.min(2.5, short / 8) + Math.min(2.6, short / 7) + 0.8;
+  const n = Math.max(2, Math.floor((long - 2 * inset) / t));
   const start = (long - n * t) / 2;
   const mid = short / 2;
-  // Points along the strip (s) and across it (u), to the sheet.
-  const at = (sAlong, u) => (across ? [x + sAlong, y + mid + u] : [x + mid + u, y + sAlong]);
-  const items = [];
-  for (let i = 0; i < n; i += 1) {
-    const s0 = start + i * t;
-    const s1 = s0 + t;
-    const a = at(s0, -t / 2);
-    const b = at(s1, -t / 2);
-    const c = at(s1, t / 2);
-    const d = at(s0, t / 2);
-    items.push({ t: 'poly', pts: [a, b, c, d], fill: '#f4ead8' });
-    // Black half: lower-left and upper-left in turn, so the edges make a zigzag.
-    items.push({ t: 'poly', pts: i % 2 ? [a, b, d] : [a, c, d], fill: '#1d1c19' });
-  }
-  const box = [at(start, -t / 2), at(start + n * t, -t / 2), at(start + n * t, t / 2), at(start, t / 2)];
-  items.push({ t: 'poly', pts: box, stroke: '#1d1c19', sw: 0.25 });
-  for (const sAlong of [start - t * 0.9, start + n * t + t * 0.9]) {
-    const [cx, cy] = at(sAlong, 0);
-    items.push({ t: 'circle', cx, cy, r: t * 0.22, fill: FRAME_RED });
-  }
+  // down: +1 when the wall's bottom (once folded) is towards +y or +x on the sheet, else -1.
+  const at = (sAlong, u) => (across ? [x + sAlong, y + mid + down * u] : [x + mid + down * u, y + sAlong]);
+  const items = [{ t: 'poly', pts: [at(start, -t / 2), at(start + n * t, -t / 2), at(start + n * t, t / 2), at(start, t / 2)], fill: '#f4ead8' }];
+  // One black shape: the bottom edge, then up and down across every square.
+  const zig = [at(start, t / 2)];
+  for (let i = 0; i <= n; i += 1) zig.push(at(start + i * t, i % 2 ? -t / 2 : t / 2));
+  zig.push(at(start + n * t, t / 2));
+  items.push({ t: 'poly', pts: zig, fill: '#1d1c19' });
+  items.push({ t: 'poly', pts: [at(start, -t / 2), at(start + n * t, -t / 2), at(start + n * t, t / 2), at(start, t / 2)], stroke: '#1d1c19', sw: 0.25 });
   return items;
 }
 
@@ -209,8 +200,9 @@ export function dieline(kind, plan, opts = {}) {
     items.push(...wallFrame(X(h), Y(0), a, h), ...wallFrame(X(h), Y(h + b), a, h));
     items.push(...wallFrame(X(0), Y(h), h, b), ...wallFrame(X(h + a), Y(h), h, b));
     // The walls carry no text (the cover says what the game is): a strip of split squares.
-    items.push(...wallStrip(X(h), Y(0), a, h), ...wallStrip(X(h), Y(h + b), a, h));
-    items.push(...wallStrip(X(0), Y(h), h, b), ...wallStrip(X(h + a), Y(h), h, b));
+    // Each zigzag stands on the bottom edge of its wall once the lid is folded.
+    items.push(...wallStrip(X(h), Y(0), a, h, -1), ...wallStrip(X(h), Y(h + b), a, h, 1));
+    items.push(...wallStrip(X(0), Y(h), h, b, -1), ...wallStrip(X(h + a), Y(h), h, b, 1));
   } else {
     // The underside of the base: what is inside, how to get the digital pack, who made it.
     items.push({ t: 'rect', x: X(h), y: Y(h), w: a, h: b, fill: '#fbf8f1' });
