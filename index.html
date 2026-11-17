@@ -8874,7 +8874,6 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
   var PAPER2 = "#e7c18c";
   var PAPER_SHADE = "#d6ac72";
   var FRAME_RED = "#a13a1e";
-  var WALL_INK = "#2a1d10";
   var WALL_MUTED = "#6b4a2a";
   function wallFrame(x, y, w, h) {
     const inset = Math.min(2.5, h / 8);
@@ -8934,16 +8933,10 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
         items.push(txt(X(h + a / 2), Y(h + b / 2 - 6), "Cover art goes here", Math.min(9, a / 18), { bold: true, fill: MUTED3 }));
         items.push(txt(X(h + a / 2), Y(h + b / 2 + 4), `${a} × ${b} mm, plus ${BLEED} mm bleed on every side`, Math.min(5, a / 34), { fill: MUTED3 }));
       }
-      const big = Math.min(9, h / 2.6);
       const small = Math.min(4.5, h / 5.5);
       items.push(...wallFrame(X(h), Y(0), a, h), ...wallFrame(X(h), Y(h + b), a, h));
       items.push(...wallFrame(X(0), Y(h), h, b), ...wallFrame(X(h + a), Y(h), h, b));
-      const front = [{ text: title, size: big, bold: true, fill: WALL_INK }];
-      if (subtitle) front.push({ text: subtitle, size: small, fill: WALL_MUTED });
-      items.push(...textBlock(X(h + a / 2), Y(h + b + h / 2), 0, front));
-      items.push(...textBlock(X(h + a / 2), Y(h / 2), 180, [{ text: title, size: big * 0.8, bold: true, fill: WALL_INK }, ...opts.tagline ? [{ text: opts.tagline, size: small, fill: WALL_MUTED }] : []]));
-      items.push(...textBlock(X(h / 2), Y(h + b / 2), 90, [{ text: title, size: Math.min(big * 0.7, b / 8), bold: true, fill: WALL_INK }]));
-      items.push(...textBlock(X(h + a + h / 2), Y(h + b / 2), -90, [{ text: title, size: Math.min(big * 0.7, b / 8), bold: true, fill: WALL_INK }]));
+      if (subtitle) items.push(...textBlock(X(h + a / 2), Y(h + b + h / 2), 0, [{ text: subtitle, size: small * 1.2, bold: true, fill: WALL_MUTED }]));
     } else {
       items.push({ t: "rect", x: X(h), y: Y(h), w: a, h: b, fill: "#fbf8f1" });
       const size = Math.min(3.6, b / 26);
@@ -9043,9 +9036,7 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
     const { l: L, w: W2, h: H } = plan.lid;
     const dx = 0.35;
     const dy = -0.6;
-    const title = escXml(opts.title || "Notan");
     const subtitle = escXml(opts.subtitle ?? "");
-    const big = Math.min(9, H / 2.6);
     const small = Math.min(4.5, H / 5.5);
     const right = L + W2 * dx;
     const top = -H + W2 * dy;
@@ -9062,12 +9053,10 @@ ${art}
 <g transform="matrix(${dx} ${dy} 0 1 ${L} ${-H})">
 <rect x="0" y="0" width="${W2}" height="${H}" fill="${PAPER_SHADE}" ${edge}/>
 ${itemsSvgFrame(wallFrame(0, 0, W2, H))}
-<text x="${W2 / 2}" y="${H / 2 + big * 0.36}" font-size="${(big * 0.7).toFixed(2)}" font-weight="700" text-anchor="middle" fill="${WALL_INK}" font-family="Helvetica, Arial, sans-serif">${title}</text>
 </g>
 <rect x="0" y="${-H}" width="${L}" height="${H}" fill="${PAPER2}" ${edge}/>
 ${itemsSvgFrame(wallFrame(0, -H, L, H))}
-<text x="${L / 2}" y="${-H / 2 + (subtitle ? -small * 0.2 : big * 0.36)}" font-size="${big.toFixed(2)}" font-weight="700" text-anchor="middle" fill="${WALL_INK}" font-family="Helvetica, Arial, sans-serif">${title}</text>
-${subtitle ? `<text x="${L / 2}" y="${-H / 2 + big * 0.36 + small * 1.3}" font-size="${small.toFixed(2)}" text-anchor="middle" fill="${WALL_MUTED}" font-family="Helvetica, Arial, sans-serif">${subtitle}</text>` : ""}
+${subtitle ? `<text x="${L / 2}" y="${(-H / 2 + small * 0.43).toFixed(2)}" font-size="${(small * 1.2).toFixed(2)}" font-weight="700" text-anchor="middle" fill="${WALL_MUTED}" font-family="Helvetica, Arial, sans-serif">${subtitle}</text>` : ""}
 </svg>`;
   }
 

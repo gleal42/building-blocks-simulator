@@ -108,12 +108,10 @@ const CUT = '#d0021b';
 const FOLD = '#1f6feb';
 const INK = '#1d1c19';
 const MUTED = '#6f6a5c';
-const ART = '#efe7d6';
 // The lid's walls match the cover art: its tan paper and its thin red frame.
 const PAPER = '#e7c18c';
 const PAPER_SHADE = '#d6ac72';
 const FRAME_RED = '#a13a1e';
-const WALL_INK = '#2a1d10';
 const WALL_MUTED = '#6b4a2a';
 
 /**
@@ -194,16 +192,11 @@ export function dieline(kind, plan, opts = {}) {
       items.push(txt(X(h + a / 2), Y(h + b / 2 + 4), `${a} × ${b} mm, plus ${BLEED} mm bleed on every side`, Math.min(5, a / 34), { fill: MUTED }));
     }
     // The walls, each turned so its letters stand upright when the lid is on the box.
-    const big = Math.min(9, h / 2.6);
     const small = Math.min(4.5, h / 5.5);
     items.push(...wallFrame(X(h), Y(0), a, h), ...wallFrame(X(h), Y(h + b), a, h));
     items.push(...wallFrame(X(0), Y(h), h, b), ...wallFrame(X(h + a), Y(h), h, b));
-    const front = [{ text: title, size: big, bold: true, fill: WALL_INK }];
-    if (subtitle) front.push({ text: subtitle, size: small, fill: WALL_MUTED });
-    items.push(...textBlock(X(h + a / 2), Y(h + b + h / 2), 0, front));
-    items.push(...textBlock(X(h + a / 2), Y(h / 2), 180, [{ text: title, size: big * 0.8, bold: true, fill: WALL_INK }, ...(opts.tagline ? [{ text: opts.tagline, size: small, fill: WALL_MUTED }] : [])]));
-    items.push(...textBlock(X(h / 2), Y(h + b / 2), 90, [{ text: title, size: Math.min(big * 0.7, b / 8), bold: true, fill: WALL_INK }]));
-    items.push(...textBlock(X(h + a + h / 2), Y(h + b / 2), -90, [{ text: title, size: Math.min(big * 0.7, b / 8), bold: true, fill: WALL_INK }]));
+    // Only the pack's name, on the front wall: the cover already says what the game is.
+    if (subtitle) items.push(...textBlock(X(h + a / 2), Y(h + b + h / 2), 0, [{ text: subtitle, size: small * 1.2, bold: true, fill: WALL_MUTED }]));
   } else {
     // The underside of the base: what is inside, how to get the digital pack, who made it.
     items.push({ t: 'rect', x: X(h), y: Y(h), w: a, h: b, fill: '#fbf8f1' });
@@ -323,16 +316,14 @@ const escXml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').rep
 /**
  * The closed box as it looks on a shelf (SVG, millimetres): the cover art on the lid's top,
  * the name on its front and side. A sketch of the finished box, not a print file.
- * opts: { title, subtitle, cover: { src } | null, label }
+ * opts: { subtitle, cover: { src } | null, label }
  */
 export function boxMockup(plan, opts = {}) {
   const { l: L, w: W, h: H } = plan.lid;
   // Depth goes up and to the right.
   const dx = 0.35;
   const dy = -0.6;
-  const title = escXml(opts.title || 'Notan');
   const subtitle = escXml(opts.subtitle ?? '');
-  const big = Math.min(9, H / 2.6);
   const small = Math.min(4.5, H / 5.5);
   const right = L + W * dx;
   const top = -H + W * dy;
@@ -351,11 +342,9 @@ ${art}
 <g transform="matrix(${dx} ${dy} 0 1 ${L} ${-H})">
 <rect x="0" y="0" width="${W}" height="${H}" fill="${PAPER_SHADE}" ${edge}/>
 ${itemsSvgFrame(wallFrame(0, 0, W, H))}
-<text x="${W / 2}" y="${H / 2 + big * 0.36}" font-size="${(big * 0.7).toFixed(2)}" font-weight="700" text-anchor="middle" fill="${WALL_INK}" font-family="Helvetica, Arial, sans-serif">${title}</text>
 </g>
 <rect x="0" y="${-H}" width="${L}" height="${H}" fill="${PAPER}" ${edge}/>
 ${itemsSvgFrame(wallFrame(0, -H, L, H))}
-<text x="${L / 2}" y="${-H / 2 + (subtitle ? -small * 0.2 : big * 0.36)}" font-size="${big.toFixed(2)}" font-weight="700" text-anchor="middle" fill="${WALL_INK}" font-family="Helvetica, Arial, sans-serif">${title}</text>
-${subtitle ? `<text x="${L / 2}" y="${-H / 2 + big * 0.36 + small * 1.3}" font-size="${small.toFixed(2)}" text-anchor="middle" fill="${WALL_MUTED}" font-family="Helvetica, Arial, sans-serif">${subtitle}</text>` : ''}
+${subtitle ? `<text x="${L / 2}" y="${(-H / 2 + small * 0.43).toFixed(2)}" font-size="${(small * 1.2).toFixed(2)}" font-weight="700" text-anchor="middle" fill="${WALL_MUTED}" font-family="Helvetica, Arial, sans-serif">${subtitle}</text>` : ''}
 </svg>`;
 }
