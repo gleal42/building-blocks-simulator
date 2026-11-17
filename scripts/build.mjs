@@ -40,12 +40,20 @@ async function readPackFiles() {
   return packs;
 }
 
+/** The box cover art: art/covers.json lists the pictures (JPEG), built into the page. */
+async function readCoverArt() {
+  const dir = path.join(root, 'art');
+  const list = JSON.parse(await readFile(path.join(dir, 'covers.json'), 'utf8').catch(() => '[]'));
+  return Promise.all(list.map(async (c) => ({ ...c, src: `data:image/jpeg;base64,${(await readFile(path.join(dir, c.file))).toString('base64')}` })));
+}
+
 async function buildOnce() {
   const started = Date.now();
   // The pattern search runs in a Web Worker made from this inlined source.
   const workerCode = await bundle('worker.js');
   const packs = await readPackFiles();
-  const appCode = await bundle('main.js', { __WORKER_SOURCE__: JSON.stringify(workerCode), __BUILT_IN_PACKS__: JSON.stringify(packs) });
+  const covers = await readCoverArt();
+  const appCode = await bundle('main.js', { __WORKER_SOURCE__: JSON.stringify(workerCode), __BUILT_IN_PACKS__: JSON.stringify(packs), __COVER_ART__: JSON.stringify(covers) });
   const css = await readFile(src('styles.css'), 'utf8');
   const template = await readFile(src('index.html'), 'utf8');
   const html = template
@@ -67,4 +75,5 @@ if (process.argv.includes('--watch')) {
   };
   watch(path.join(root, 'src'), { recursive: true }, again);
   watch(path.join(root, 'packs'), again);
+  watch(path.join(root, 'art'), again);
 }

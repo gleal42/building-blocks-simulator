@@ -1,12 +1,13 @@
 // The Print tab (maker): everything that goes in the box of a pack, ready to print.
 //   Cards    one card per design, fronts and backs on sheets with cut marks
-//   Box      a base and a lid sized for the tray, the cards and the rules; only the cover
-//            art (top of the lid) is left to add
+//   Box      a base and a lid sized for the tray, the cards and the rules, with the cover
+//            art of art/ on the lid (coverart.js); a sketch of the closed box
 //   Rules    the leaflet: four pages folded from one strip, two leaflets per sheet
 //   Unlock   the card with the code that unlocks the pack in the app (a sample code for
 //            now; a list of real codes can be opened once they exist, see docs/going-live.md)
 
-import { LAYOUTS, MATERIALS, boxPdf, boxPlan, contentsDrawing, dieline } from './box.js';
+import { LAYOUTS, MATERIALS, boxMockup, boxPdf, boxPlan, contentsDrawing, dieline } from './box.js';
+import { coverFor } from './coverart.js';
 import { CARD, PAPER, cardSheet, cardShape, cardSvg, cardsPdf, packDeck, unlockCardSvg, unlockCardsPdf } from './cards.js';
 import { drawingSvg } from './drawing.js';
 import { ICONS } from './icons.js';
@@ -27,17 +28,13 @@ export const PRINT_VIEWS = [
 export const MAX_GAME_NAME = 40;
 
 export function defaultPrint() {
-  return { view: 'cards', paper: 'a4', game: 'Notan', layout: 'beside', material: 'carton', maker: '', appUrl: '', covers: {}, codes: {} };
+  return { view: 'cards', paper: 'a4', game: 'Notan', layout: 'beside', material: 'carton', maker: '', appUrl: '', codes: {} };
 }
 
 /** Clean print settings from storage. */
 export function revivePrint(raw) {
   const base = defaultPrint();
   if (!raw || typeof raw !== 'object') return base;
-  const covers = {};
-  for (const [id, c] of Object.entries(raw.covers ?? {})) {
-    if (c && typeof c.src === 'string' && c.src.startsWith('data:image/jpeg') && Number.isFinite(c.width) && Number.isFinite(c.height)) covers[id] = { src: c.src, width: c.width, height: c.height };
-  }
   const codes = {};
   for (const [id, list] of Object.entries(raw.codes ?? {})) {
     if (Array.isArray(list)) {
@@ -53,32 +50,8 @@ export function revivePrint(raw) {
     material: MATERIALS[raw.material] ? raw.material : 'carton',
     maker: typeof raw.maker === 'string' ? raw.maker.slice(0, 400) : '',
     appUrl: typeof raw.appUrl === 'string' ? raw.appUrl.slice(0, 300) : '',
-    covers,
     codes,
   };
-}
-
-/** Shrink an image file to a JPEG data URL (longest side at most max px). */
-async function imageToJpeg(file, max = 1800) {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = new Image();
-    img.src = url;
-    await img.decode();
-    const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
-    const width = Math.max(1, Math.round(img.naturalWidth * scale));
-    const height = Math.max(1, Math.round(img.naturalHeight * scale));
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const g = canvas.getContext('2d');
-    g.fillStyle = '#ffffff';
-    g.fillRect(0, 0, width, height);
-    g.drawImage(img, 0, 0, width, height);
-    return { src: canvas.toDataURL('image/jpeg', 0.86), width, height };
-  } finally {
-    URL.revokeObjectURL(url);
-  }
 }
 
 export function createPrintUI(ctx) {
@@ -105,16 +78,27 @@ export function createPrintUI(ctx) {
   function boxFor(pack, deck) {
     const p = pr();
     const plan = boxPlan({ rows: pack.rows, cols: pack.cols, cards: deck.cards.length || 1, layout: p.layout, material: p.material });
+    const top = plan.flats.lid.panel;
+    const cover = coverFor(top.l, top.w);
     const opts = {
       title: p.game,
       subtitle: pack.name,
       tagline: 'Build the picture',
-      cover: p.covers[pack.id] ?? null,
+      cover,
       contents: [`Inside: 1 tray (${sizeLabel(pack.rows, pack.cols)}), ${pack.rows * pack.cols} pieces, ${plural(deck.cards.length, 'card')}, the rules and an unlock card.`],
       digital: 'Digital pack: scan the unlock card inside with your phone camera to play these cards in the app, alone or together.',
       maker: makerLines(),
     };
     return { plan, opts };
+  }
+
+  /** What to say about the cover art on this lid. */
+  function coverNote(cover, plan) {
+    const top = plan.flats.lid.panel;
+    if (!cover) return 'No cover art yet: put it in art/ (see art/README.md).';
+    if (cover.fits) return `Cover art: ${cover.file}.`;
+    const wide = top.l / top.w;
+    return `Cover art: ${cover.file}, cropped: this lid is ${top.l} × ${top.w} mm, so it needs a picture about ${wide.toFixed(1)} times as wide as it is tall.`;
   }
 
   const leafletInfo = (pack, deck) => ({ title: pr().game, subtitle: pack.name, rows: pack.rows, cols: pack.cols, cards: deck.cards.length, art: deck.cards[0]?.looks, maker: makerLines() });
@@ -155,7 +139,8 @@ ${row('Lid, outside', plan.lid)}${row('Base, outside', plan.base)}${row('Space i
 <tr><th>Cards</th><td>${plan.cards} cards, ${plan.deck.w} × ${plan.deck.d} × ${plan.deck.h} mm (card thickness guessed: measure a stack)</td></tr>
 <tr><th>Flat sheets</th><td>lid ${Math.round(lid.w)} × ${Math.round(lid.h)} mm, base ${Math.round(base.w)} × ${Math.round(base.h)} mm</td></tr>
 </tbody></table>
-<figure class="box-fig">${drawingSvg(lid, 'The lid, flat')}<figcaption>The lid, flat. ${opts.cover ? 'Your cover art is on the top.' : '<b>Only the cover art is missing</b>: add it in the panel.'} The name is on all four sides, upright once folded.</figcaption></figure>
+<figure class="box-fig box-shelf">${boxMockup(plan, { ...opts, label: `The closed box: ${pr().game}, ${pack.name}` })}<figcaption>How the box looks, closed. ${coverNote(opts.cover, plan)}</figcaption></figure>
+<figure class="box-fig">${drawingSvg(lid, 'The lid, flat')}<figcaption>The lid, flat. The name is on all four sides, upright once folded.</figcaption></figure>
 <figure class="box-fig">${drawingSvg(base, 'The base, flat')}<figcaption>The base, flat. Its underside says what is inside and who made it.</figcaption></figure>
 <figure class="box-fig">${drawingSvg(contentsDrawing(plan), 'What goes where in the box')}<figcaption>What goes where</figcaption></figure>
 </div>`;
@@ -183,7 +168,7 @@ ${codes.length > shown.length ? `<p class="hint">and ${codes.length - shown.leng
 
   function signature(pack, deck) {
     const p = pr();
-    return JSON.stringify([p.view, p.paper, p.game, p.layout, p.material, p.maker, p.appUrl, pack.id, pack.name, deck.cards.map((c) => `${c.looks.join('')}${c.stars}`), p.covers[pack.id]?.src.length ?? 0, p.codes[pack.id]?.length ?? 0]);
+    return JSON.stringify([p.view, p.paper, p.game, p.layout, p.material, p.maker, p.appUrl, pack.id, pack.name, deck.cards.map((c) => `${c.looks.join('')}${c.stars}`), p.codes[pack.id]?.length ?? 0]);
   }
 
   function renderStage(container) {
@@ -238,16 +223,10 @@ ${packs().length ? `<div class="chips tight" role="group" aria-label="Pack">${pa
 <p class="hint">Print on card, on both sides, <b>flip on the long edge</b>: each card gets its back. Then cut along the marks.</p>
 </section>`;
     } else if (p.view === 'box') {
-      const cover = p.covers[pack.id];
-      const { plan } = boxFor(pack, deckOf(pack));
+      const { plan, opts } = boxFor(pack, deckOf(pack));
       options = `<section class="card" aria-labelledby="pr-box-h">
 <h2 id="pr-box-h">Box</h2>
-<p class="field-label">Cover art (top of the lid)</p>
-<p class="hint">${plan.flats.lid.panel.l} × ${plan.flats.lid.panel.w} mm, plus 3 mm on every side that is cut off. It is kept in this browser.</p>
-<div class="row-buttons">
-<button type="button" class="btn small${cover ? '' : ' primary'}" data-action="print-cover">${ICONS.upload}${cover ? 'Change the cover art' : 'Add the cover art'}</button>
-${cover ? `<button type="button" class="btn small" data-action="print-cover-remove">${ICONS.trash}Remove</button>` : ''}
-</div>
+<p class="hint">${coverNote(opts.cover, plan)} The art for each shape of lid is in the repository's <code>art/</code> folder.</p>
 <p class="field-label">Inside</p>
 <div class="chips tight" role="group" aria-label="Box layout">${Object.entries(LAYOUTS).map(([id, label]) => `<button type="button" class="chip${p.layout === id ? ' is-on' : ''}" data-action="print-layout" data-id="${id}" aria-pressed="${p.layout === id}">${label}</button>`).join('')}</div>
 <p class="field-label">Material</p>
@@ -345,25 +324,6 @@ ${own ? '<button type="button" class="btn small" data-action="print-codes-clear"
       changed();
     },
     'print-pdf': savePdf,
-    'print-cover': () => {
-      const pack = currentPack();
-      if (!pack) return;
-      ctx.pickFile('image/*', async (file) => {
-        try {
-          pr().covers[pack.id] = await imageToJpeg(file);
-          changed();
-          ctx.setStatus('Cover art added to the top of the lid.', true, 'ok');
-        } catch {
-          ctx.setStatus('That picture could not be opened.', true, 'bad');
-        }
-      });
-    },
-    'print-cover-remove': () => {
-      const pack = currentPack();
-      if (!pack) return;
-      delete pr().covers[pack.id];
-      changed();
-    },
     'print-codes': () => {
       const pack = currentPack();
       if (!pack) return;

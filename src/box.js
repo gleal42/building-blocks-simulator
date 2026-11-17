@@ -285,3 +285,43 @@ export function boxPdf(plan, opts = {}) {
   }
   return doc.toBytes();
 }
+
+const escXml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/**
+ * The closed box as it looks on a shelf (SVG, millimetres): the cover art on the lid's top,
+ * the name on its front and side. A sketch of the finished box, not a print file.
+ * opts: { title, subtitle, cover: { src } | null, label }
+ */
+export function boxMockup(plan, opts = {}) {
+  const { l: L, w: W, h: H } = plan.lid;
+  // Depth goes up and to the right.
+  const dx = 0.35;
+  const dy = -0.6;
+  const title = escXml(opts.title || 'Notan');
+  const subtitle = escXml(opts.subtitle ?? '');
+  const big = Math.min(9, H / 2.6);
+  const small = Math.min(4.5, H / 5.5);
+  const right = L + W * dx;
+  const top = -H + W * dy;
+  const pts = (list) => list.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
+  const edge = 'stroke="rgba(60,45,20,0.45)" stroke-width="0.35" stroke-linejoin="round"';
+  const topFace = pts([[0, -H], [L, -H], [L + W * dx, -H + W * dy], [W * dx, -H + W * dy]]);
+  const art = opts.cover?.src
+    ? `<clipPath id="mockTop"><polygon points="${topFace}"/></clipPath>
+<g clip-path="url(#mockTop)"><image href="${opts.cover.src}" x="0" y="0" width="${L}" height="${W}" preserveAspectRatio="xMidYMid slice" transform="matrix(1 0 ${-dx} ${-dy} ${W * dx} ${-H + W * dy})"/></g>`
+    : `<text x="${(L + W * dx) / 2}" y="${-H + (W * dy) / 2}" font-size="${Math.min(8, L / 18)}" text-anchor="middle" fill="${MUTED}" font-weight="700">Cover art</text>`;
+  return `<svg viewBox="${-3} ${(top - 3).toFixed(1)} ${(right + 6).toFixed(1)} ${(-top + 10).toFixed(1)}" xmlns="http://www.w3.org/2000/svg" class="box-mockup" role="img" aria-label="${escXml(opts.label ?? 'The closed box')}">
+<ellipse cx="${(right / 2).toFixed(1)}" cy="2.5" rx="${(right / 2 + 4).toFixed(1)}" ry="3.2" fill="rgba(0,0,0,0.16)"/>
+<polygon points="${topFace}" fill="${ART}"/>
+${art}
+<polygon points="${topFace}" fill="none" ${edge}/>
+<g transform="matrix(${dx} ${dy} 0 1 ${L} ${-H})">
+<rect x="0" y="0" width="${W}" height="${H}" fill="#e3d6bb" ${edge}/>
+<text x="${W / 2}" y="${H / 2 + big * 0.36}" font-size="${(big * 0.7).toFixed(2)}" font-weight="700" text-anchor="middle" fill="${INK}" font-family="Helvetica, Arial, sans-serif">${title}</text>
+</g>
+<rect x="0" y="${-H}" width="${L}" height="${H}" fill="${ART}" ${edge}/>
+<text x="${L / 2}" y="${-H / 2 + (subtitle ? -small * 0.2 : big * 0.36)}" font-size="${big.toFixed(2)}" font-weight="700" text-anchor="middle" fill="${INK}" font-family="Helvetica, Arial, sans-serif">${title}</text>
+${subtitle ? `<text x="${L / 2}" y="${-H / 2 + big * 0.36 + small * 1.3}" font-size="${small.toFixed(2)}" text-anchor="middle" fill="${MUTED}" font-family="Helvetica, Arial, sans-serif">${subtitle}</text>` : ''}
+</svg>`;
+}
