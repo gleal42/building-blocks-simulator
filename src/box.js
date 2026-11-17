@@ -114,51 +114,52 @@ const PAPER_SHADE = '#d6ac72';
 const FRAME_RED = '#a13a1e';
 
 /**
- * The middle of a wall: a band of the puzzle's split squares along its whole length, black
- * halves joined into one zigzag (like a row of mountains), from one corner of the frame to
- * the other, so the bands of the four walls meet at the corners.
+ * The decoration of one lid wall: a zigzag band along its bottom edge (the open edge once the
+ * lid is on), from end to end, so the bands of the four walls make one ring around the box;
+ * above it, a thin red frame with a small fret in each corner, as on the cover art.
+ * down: +1 when the wall's bottom edge is at +y (or +x) on the sheet, -1 when at y (or x).
  */
-function wallStrip(x, y, w, h, down = 1) {
+function wallDecor(x, y, w, h, down = 1) {
   const across = w >= h;
   const long = across ? w : h;
   const short = across ? h : w;
-  const t = Math.min(6, short * 0.3);
-  const inset = Math.min(2.5, short / 8) + Math.min(2.6, short / 7) + 0.8;
-  const n = Math.max(2, Math.floor((long - 2 * inset) / t));
-  const start = (long - n * t) / 2;
-  const mid = short / 2;
-  // down: +1 when the wall's bottom (once folded) is towards +y or +x on the sheet, else -1.
-  const at = (sAlong, u) => (across ? [x + sAlong, y + mid + down * u] : [x + mid + down * u, y + sAlong]);
-  const items = [{ t: 'poly', pts: [at(start, -t / 2), at(start + n * t, -t / 2), at(start + n * t, t / 2), at(start, t / 2)], fill: '#f4ead8' }];
-  // One black shape: the bottom edge, then up and down across every square.
-  const zig = [at(start, t / 2)];
-  for (let i = 0; i <= n; i += 1) zig.push(at(start + i * t, i % 2 ? -t / 2 : t / 2));
-  zig.push(at(start + n * t, t / 2));
+  // s along the wall, v up from its bottom edge.
+  const at = (sAlong, v) => {
+    if (across) return [x + sAlong, down > 0 ? y + h - v : y + v];
+    return [down > 0 ? x + w - v : x + v, y + sAlong];
+  };
+  const quad = (s0, v0, s1, v1) => [at(s0, v0), at(s1, v0), at(s1, v1), at(s0, v1)];
+  const items = [];
+  // The band: an even number of squares, so every wall starts and ends low and the zigzag
+  // runs on round the corner.
+  const gap = 1.2;
+  const want = Math.min(5, short * 0.17);
+  const n = Math.max(2, 2 * Math.round(long / want / 2));
+  const t = long / n;
+  items.push({ t: 'poly', pts: quad(0, gap, long, gap + t), fill: '#f4ead8' });
+  const zig = [at(0, gap)];
+  for (let i = 0; i <= n; i += 1) zig.push(at(i * t, i % 2 ? gap + t : gap));
+  zig.push(at(long, gap));
   items.push({ t: 'poly', pts: zig, fill: '#1d1c19' });
-  items.push({ t: 'poly', pts: [at(start, -t / 2), at(start + n * t, -t / 2), at(start + n * t, t / 2), at(start, t / 2)], stroke: '#1d1c19', sw: 0.25 });
-  return items;
-}
-
-/**
- * A wall's red frame, 2.5 mm in from its edges, with a small fret in each corner (as on the
- * cover art). Shapes in millimetres.
- */
-function wallFrame(x, y, w, h) {
-  const inset = Math.min(2.5, h / 8);
-  const f = Math.min(2.6, h / 7);
+  items.push({ t: 'line', x1: at(0, gap)[0], y1: at(0, gap)[1], x2: at(long, gap)[0], y2: at(long, gap)[1], stroke: '#1d1c19', sw: 0.3 });
+  items.push({ t: 'line', x1: at(0, gap + t)[0], y1: at(0, gap + t)[1], x2: at(long, gap + t)[0], y2: at(long, gap + t)[1], stroke: '#1d1c19', sw: 0.3 });
+  // The frame, above the band.
+  const inset = Math.min(2.5, short / 8);
+  const f = Math.min(2.6, short / 7);
   const sw = 0.35;
-  const x0 = x + inset;
-  const y0 = y + inset;
-  const x1 = x + w - inset;
-  const y1 = y + h - inset;
-  const items = [{ t: 'rect', x: x0, y: y0, w: x1 - x0, h: y1 - y0, stroke: FRAME_RED, sw }];
-  for (const [cx, cy, sx, sy] of [[x0, y0, 1, 1], [x1, y0, -1, 1], [x0, y1, 1, -1], [x1, y1, -1, -1]]) {
-    items.push({ t: 'rect', x: Math.min(cx, cx + sx * f), y: Math.min(cy, cy + sy * f), w: f, h: f, stroke: FRAME_RED, sw });
-    const g = f * 0.45;
-    items.push({ t: 'rect', x: Math.min(cx + sx * f * 0.25, cx + sx * (f * 0.25 + g)), y: Math.min(cy + sy * f * 0.25, cy + sy * (f * 0.25 + g)), w: g, h: g, fill: FRAME_RED });
+  const s0 = inset;
+  const s1 = long - inset;
+  const v0 = gap + t + 1.4;
+  const v1 = short - inset;
+  items.push({ t: 'poly', pts: quad(s0, v0, s1, v1), stroke: FRAME_RED, sw });
+  const g = f * 0.45;
+  for (const [cs, cv, ds, dv] of [[s0, v0, 1, 1], [s1, v0, -1, 1], [s0, v1, 1, -1], [s1, v1, -1, -1]]) {
+    items.push({ t: 'poly', pts: quad(cs, cv, cs + ds * f, cv + dv * f), stroke: FRAME_RED, sw });
+    items.push({ t: 'poly', pts: quad(cs + ds * f * 0.25, cv + dv * f * 0.25, cs + ds * (f * 0.25 + g), cv + dv * (f * 0.25 + g)), fill: FRAME_RED });
   }
   return items;
 }
+
 
 const txt = (x, y, text, size, opts = {}) => ({ t: 'text', x, y, text, size, fill: opts.fill ?? INK, bold: !!opts.bold, anchor: opts.anchor ?? 'middle', rot: opts.rot ?? 0 });
 
@@ -197,12 +198,9 @@ export function dieline(kind, plan, opts = {}) {
       items.push(txt(X(h + a / 2), Y(h + b / 2 + 4), `${a} × ${b} mm, plus ${BLEED} mm bleed on every side`, Math.min(5, a / 34), { fill: MUTED }));
     }
     // The walls, each turned so its letters stand upright when the lid is on the box.
-    items.push(...wallFrame(X(h), Y(0), a, h), ...wallFrame(X(h), Y(h + b), a, h));
-    items.push(...wallFrame(X(0), Y(h), h, b), ...wallFrame(X(h + a), Y(h), h, b));
-    // The walls carry no text (the cover says what the game is): a strip of split squares.
-    // Each zigzag stands on the bottom edge of its wall once the lid is folded.
-    items.push(...wallStrip(X(h), Y(0), a, h, -1), ...wallStrip(X(h), Y(h + b), a, h, 1));
-    items.push(...wallStrip(X(0), Y(h), h, b, -1), ...wallStrip(X(h + a), Y(h), h, b, 1));
+    // The walls: a zigzag ring round the bottom and a red frame (no text: the cover says it).
+    items.push(...wallDecor(X(h), Y(0), a, h, -1), ...wallDecor(X(h), Y(h + b), a, h, 1));
+    items.push(...wallDecor(X(0), Y(h), h, b, -1), ...wallDecor(X(h + a), Y(h), h, b, 1));
   } else {
     // The underside of the base: what is inside, how to get the digital pack, who made it.
     items.push({ t: 'rect', x: X(h), y: Y(h), w: a, h: b, fill: '#fbf8f1' });
@@ -342,9 +340,9 @@ ${art}
 <polygon points="${topFace}" fill="none" ${edge}/>
 <g transform="matrix(${dx} ${dy} 0 1 ${L} ${-H})">
 <rect x="0" y="0" width="${W}" height="${H}" fill="${PAPER_SHADE}" ${edge}/>
-${itemsSvg([...wallFrame(0, 0, W, H), ...wallStrip(0, 0, W, H)])}
+${itemsSvg(wallDecor(0, 0, W, H, 1))}
 </g>
 <rect x="0" y="${-H}" width="${L}" height="${H}" fill="${PAPER}" ${edge}/>
-${itemsSvg([...wallFrame(0, -H, L, H), ...wallStrip(0, -H, L, H)])}
+${itemsSvg(wallDecor(0, -H, L, H, 1))}
 </svg>`;
 }

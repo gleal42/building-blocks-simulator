@@ -8874,37 +8874,39 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
   var PAPER2 = "#e7c18c";
   var PAPER_SHADE = "#d6ac72";
   var FRAME_RED = "#a13a1e";
-  function wallStrip(x, y, w, h, down = 1) {
+  function wallDecor(x, y, w, h, down = 1) {
     const across = w >= h;
     const long = across ? w : h;
     const short = across ? h : w;
-    const t = Math.min(6, short * 0.3);
-    const inset = Math.min(2.5, short / 8) + Math.min(2.6, short / 7) + 0.8;
-    const n = Math.max(2, Math.floor((long - 2 * inset) / t));
-    const start2 = (long - n * t) / 2;
-    const mid = short / 2;
-    const at2 = (sAlong, u) => across ? [x + sAlong, y + mid + down * u] : [x + mid + down * u, y + sAlong];
-    const items = [{ t: "poly", pts: [at2(start2, -t / 2), at2(start2 + n * t, -t / 2), at2(start2 + n * t, t / 2), at2(start2, t / 2)], fill: "#f4ead8" }];
-    const zig = [at2(start2, t / 2)];
-    for (let i = 0; i <= n; i += 1) zig.push(at2(start2 + i * t, i % 2 ? -t / 2 : t / 2));
-    zig.push(at2(start2 + n * t, t / 2));
+    const at2 = (sAlong, v) => {
+      if (across) return [x + sAlong, down > 0 ? y + h - v : y + v];
+      return [down > 0 ? x + w - v : x + v, y + sAlong];
+    };
+    const quad = (s02, v02, s12, v12) => [at2(s02, v02), at2(s12, v02), at2(s12, v12), at2(s02, v12)];
+    const items = [];
+    const gap = 1.2;
+    const want = Math.min(5, short * 0.17);
+    const n = Math.max(2, 2 * Math.round(long / want / 2));
+    const t = long / n;
+    items.push({ t: "poly", pts: quad(0, gap, long, gap + t), fill: "#f4ead8" });
+    const zig = [at2(0, gap)];
+    for (let i = 0; i <= n; i += 1) zig.push(at2(i * t, i % 2 ? gap + t : gap));
+    zig.push(at2(long, gap));
     items.push({ t: "poly", pts: zig, fill: "#1d1c19" });
-    items.push({ t: "poly", pts: [at2(start2, -t / 2), at2(start2 + n * t, -t / 2), at2(start2 + n * t, t / 2), at2(start2, t / 2)], stroke: "#1d1c19", sw: 0.25 });
-    return items;
-  }
-  function wallFrame(x, y, w, h) {
-    const inset = Math.min(2.5, h / 8);
-    const f = Math.min(2.6, h / 7);
+    items.push({ t: "line", x1: at2(0, gap)[0], y1: at2(0, gap)[1], x2: at2(long, gap)[0], y2: at2(long, gap)[1], stroke: "#1d1c19", sw: 0.3 });
+    items.push({ t: "line", x1: at2(0, gap + t)[0], y1: at2(0, gap + t)[1], x2: at2(long, gap + t)[0], y2: at2(long, gap + t)[1], stroke: "#1d1c19", sw: 0.3 });
+    const inset = Math.min(2.5, short / 8);
+    const f = Math.min(2.6, short / 7);
     const sw = 0.35;
-    const x0 = x + inset;
-    const y0 = y + inset;
-    const x1 = x + w - inset;
-    const y1 = y + h - inset;
-    const items = [{ t: "rect", x: x0, y: y0, w: x1 - x0, h: y1 - y0, stroke: FRAME_RED, sw }];
-    for (const [cx, cy, sx, sy] of [[x0, y0, 1, 1], [x1, y0, -1, 1], [x0, y1, 1, -1], [x1, y1, -1, -1]]) {
-      items.push({ t: "rect", x: Math.min(cx, cx + sx * f), y: Math.min(cy, cy + sy * f), w: f, h: f, stroke: FRAME_RED, sw });
-      const g = f * 0.45;
-      items.push({ t: "rect", x: Math.min(cx + sx * f * 0.25, cx + sx * (f * 0.25 + g)), y: Math.min(cy + sy * f * 0.25, cy + sy * (f * 0.25 + g)), w: g, h: g, fill: FRAME_RED });
+    const s0 = inset;
+    const s1 = long - inset;
+    const v0 = gap + t + 1.4;
+    const v1 = short - inset;
+    items.push({ t: "poly", pts: quad(s0, v0, s1, v1), stroke: FRAME_RED, sw });
+    const g = f * 0.45;
+    for (const [cs, cv, ds, dv] of [[s0, v0, 1, 1], [s1, v0, -1, 1], [s0, v1, 1, -1], [s1, v1, -1, -1]]) {
+      items.push({ t: "poly", pts: quad(cs, cv, cs + ds * f, cv + dv * f), stroke: FRAME_RED, sw });
+      items.push({ t: "poly", pts: quad(cs + ds * f * 0.25, cv + dv * f * 0.25, cs + ds * (f * 0.25 + g), cv + dv * (f * 0.25 + g)), fill: FRAME_RED });
     }
     return items;
   }
@@ -8936,10 +8938,8 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
         items.push(txt(X(h + a / 2), Y(h + b / 2 - 6), "Cover art goes here", Math.min(9, a / 18), { bold: true, fill: MUTED3 }));
         items.push(txt(X(h + a / 2), Y(h + b / 2 + 4), `${a} × ${b} mm, plus ${BLEED} mm bleed on every side`, Math.min(5, a / 34), { fill: MUTED3 }));
       }
-      items.push(...wallFrame(X(h), Y(0), a, h), ...wallFrame(X(h), Y(h + b), a, h));
-      items.push(...wallFrame(X(0), Y(h), h, b), ...wallFrame(X(h + a), Y(h), h, b));
-      items.push(...wallStrip(X(h), Y(0), a, h, -1), ...wallStrip(X(h), Y(h + b), a, h, 1));
-      items.push(...wallStrip(X(0), Y(h), h, b, -1), ...wallStrip(X(h + a), Y(h), h, b, 1));
+      items.push(...wallDecor(X(h), Y(0), a, h, -1), ...wallDecor(X(h), Y(h + b), a, h, 1));
+      items.push(...wallDecor(X(0), Y(h), h, b, -1), ...wallDecor(X(h + a), Y(h), h, b, 1));
     } else {
       items.push({ t: "rect", x: X(h), y: Y(h), w: a, h: b, fill: "#fbf8f1" });
       const size = Math.min(3.6, b / 26);
@@ -9052,10 +9052,10 @@ ${art}
 <polygon points="${topFace}" fill="none" ${edge}/>
 <g transform="matrix(${dx} ${dy} 0 1 ${L} ${-H})">
 <rect x="0" y="0" width="${W2}" height="${H}" fill="${PAPER_SHADE}" ${edge}/>
-${itemsSvg([...wallFrame(0, 0, W2, H), ...wallStrip(0, 0, W2, H)])}
+${itemsSvg(wallDecor(0, 0, W2, H, 1))}
 </g>
 <rect x="0" y="${-H}" width="${L}" height="${H}" fill="${PAPER2}" ${edge}/>
-${itemsSvg([...wallFrame(0, -H, L, H), ...wallStrip(0, -H, L, H)])}
+${itemsSvg(wallDecor(0, -H, L, H, 1))}
 </svg>`;
   }
 
