@@ -1,28 +1,29 @@
-// The Packs tab: packs of designs to fill challenge books and card decks.
-//   * Pick or make a pack, paint its designs in the tray (each is checked: can the pieces
-//     build it?), reorder, copy, delete, set the stars.
+// The Packs tab (maker): the packs of designs, one per box sold.
+//   * Pick or make a pack, paint its designs in the tray, reorder, copy, delete, set the
+//     stars. Every design is checked (can the pieces build it?) and only buildable ones are
+//     saved; a buildable one can show how to build it.
 //   * Read designs from a photo (a page of a book): the designs are found, read, and can be
 //     corrected by moving their corners before they are added.
-//   * Copy a pack as code (to hard-code it in src/builtinpacks.js), save or open a file, and
-//     add a whole pack to the challenge book.
+//   * The packs are saved by the pack store (packstore.js): in the artifact's database when
+//     there is one. They can also be saved and opened as files.
 
-import { addChallenge, bookKey, DIFFICULTY, suggestDifficulty } from './book.js';
 import { defaultInventory } from './board.js';
 import { LOOK } from './geometry.js';
 import { ICONS } from './icons.js';
 import { createChecker } from './packcheck.js';
 import {
+  DIFFICULTY,
   MAX_PACK_NAME,
   PACK_SIZES,
+  TRAY_SIZES,
   addDesigns,
-  bookShapeFor,
   builtInPacks,
   newPack,
-  packFromBook,
   packToCode,
   parsePacks,
   sizeLabel,
   slugify,
+  suggestDifficulty,
 } from './packs.js';
 import { defaultQuad, findPatterns, insideQuad, otsu, readPattern, squareToQuad, toGray } from './photo.js';
 import { flatPicture } from './render2d.js';
@@ -63,7 +64,7 @@ export function createPackUI(ctx) {
   let photoDrag = null;
   let refreshTimer = 0;
   let thresholdTimer = 0;
-  let addingToBook = false;
+  let showHow = false; // "How to build it" open for the design in the tray
 
   const checker = createChecker({
     workerSource: ctx.workerSource,
@@ -164,7 +165,7 @@ export function createPackUI(ctx) {
         updateDraftBar();
       }
       ctx.renderPanel();
-    } else if (st.mode === 'book') {
+    } else if (st.mode === 'print') {
       ctx.renderPanel();
     }
   }
@@ -179,9 +180,15 @@ export function createPackUI(ctx) {
     }
   }
 
+  /** One way to build the design, in 3D, piece by piece (solutionview.js). */
+  function howMarkup(s, rows, cols) {
+    if (!showHow || s.status !== 'possible' || !s.pieces) return '';
+    return `<div class="pk-how">${ctx.solutionMarkup(rows, cols, s.pieces)}</div>`;
+  }
+
   function resultMarkup(s) {
     switch (s.status) {
-      case 'possible': return '<div class="result is-possible"><span class="pill ok">Possible</span><p>The pieces can build this design.</p></div>';
+      case 'possible': return `<div class="result is-possible"><span class="pill ok">Possible</span><p>The pieces can build this design.</p>${s.pieces ? `<button type="button" class="btn small" data-action="design-how" aria-pressed="${showHow}">${showHow ? 'Hide how' : 'How to build it'}</button>` : ''}</div>`;
       case 'impossible': return `<div class="result is-impossible"><span class="pill bad">Impossible</span><p>${esc(s.reason ?? 'The pieces cannot build this design.')}</p></div>`;
       case 'unknown': return `<div class="result is-unknown"><span class="pill warn">Couldn't decide</span><p>${esc(s.reason ?? '')}</p></div>`;
       case 'incomplete': return '<div class="result"><p class="muted">Paint every square. The design is checked as you paint.</p></div>';
@@ -236,7 +243,7 @@ ${editable(pack) ? `<button type="button" class="tool" data-action="design-new" 
     if (!editable(pack)) {
       return `<p class="muted">This pack comes with the app, so it cannot be changed here. Make a copy to change it.</p>
 <div class="row-buttons"><button type="button" class="btn small primary" data-action="pack-copy">${ICONS.copy}Make a copy to edit</button>
-${d.index >= 0 ? `<button type="button" class="btn small" data-action="design-play">${ICONS.play}Play in Build</button>` : ''}</div>`;
+${d.index >= 0 ? `<button type="button" class="btn small" data-action="design-play">${ICONS.play}Try it as a buyer</button>` : ''}</div>`;
     }
     const s = draftStatus();
     const dirty = isDirty();
@@ -246,7 +253,7 @@ ${d.index >= 0 ? `<button type="button" class="btn small" data-action="design-pl
     return `<div class="row-buttons">
 <button type="button" class="btn small primary" data-action="draft-save" ${canSave ? '' : 'disabled'}>${ICONS.check}${isNew ? 'Add to the pack' : 'Save changes'}</button>
 <button type="button" class="btn small" data-action="draft-revert" ${dirty ? '' : 'disabled'}>${ICONS.undo}${isNew ? 'Clear' : 'Undo changes'}</button>
-${isNew ? '' : `<button type="button" class="btn small" data-action="design-play" ${dirty ? 'disabled' : ''}>${ICONS.play}Play in Build</button>`}
+${isNew ? '' : `<button type="button" class="btn small" data-action="design-play" ${dirty ? 'disabled' : ''}>${ICONS.play}Try it as a buyer</button>`}
 </div>${why ? `<p class="hint">${why}</p>` : ''}`;
   }
 
@@ -257,7 +264,9 @@ ${isNew ? '' : `<button type="button" class="btn small" data-action="design-play
     const paint = editable(pack)
       ? `${ctx.paletteMarkup()}<p class="hint">${fine ? '<b>Left-click</b> paints a square, <b>right-click</b> erases it. Drag to paint several.' : 'Tap or drag to paint. Choose <b>Erase</b> to clear squares.'}</p>`
       : '';
-    return `<div class="check-result" id="packResult" aria-live="polite">${resultMarkup(draftStatus())}</div>
+    const s = draftStatus();
+    return `<div class="check-result" id="packResult" aria-live="polite">${resultMarkup(s)}</div>
+<div id="packHow">${howMarkup(s, pack.rows, pack.cols)}</div>
 <div class="pk-draft-actions" id="packDraftActions">${draftActionsMarkup()}</div>
 ${paint}`;
   }
@@ -265,8 +274,11 @@ ${paint}`;
   /** Redraw the check result and the save buttons (cheaper than the whole bar while painting). */
   function updateDraftBar() {
     if (state().mode !== 'packs' || showingPhoto()) return;
+    const s = draftStatus();
     const box = document.getElementById('packResult');
-    if (box) box.innerHTML = resultMarkup(draftStatus());
+    if (box) box.innerHTML = resultMarkup(s);
+    const how = document.getElementById('packHow');
+    if (how) how.innerHTML = howMarkup(s, currentPack().rows, currentPack().cols);
     const actions = document.getElementById('packDraftActions');
     if (actions) actions.innerHTML = draftActionsMarkup();
   }
@@ -278,8 +290,7 @@ ${paint}`;
     const pack = currentPack();
     const chip = (p) => `<button type="button" class="chip${p.id === pack.id ? ' is-on' : ''}" data-action="pack-select" data-id="${esc(p.id)}" aria-pressed="${p.id === pack.id}">${esc(p.name)} <small>${sizeLabel(p.rows, p.cols)} · ${p.designs.length}</small></button>`;
     const mine = st.packs.map(chip).join('');
-    const sizes = PACK_SIZES.map((s) => `<button type="button" class="chip" data-action="pack-new" data-rows="${s.rows}" data-cols="${s.cols}">+ ${sizeLabel(s.rows, s.cols)}</button>`).join('');
-    const book = ctx.currentBook();
+    const sizes = TRAY_SIZES.map((s) => `<button type="button" class="chip" data-action="pack-new" data-rows="${s.rows}" data-cols="${s.cols}">+ ${sizeLabel(s.rows, s.cols)} pack</button>`).join('');
     return `<section class="card" aria-labelledby="packs-h">
 <h2 id="packs-h">Packs</h2>
 <p class="field-label">Yours</p>
@@ -287,9 +298,9 @@ ${mine ? `<div class="chips tight" role="group" aria-label="Your packs">${mine}<
 ${BUILT_IN.length > hidden().length ? `<p class="field-label">Come with the app</p>
 <div class="chips tight" role="group" aria-label="Packs that come with the app">${BUILT_IN.filter((p) => !hidden().includes(p.id)).map(chip).join('')}</div>` : ''}
 ${hidden().length ? `<div class="row-buttons"><button type="button" class="btn small" data-action="pack-unhide">Show ${plural(hidden().length, 'hidden pack')} again</button></div>` : ''}
-<p class="field-label">Start a new pack (tray size)</p>
+<p class="field-label">Start a new pack (one per box, for the tray in the box)</p>
 <div class="chips tight" role="group" aria-label="New pack">${sizes}</div>
-<div class="row-buttons"><button type="button" class="btn small" data-action="pack-from-book" ${book.challenges.length ? '' : 'disabled'}>${ICONS.book}New pack from the book “${esc(book.title)}”</button></div>
+${storeLine()}
 </section>`;
   }
 
@@ -308,7 +319,6 @@ ${hidden().length ? `<div class="row-buttons"><button type="button" class="btn s
     const sel = pack.designs[st.packIndex];
     const i = st.packIndex;
     const bad = pack.designs.filter((d) => statusOf(pack.rows, pack.cols, d.looks).status === 'impossible').length;
-    const buildFits = ctx.buildFits(pack.rows, pack.cols);
     const selTools = sel ? `<div class="pk-sel">
 <span class="ch-stars" role="group" aria-label="Difficulty of design ${i + 1}">${[1, 2, 3].map((level) => `<button type="button" class="star-btn level-${sel.stars}${level <= sel.stars ? ' on' : ''}" data-action="design-stars" data-level="${level}" aria-label="${DIFFICULTY[level].name}" aria-pressed="${level === sel.stars}" ${canEdit ? '' : 'disabled'}>★</button>`).join('')}</span>
 ${canEdit ? `<span class="ch-actions">
@@ -321,13 +331,12 @@ ${canEdit ? `<span class="ch-actions">
 <div class="row-buttons">
 <button type="button" class="btn small" data-action="design-new" ${i < 0 ? 'disabled' : ''}>${ICONS.board}Paint a new one</button>
 ${[1, 2, 3].map((level) => `<button type="button" class="btn small level level-${level}" data-action="design-random" data-level="${level}" title="A random design that can be built">${ICONS.dice}<span class="stars level-${level}"><span aria-hidden="true">${'★'.repeat(level)}</span><span class="sr-only">${DIFFICULTY[level].name}</span></span></button>`).join('')}
-<button type="button" class="btn small" data-action="design-from-build" ${buildFits ? '' : 'disabled'} title="${buildFits ? 'Copy the picture of the Build tray' : `Fill a ${sizeLabel(pack.rows, pack.cols)} Build tray first`}">+ Build tray</button>
 </div>` : '';
     return `<section class="card" aria-labelledby="designs-h">
 <h2 id="designs-h">${esc(pack.name)} <small>${sizeLabel(pack.rows, pack.cols)} · ${plural(pack.designs.length, 'design')}</small></h2>
 ${canEdit ? `<label class="field-label" for="packName">Name</label><input class="text-input" id="packName" maxlength="${MAX_PACK_NAME}" value="${esc(pack.name)}" autocomplete="off">` : ''}
 ${items ? `<ol class="pk-grid">${items}</ol>` : '<p class="muted">No designs yet.</p>'}
-${bad ? `<p class="hint is-bad">${plural(bad, 'design')} cannot be built (marked ✗). Open ${bad === 1 ? 'it' : 'them'} and fix the squares; ${bad === 1 ? 'it is' : 'they are'} left out of the book.</p>` : ''}
+${bad ? `<p class="hint is-bad">${plural(bad, 'design')} cannot be built (marked ✗). Open ${bad === 1 ? 'it' : 'them'} and fix the squares; ${bad === 1 ? 'it is' : 'they are'} left out of the cards.</p>` : ''}
 ${selTools}
 ${add}
 <div class="row-buttons pk-pack-actions">
@@ -337,28 +346,31 @@ ${canEdit ? `<button type="button" class="btn small" data-action="pack-delete">$
 </section>`;
   }
 
-  function useCard() {
-    const pack = currentPack();
-    const shape = bookShapeFor(pack.rows, pack.cols);
-    const book = ctx.bookFor(shape.shape, shape.n);
-    return `<section class="card" aria-labelledby="use-h">
-<h2 id="use-h">Book and cards</h2>
-<p class="muted">Adds every design that can be built to your ${sizeLabel(pack.rows, pack.cols)} book “${esc(book.title)}” (${plural(book.challenges.length, 'challenge')} now), with its stars. Designs already in the book are skipped. Each challenge in the book is also a card.</p>
-<div class="row-buttons"><button type="button" class="btn primary" data-action="pack-to-book" ${pack.designs.length && !addingToBook ? '' : 'disabled'}>${ICONS.book}Add the pack to the book</button></div>
-</section>`;
+  /** Where the packs are kept, in one line. */
+  function storeLine() {
+    const { kind, detail } = ctx.storeStatus();
+    const text = {
+      connecting: 'Connecting to your saved packs…',
+      ready: 'Your packs are saved to your account: they last, they are on every device you open this on, and Claude can read them.',
+      saving: 'Saving…',
+      local: 'Your packs are kept in this browser only. Save them as files to keep a copy.',
+      offline: 'Your saved packs cannot be reached right now. Changes are kept here and saved when they can be.',
+      error: `Your packs could not be saved to your account${detail ? ` (${detail})` : ''}. They are kept in this browser; save them as files to be safe.`,
+    }[kind] ?? '';
+    const tone = kind === 'ready' ? 'ok' : kind === 'error' || kind === 'offline' ? 'bad' : '';
+    return `<p class="pk-store${tone ? ` is-${tone}` : ''}" role="status">${kind === 'ready' ? `${ICONS.check} ` : ''}${esc(text)}</p>`;
   }
 
-  function exportCard() {
+  function filesCard() {
     const pack = currentPack();
     return `<section class="card" aria-labelledby="pkx-h">
-<h2 id="pkx-h">Copy, save, open</h2>
+<h2 id="pkx-h">Files</h2>
 <div class="row-buttons">
-<button type="button" class="btn primary" data-action="pack-copy-code" ${pack.designs.length ? '' : 'disabled'}>${ICONS.copy}Copy as code</button>
-<button type="button" class="btn" data-action="pack-save" ${pack.designs.length ? '' : 'disabled'}>${ICONS.download}Save pack (.json)</button>
+<button type="button" class="btn" data-action="pack-save" ${pack.designs.length ? '' : 'disabled'}>${ICONS.download}Save this pack as a file</button>
 <button type="button" class="btn" data-action="pack-open">${ICONS.upload}Open a pack file</button>
 </div>
-<p class="hint"><b>Copy as code</b> gives the pack as text. To build it into the app, paste it into the list in <code>src/builtinpacks.js</code>, or send it to whoever looks after the app. The same text can be pasted below to open it again.</p>
-<details class="share"><summary>Paste a pack</summary>
+<p class="hint">To make a pack part of the app for good (in every buyer's app), ask Claude to add it: it reads your saved packs. A pack file (.json) works too.</p>
+<details class="share"><summary>Paste a pack as text</summary>
 <label class="sr-only" for="packPaste">Pack as text</label>
 <textarea id="packPaste" class="pk-paste" rows="5" placeholder='{ "name": "My pack", "rows": 4, "cols": 4, "designs": [ { "looks": "1121/1122/1122/1122", "stars": 1 } ] }' spellcheck="false"></textarea>
 <div class="row-buttons"><button type="button" class="btn small" data-action="pack-paste">Open pasted pack</button></div>
@@ -400,8 +412,8 @@ ${viewing ? '' : `<div class="row-buttons"><button type="button" class="btn prim
   function panelMarkup() {
     const showPhotoFirst = showingPhoto();
     return showPhotoFirst
-      ? `${photoCard()}${designsCard()}${useCard()}${exportCard()}${packsCard()}`
-      : `${packsCard()}${designsCard()}${photoCard()}${useCard()}${exportCard()}`;
+      ? `${photoCard()}${designsCard()}${packsCard()}`
+      : `${packsCard()}${designsCard()}${photoCard()}${filesCard()}`;
   }
 
   // ---- Photo stage -------------------------------------------------------------------------
@@ -656,55 +668,6 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
     ctx.setStatus(`Added ${plural(added, 'design')} to “${pack.name}”.${duplicates ? ` ${plural(duplicates, 'design')} ${duplicates === 1 ? 'was' : 'were'} already in it.` : ''}`);
   }
 
-  // ---- Book ------------------------------------------------------------------------------------
-
-  /** Add every buildable design of a pack to the book of its size. */
-  async function addPackToBook(pack, { show = true } = {}) {
-    if (addingToBook || !pack?.designs.length) return;
-    const st = state();
-    const shape = bookShapeFor(pack.rows, pack.cols);
-    const book = ctx.bookFor(shape.shape, shape.n);
-    addingToBook = true;
-    ctx.renderPanel();
-    let added = 0;
-    let already = 0;
-    let impossible = 0;
-    let unsure = 0;
-    try {
-      const inBook = new Set(book.challenges.map((c) => c.looks.join('')));
-      for (let i = 0; i < pack.designs.length; i += 1) {
-        const d = pack.designs[i];
-        if (inBook.has(d.looks.join(''))) {
-          already += 1;
-          continue;
-        }
-        ctx.setStatus(`Checking design ${i + 1} of ${pack.designs.length}…`, false);
-        const quick = quickCheck(pack.rows, pack.cols, d.looks, defaultInventory(pack.rows, pack.cols));
-        const res = quick.ok ? await checker.check(pack.rows, pack.cols, d.looks) : { status: 'impossible' };
-        if (res.status === 'impossible') impossible += 1;
-        else if (res.status !== 'possible') unsure += 1;
-        else {
-          addChallenge(book, { looks: d.looks, answer: res.pieces, difficulty: d.stars });
-          inBook.add(d.looks.join(''));
-          added += 1;
-        }
-      }
-    } finally {
-      addingToBook = false;
-    }
-    st.bookKey = bookKey(shape.shape, shape.n);
-    st.bookLeaf = 0;
-    ctx.bookChanged();
-    if (show) st.mode = 'book';
-    ctx.render();
-    const notes = [
-      already ? `${already} already there` : '',
-      impossible ? `${impossible} cannot be built` : '',
-      unsure ? `${unsure} could not be checked` : '',
-    ].filter(Boolean).join(', ');
-    ctx.setStatus(`Added ${plural(added, 'design')} from “${pack.name}” to the book “${book.title}”${notes ? ` (${notes}, left out)` : ''}.`, true, added ? 'ok' : '');
-  }
-
   // ---- Files -----------------------------------------------------------------------------------
 
   function openPacks(text, source) {
@@ -731,6 +694,18 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
   }
 
   // ---- Actions -----------------------------------------------------------------------------------
+
+  /** Work on another pack (asks first if the design in the tray has unsaved changes). */
+  async function selectPack(id) {
+    const st = state();
+    if (id === st.packId || !allPacks().some((p) => p.id === id)) return;
+    if (!(await leaveDraft())) return;
+    st.packId = id;
+    st.packIndex = currentPack().designs.length ? 0 : -1;
+    st.packDraft = null;
+    st.packView = 'design';
+    changed();
+  }
 
   async function selectDesign(index) {
     const st = state();
@@ -766,16 +741,7 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
   }
 
   const actions = {
-    'pack-select': async (el) => {
-      const st = state();
-      if (el.dataset.id === st.packId) return;
-      if (!(await leaveDraft())) return;
-      st.packId = el.dataset.id;
-      st.packIndex = currentPack().designs.length ? 0 : -1;
-      st.packDraft = null;
-      st.packView = 'design';
-      changed();
-    },
+    'pack-select': (el) => selectPack(el.dataset.id),
     'pack-new': async (el) => {
       if (!(await leaveDraft())) return;
       const st = state();
@@ -810,6 +776,7 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
       if (!editable(pack)) return;
       if (!(await ctx.confirmDialog(`Delete the pack “${pack.name}” and its ${plural(pack.designs.length, 'design')}?`, 'Delete pack'))) return;
       st.packs = st.packs.filter((p) => p.id !== pack.id);
+      ctx.packDeleted(pack.id);
       st.packId = '';
       st.packDraft = null;
       currentPack();
@@ -820,7 +787,7 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
       const st = state();
       const pack = currentPack();
       if (!pack.builtIn) return;
-      if (!(await ctx.confirmDialog(`Hide “${pack.name}”? It comes with the app, so it cannot be deleted, but it will no longer show here, in the book or in games. You can show it again under Packs.`, 'Hide pack'))) return;
+      if (!(await ctx.confirmDialog(`Hide “${pack.name}”? It comes with the app, so it cannot be deleted, but it will no longer show here, in Print or in the customer preview. You can show it again under Packs.`, 'Hide pack'))) return;
       st.hiddenPacks = [...hidden(), pack.id];
       st.packId = '';
       st.packDraft = null;
@@ -832,18 +799,6 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
       state().hiddenPacks = [];
       changed();
       ctx.setStatus('The packs that come with the app are back.');
-    },
-    'pack-from-book': async () => {
-      if (!(await leaveDraft())) return;
-      const st = state();
-      const pack = packFromBook(ctx.currentBook());
-      st.packs.push(pack);
-      st.packId = pack.id;
-      st.packIndex = pack.designs.length ? 0 : -1;
-      st.packDraft = null;
-      st.packView = 'design';
-      changed();
-      ctx.setStatus(`Made the pack “${pack.name}” from the book's ${plural(pack.designs.length, 'challenge')}.`);
     },
     'design-select': (el) => selectDesign(Number(el.dataset.index)),
     'design-prev': () => selectDesign(Math.max(0, state().packIndex - 1)),
@@ -871,17 +826,6 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
       st.packView = 'design';
       changed();
       ctx.setStatus(`Added design ${pack.designs.length} (${DIFFICULTY[level].name.toLowerCase()}). Paint over it to change it.`);
-    },
-    'design-from-build': async () => {
-      const pack = currentPack();
-      if (!ctx.buildFits(pack.rows, pack.cols)) return;
-      if (!(await leaveDraft())) return;
-      const st = state();
-      st.packIndex = -1;
-      st.packDraft = { packId: pack.id, index: -1, looks: ctx.buildLooks() };
-      st.packView = 'design';
-      changed();
-      ctx.setStatus('Copied the Build tray as a new design. Add it to the pack, or paint over it first.');
     },
     'design-stars': (el) => {
       const pack = currentPack();
@@ -919,7 +863,11 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
       const d = pack.designs[st.packIndex];
       if (!d) return;
       const known = checker.get(pack.rows, pack.cols, d.looks);
-      ctx.startChallenge({ target: d.looks.slice(), answer: known?.pieces ?? null, difficulty: d.stars, label: `${pack.name}, design ${st.packIndex + 1}`, rows: pack.rows, cols: pack.cols });
+      ctx.tryDesign(pack, st.packIndex, known?.pieces ?? null);
+    },
+    'design-how': () => {
+      showHow = !showHow;
+      updateDraftBar();
     },
     'draft-save': () => {
       const st = state();
@@ -947,14 +895,12 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
       state().packDraft = null;
       changed();
     },
-    'pack-to-book': () => addPackToBook(currentPack()),
-    'pack-copy-code': () => ctx.copyText(packToCode(currentPack()), 'Pack code'),
     'pack-save': async () => {
       const pack = currentPack();
       const name = `${slugify(pack.name)}.pack.json`;
       const res = await ctx.saveFile(name, packToCode(pack), 'application/json');
       if (res === 'saved') ctx.setStatus(`Saved ${name}. Open it later with “Open a pack file”.`);
-      else if (res === 'failed') ctx.setStatus('Saving is blocked here. Use “Copy as code” and keep the text somewhere safe.', true, 'bad');
+      else if (res === 'failed') ctx.setStatus('Saving a file is blocked here.', true, 'bad');
     },
     'pack-open': () => pickFile('application/json,.json,.js,.txt', async (file) => openPacks(await file.text(), file.name)),
     'pack-paste': () => {
@@ -1035,7 +981,7 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
     });
     // Renaming: redraw the pack list once the name is done.
     panel.addEventListener('change', (evt) => {
-      if (evt.target.id === 'packName') ctx.renderPanel();
+      if (evt.target.id === 'packName') ctx.render();
     });
     document.getElementById('stageBar').addEventListener('change', (evt) => {
       const box = evt.target.closest?.('input[data-region]');
@@ -1049,11 +995,6 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
     });
   }
 
-  /** Packs that fit a book, for the Challenge book tab: [{ id, name, count }]. */
-  function packsFor(rows, cols) {
-    return allPacks().filter((p) => p.rows === rows && p.cols === cols && p.designs.length).map((p) => ({ id: p.id, name: p.name, count: p.designs.length, builtIn: p.builtIn }));
-  }
-
   return {
     actions,
     attach,
@@ -1063,10 +1004,10 @@ ${photo.regions.length ? `<ol class="ph-list">${list}</ol>` : '<p class="muted">
     stageBarMarkup,
     renderPhotoStage,
     showingPhoto,
-    packsFor,
-    addPackById: (id) => addPackToBook(allPacks().find((p) => p.id === id), { show: false }),
-    isAdding: () => addingToBook,
     allPacks,
+    selectPack,
+    /** The status of a design if known (for Print): { status, pieces?, reason? }. */
+    statusOf: (rows, cols, looks) => statusOf(rows, cols, looks),
     /** Check a design (in the background worker): a promise of { status, pieces?, reason? }. */
     solve: (rows, cols, looks) => checker.check(rows, cols, looks),
   };
@@ -1079,7 +1020,7 @@ export function revivePacks(list, normalize) {
   for (const raw of list) {
     try {
       const p = normalize(raw);
-      p.id = typeof raw.id === 'string' && raw.id && !raw.id.startsWith('builtin:') ? raw.id : `p${out.length}${Date.now().toString(36)}`;
+      p.id = typeof raw.id === 'string' && /^[A-Za-z0-9_.~:@+-]{1,120}$/.test(raw.id) && !raw.id.startsWith('builtin:') ? raw.id : `p${out.length}${Date.now().toString(36)}`;
       out.push(p);
     } catch {
       /* dropped */

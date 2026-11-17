@@ -1,38 +1,46 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { addChallenge, newBook } from '../src/book.js';
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { defaultInventory } from '../src/board.js';
-import { BUILT_IN_PACKS } from '../src/builtinpacks.js';
 import {
   PACK_SIZES,
+  TRAY_SIZES,
   addDesigns,
-  bookShapeFor,
-  builtInPacks,
   looksToText,
   newPack,
   normalizePack,
-  packFromBook,
   packToCode,
+  packToFile,
   parsePacks,
+  suggestDifficulty,
   textToLooks,
 } from '../src/packs.js';
 import { solvePattern } from '../src/solver.js';
 
-test('pack sizes are the book sizes', () => {
+const packsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'packs');
+/** The packs that ship with the app: the files in packs/. */
+const packFiles = () => readdirSync(packsDir).filter((f) => f.endsWith('.json')).sort().map((f) => ({ file: f, raw: JSON.parse(readFileSync(path.join(packsDir, f), 'utf8')) }));
+
+test('pack sizes: square and long trays; new packs are made for the trays that exist', () => {
   assert.deepEqual(PACK_SIZES.map((s) => `${s.rows}x${s.cols}`), ['2x2', '4x4', '6x6', '8x8', '2x4', '4x8', '6x12']);
-  assert.deepEqual(bookShapeFor(4, 8), { shape: 'rect', n: 4 });
-  assert.equal(bookShapeFor(8, 4), null);
+  assert.deepEqual(TRAY_SIZES.map((s) => `${s.rows}x${s.cols}`), ['4x4', '4x8']);
   assert.throws(() => newPack({ rows: 8, cols: 4 }));
 });
 
-test('every built-in design can be built', () => {
-  const packs = builtInPacks();
-  assert.equal(packs.length, BUILT_IN_PACKS.length);
+test('the pack files in packs/ are packs, and every design in them can be built', () => {
+  const files = packFiles();
+  assert.ok(files.length >= 1);
   const ids = new Set();
-  for (const pack of packs) {
+  for (const { file, raw } of files) {
+    assert.equal(raw.format, 'building-blocks-pack', file);
+    const pack = normalizePack(raw, { builtIn: true });
     assert.ok(pack.builtIn && pack.id.startsWith('builtin:'));
-    assert.ok(!ids.has(pack.id), `duplicate id ${pack.id}`);
+    assert.ok(pack.builtIn && pack.id.startsWith('builtin:'));
+    assert.ok(!ids.has(pack.id), `duplicate id ${pack.id} (${file})`);
     ids.add(pack.id);
     pack.designs.forEach((d, i) => {
       const res = solvePattern(pack.rows, pack.cols, d.looks, defaultInventory(pack.rows, pack.cols), { maxNodes: 8000000 });
@@ -49,7 +57,7 @@ test('looks as text', () => {
   assert.throws(() => textToLooks('123/5612', 2, 4), /needs 8 squares/);
 });
 
-test('copy as code and read it back', () => {
+test('a pack as a file, and read back', () => {
   const pack = newPack({ name: 'Mine ✓', rows: 2, cols: 4 });
   addDesigns(pack, [{ looks: [1, 2, 3, 4, 5, 6, 1, 2], stars: 3 }, { looks: [1, 1, 1, 1, 2, 2, 2, 2] }]);
   const code = packToCode(pack);
@@ -59,7 +67,11 @@ test('copy as code and read it back', () => {
   assert.equal(back.rows, 2);
   assert.equal(back.cols, 4);
   assert.deepEqual(back.designs, pack.designs);
-  // As pasted into src/builtinpacks.js, with comments, unquoted keys and trailing commas.
+  // The file object (packs/*.json, the artifact's database) reads back the same.
+  const file = packToFile(pack);
+  assert.equal(file.designs[0].looks, '1234/5612');
+  assert.deepEqual(parsePacks(JSON.stringify(file))[0].designs, pack.designs);
+  // Written by hand, with comments, unquoted keys and trailing commas.
   const js = `export const BUILT_IN_PACKS = [
   // my pack
   { id: 'x', name: 'X', rows: 2, cols: 2, designs: [ { looks: '12/21', stars: 1, }, ], },
@@ -83,11 +95,8 @@ test('addDesigns skips designs the pack already has', () => {
   assert.equal(pack.designs.length, 2);
 });
 
-test('a pack from a book keeps the pictures and stars', () => {
-  const book = newBook('square', 2);
-  book.title = 'Tiny';
-  addChallenge(book, { looks: [1, 2, 2, 1], difficulty: 3 });
-  const pack = packFromBook(book);
-  assert.equal(pack.name, 'Tiny');
-  assert.deepEqual(pack.designs, [{ looks: [1, 2, 2, 1], stars: 3 }]);
+test('suggested stars follow the share of split squares', () => {
+  assert.equal(suggestDifficulty([1, 1, 2, 2, 1, 1, 2, 2]), 1);
+  assert.equal(suggestDifficulty([3, 4, 2, 2, 1, 1, 2, 2]), 2);
+  assert.equal(suggestDifficulty([3, 4, 5, 2, 1, 1, 2, 2]), 3);
 });

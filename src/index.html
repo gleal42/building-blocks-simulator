@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Place cube + prism pieces and loose prisms in a tray, turn them every way they can go, and check which black-and-white pictures can be made.">
-<title>Building Blocks Simulator</title>
+<meta name="description" content="Notan: make packs of black-and-white designs for the block puzzle, print their cards, box and rules, and preview what a buyer gets.">
+<title>Notan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;family=Unbounded:wght@500;700&amp;display=swap">
@@ -21,16 +21,15 @@
         <path d="M6 21h13v13Z" fill="#f7f7f4"/><path d="M6 21v13h13Z" fill="#1d1f22"/>
         <rect x="21" y="21" width="13" height="13" rx="2" fill="#1d1f22"/>
       </svg>
-      <h1>Building Blocks <span>Simulator</span></h1>
+      <h1>Notan</h1>
+      <div class="side-switch" role="group" aria-label="Whose side">
+        <button type="button" data-side="maker" aria-pressed="true">Maker</button>
+        <button type="button" data-side="customer" aria-pressed="false">Customer</button>
+      </div>
     </div>
-    <nav class="tabs" role="tablist" aria-label="Mode">
-      <button type="button" role="tab" data-tab="build" aria-selected="true">Build</button>
-      <button type="button" role="tab" data-tab="check" aria-selected="false" tabindex="-1"><span class="tab-long">Check a picture</span><span class="tab-short">Check</span></button>
-      <button type="button" role="tab" data-tab="packs" aria-selected="false" tabindex="-1">Packs</button>
-      <button type="button" role="tab" data-tab="play" aria-selected="false" tabindex="-1">Play</button>
-      <button type="button" role="tab" data-tab="book" aria-selected="false" tabindex="-1"><span class="tab-long">Challenge book</span><span class="tab-short">Book</span></button>
-    </nav>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Maker"></nav>
   </header>
+  <div class="side-note" id="sideNote" hidden></div>
   <main class="layout">
     <section class="stage" aria-label="Tray">
       <div id="stageTop"></div>
@@ -43,9 +42,10 @@
         </div>
         <svg id="board" role="application" tabindex="0" aria-label="Tray" xmlns="http://www.w3.org/2000/svg"></svg>
       </div>
-      <div class="book-stage" id="bookStage" hidden></div>
+      <div class="print-stage" id="printStage" hidden></div>
       <div class="photo-stage" id="photoStage" hidden></div>
       <div class="play-stage" id="playStage" hidden></div>
+      <div class="library-stage" id="libraryStage" hidden></div>
       <p class="status" id="status" aria-live="polite"></p>
       <div class="stage-bar" id="stageBar"></div>
     </section>

@@ -1,0 +1,16 @@
+{
+  "format": "building-blocks-pack",
+  "version": 1,
+  "id": "starter-4x4",
+  "name": "Starter 4×4",
+  "rows": 4,
+  "cols": 4,
+  "designs": [
+    { "looks": "1121/1122/1122/1122", "stars": 1 },
+    { "looks": "5111/2121/2223/1122", "stars": 1 },
+    { "looks": "2411/2221/5122/1124", "stars": 2 },
+    { "looks": "2212/2432/2416/1111", "stars": 2 },
+    { "looks": "6512/1322/1132/2141", "stars": 3 },
+    { "looks": "6113/1322/2266/2411", "stars": 3 }
+  ]
+}

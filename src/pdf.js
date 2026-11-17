@@ -129,11 +129,25 @@ export class PageCanvas {
     this.op(`${num(this.X(x1))} ${num(this.Y(y1))} m ${num(this.X(x2))} ${num(this.Y(y2))} l S`);
   }
 
-  /** Text with its baseline at y. anchor: start | middle | end. */
-  text(x, y, text, { size = 12, bold = false, fill = '#000000', anchor = 'start' } = {}) {
+  /**
+   * Text with its baseline at y. anchor: start | middle | end. rot: degrees clockwise (as
+   * seen on the page) around (x, y).
+   */
+  text(x, y, text, { size = 12, bold = false, fill = '#000000', anchor = 'start', rot = 0 } = {}) {
     const width = textWidth(text, size, bold);
-    const left = anchor === 'middle' ? x - width / 2 : anchor === 'end' ? x - width : x;
-    this.op(`BT /${bold ? 'F2' : 'F1'} ${num(size * this.frame.k)} Tf ${rgb(fill)} rg ${num(this.X(left))} ${num(this.Y(y))} Td ${pdfString(text)} Tj ET`);
+    const back = anchor === 'middle' ? width / 2 : anchor === 'end' ? width : 0;
+    const font = `/${bold ? 'F2' : 'F1'} ${num(size * this.frame.k)} Tf ${rgb(fill)} rg`;
+    if (!rot) {
+      this.op(`BT ${font} ${num(this.X(x - back))} ${num(this.Y(y))} Td ${pdfString(text)} Tj ET`);
+      return;
+    }
+    // Along the turned baseline in design units (y down), then a text matrix in page units (y up).
+    const a = (rot * Math.PI) / 180;
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    const sx = x - back * cos;
+    const sy = y - back * sin;
+    this.op(`BT ${font} ${num(cos)} ${num(-sin)} ${num(sin)} ${num(cos)} ${num(this.X(sx))} ${num(this.Y(sy))} Tm ${pdfString(text)} Tj ET`);
   }
 
   /** A JPEG scaled to cover the box (cropped, centred). */
