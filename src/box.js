@@ -112,7 +112,6 @@ const MUTED = '#6f6a5c';
 const PAPER = '#e7c18c';
 const PAPER_SHADE = '#d6ac72';
 const FRAME_RED = '#a13a1e';
-const WALL_MUTED = '#6b4a2a';
 
 /**
  * A wall's red frame, 2.5 mm in from its edges, with a small fret in each corner (as on the
@@ -137,26 +136,6 @@ function wallFrame(x, y, w, h) {
 
 const txt = (x, y, text, size, opts = {}) => ({ t: 'text', x, y, text, size, fill: opts.fill ?? INK, bold: !!opts.bold, anchor: opts.anchor ?? 'middle', rot: opts.rot ?? 0 });
 
-/**
- * Lines of text centred on (cx, cy), turned by rot degrees (clockwise): for a wall, the turn
- * that puts the top of the letters against the lid's top once it is folded.
- * lines: [{ text, size, bold?, fill? }]
- */
-function textBlock(cx, cy, rot, lines) {
-  const lead = 1.25;
-  const total = lines.reduce((a, l, i) => a + l.size * (i ? lead : 1), 0);
-  const a = (rot * Math.PI) / 180;
-  // "Down" for the letters, turned with them.
-  const down = [-Math.sin(a), Math.cos(a)];
-  const items = [];
-  let along = -total / 2;
-  lines.forEach((l, i) => {
-    along += l.size * (i ? lead : 1);
-    const off = along - l.size * 0.14;
-    items.push(txt(cx + down[0] * off, cy + down[1] * off, l.text, l.size, { bold: l.bold, fill: l.fill, rot }));
-  });
-  return items;
-}
 const cut = (x1, y1, x2, y2) => ({ t: 'line', x1, y1, x2, y2, stroke: CUT, sw: 0.35 });
 const fold = (x1, y1, x2, y2) => ({ t: 'line', x1, y1, x2, y2, stroke: FOLD, sw: 0.35, dash: [3, 2] });
 
@@ -192,11 +171,9 @@ export function dieline(kind, plan, opts = {}) {
       items.push(txt(X(h + a / 2), Y(h + b / 2 + 4), `${a} × ${b} mm, plus ${BLEED} mm bleed on every side`, Math.min(5, a / 34), { fill: MUTED }));
     }
     // The walls, each turned so its letters stand upright when the lid is on the box.
-    const small = Math.min(4.5, h / 5.5);
     items.push(...wallFrame(X(h), Y(0), a, h), ...wallFrame(X(h), Y(h + b), a, h));
     items.push(...wallFrame(X(0), Y(h), h, b), ...wallFrame(X(h + a), Y(h), h, b));
-    // Only the pack's name, on the front wall: the cover already says what the game is.
-    if (subtitle) items.push(...textBlock(X(h + a / 2), Y(h + b + h / 2), 0, [{ text: subtitle, size: small * 1.2, bold: true, fill: WALL_MUTED }]));
+    // The walls carry no text: the cover says what the game is.
   } else {
     // The underside of the base: what is inside, how to get the digital pack, who made it.
     items.push({ t: 'rect', x: X(h), y: Y(h), w: a, h: b, fill: '#fbf8f1' });
@@ -315,16 +292,14 @@ const escXml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').rep
 
 /**
  * The closed box as it looks on a shelf (SVG, millimetres): the cover art on the lid's top,
- * the name on its front and side. A sketch of the finished box, not a print file.
- * opts: { subtitle, cover: { src } | null, label }
+ * plain walls in its paper and red frame. A sketch of the finished box, not a print file.
+ * opts: { cover: { src } | null, label }
  */
 export function boxMockup(plan, opts = {}) {
   const { l: L, w: W, h: H } = plan.lid;
   // Depth goes up and to the right.
   const dx = 0.35;
   const dy = -0.6;
-  const subtitle = escXml(opts.subtitle ?? '');
-  const small = Math.min(4.5, H / 5.5);
   const right = L + W * dx;
   const top = -H + W * dy;
   const pts = (list) => list.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
@@ -345,6 +320,5 @@ ${itemsSvgFrame(wallFrame(0, 0, W, H))}
 </g>
 <rect x="0" y="${-H}" width="${L}" height="${H}" fill="${PAPER}" ${edge}/>
 ${itemsSvgFrame(wallFrame(0, -H, L, H))}
-${subtitle ? `<text x="${L / 2}" y="${(-H / 2 + small * 0.43).toFixed(2)}" font-size="${(small * 1.2).toFixed(2)}" font-weight="700" text-anchor="middle" fill="${WALL_MUTED}" font-family="Helvetica, Arial, sans-serif">${subtitle}</text>` : ''}
 </svg>`;
 }

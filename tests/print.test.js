@@ -57,12 +57,12 @@ test('rotated text: the wall labels of the box turn, in the preview and in the P
   assert.ok(page.ops.some((op) => / Tm \(Notan\) Tj/.test(op) && op.includes('-1 0 0 -1')));
 });
 
-test('the box lid: plain walls with the pack\'s name on the front; the base says what is inside', () => {
+test('the box lid: plain walls; the base says what is inside', () => {
   const plan = boxPlan({ rows: 4, cols: 4, cards: 24 });
   const opts = { title: 'Notan', subtitle: 'Animals', contents: ['Inside: 1 tray, 16 pieces, 24 cards.'], digital: 'Scan the unlock card.', maker: ['Gonçalo Leal'] };
   const lid = dieline('lid', plan, opts);
   assert.ok(!lid.items.some((it) => it.t === 'text' && it.text === 'Notan'), 'no name on the walls');
-  assert.ok(lid.items.some((it) => it.t === 'text' && it.text === 'Animals' && it.rot === 0), 'the pack on the front');
+  assert.ok(!lid.items.some((it) => it.t === 'text' && it.text === 'Animals'), 'no pack name on the walls');
   assert.ok(lid.items.some((it) => it.t === 'text' && it.text === 'Cover art goes here'), 'cover art is the only part missing');
   const withArt = dieline('lid', plan, { ...opts, cover: { src: 'data:image/jpeg;base64,AAAA', width: 10, height: 6 } });
   assert.ok(withArt.items.some((it) => it.t === 'image'));
