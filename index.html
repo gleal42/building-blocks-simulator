@@ -8874,6 +8874,34 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
   var PAPER2 = "#e7c18c";
   var PAPER_SHADE = "#d6ac72";
   var FRAME_RED = "#a13a1e";
+  function wallStrip(x, y, w, h) {
+    const across = w >= h;
+    const long = across ? w : h;
+    const short = across ? h : w;
+    const t = Math.min(6, short * 0.3);
+    const n = Math.max(3, Math.min(9, Math.floor(long * 0.55 / t)));
+    const start2 = (long - n * t) / 2;
+    const mid = short / 2;
+    const at2 = (sAlong, u) => across ? [x + sAlong, y + mid + u] : [x + mid + u, y + sAlong];
+    const items = [];
+    for (let i = 0; i < n; i += 1) {
+      const s0 = start2 + i * t;
+      const s1 = s0 + t;
+      const a = at2(s0, -t / 2);
+      const b = at2(s1, -t / 2);
+      const c = at2(s1, t / 2);
+      const d = at2(s0, t / 2);
+      items.push({ t: "poly", pts: [a, b, c, d], fill: "#f4ead8" });
+      items.push({ t: "poly", pts: i % 2 ? [a, b, d] : [a, c, d], fill: "#1d1c19" });
+    }
+    const box = [at2(start2, -t / 2), at2(start2 + n * t, -t / 2), at2(start2 + n * t, t / 2), at2(start2, t / 2)];
+    items.push({ t: "poly", pts: box, stroke: "#1d1c19", sw: 0.25 });
+    for (const sAlong of [start2 - t * 0.9, start2 + n * t + t * 0.9]) {
+      const [cx, cy] = at2(sAlong, 0);
+      items.push({ t: "circle", cx, cy, r: t * 0.22, fill: FRAME_RED });
+    }
+    return items;
+  }
   function wallFrame(x, y, w, h) {
     const inset = Math.min(2.5, h / 8);
     const f = Math.min(2.6, h / 7);
@@ -8920,6 +8948,8 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
       }
       items.push(...wallFrame(X(h), Y(0), a, h), ...wallFrame(X(h), Y(h + b), a, h));
       items.push(...wallFrame(X(0), Y(h), h, b), ...wallFrame(X(h + a), Y(h), h, b));
+      items.push(...wallStrip(X(h), Y(0), a, h), ...wallStrip(X(h), Y(h + b), a, h));
+      items.push(...wallStrip(X(0), Y(h), h, b), ...wallStrip(X(h + a), Y(h), h, b));
     } else {
       items.push({ t: "rect", x: X(h), y: Y(h), w: a, h: b, fill: "#fbf8f1" });
       const size = Math.min(3.6, b / 26);
@@ -9013,7 +9043,6 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
     }
     return doc.toBytes();
   }
-  var itemsSvgFrame = (items) => items.map((it) => `<rect x="${it.x.toFixed(2)}" y="${it.y.toFixed(2)}" width="${it.w.toFixed(2)}" height="${it.h.toFixed(2)}" fill="${it.fill ?? "none"}"${it.stroke ? ` stroke="${it.stroke}" stroke-width="${it.sw}"` : ""}/>`).join("");
   var escXml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   function boxMockup(plan, opts = {}) {
     const { l: L, w: W2, h: H } = plan.lid;
@@ -9033,10 +9062,10 @@ ${art}
 <polygon points="${topFace}" fill="none" ${edge}/>
 <g transform="matrix(${dx} ${dy} 0 1 ${L} ${-H})">
 <rect x="0" y="0" width="${W2}" height="${H}" fill="${PAPER_SHADE}" ${edge}/>
-${itemsSvgFrame(wallFrame(0, 0, W2, H))}
+${itemsSvg([...wallFrame(0, 0, W2, H), ...wallStrip(0, 0, W2, H)])}
 </g>
 <rect x="0" y="${-H}" width="${L}" height="${H}" fill="${PAPER2}" ${edge}/>
-${itemsSvgFrame(wallFrame(0, -H, L, H))}
+${itemsSvg([...wallFrame(0, -H, L, H), ...wallStrip(0, -H, L, H)])}
 </svg>`;
   }
 

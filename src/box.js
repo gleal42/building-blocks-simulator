@@ -9,7 +9,7 @@
 // Everything is laid out except the cover art on top of the lid, which is added as a picture.
 
 import { CARD } from './cards.js';
-import { defaultArt, drawItemsPdf, trayItems } from './drawing.js';
+import { defaultArt, drawItemsPdf, itemsSvg, trayItems } from './drawing.js';
 import { wrapText } from './fonts.js';
 import { MM, PdfDocument } from './pdf.js';
 
@@ -114,6 +114,41 @@ const PAPER_SHADE = '#d6ac72';
 const FRAME_RED = '#a13a1e';
 
 /**
+ * The middle of a wall: a strip of the puzzle's split squares, black and white in a zigzag,
+ * with a red dot at each end. Runs along the wall's long side.
+ */
+function wallStrip(x, y, w, h) {
+  const across = w >= h;
+  const long = across ? w : h;
+  const short = across ? h : w;
+  const t = Math.min(6, short * 0.3);
+  const n = Math.max(3, Math.min(9, Math.floor((long * 0.55) / t)));
+  const start = (long - n * t) / 2;
+  const mid = short / 2;
+  // Points along the strip (s) and across it (u), to the sheet.
+  const at = (sAlong, u) => (across ? [x + sAlong, y + mid + u] : [x + mid + u, y + sAlong]);
+  const items = [];
+  for (let i = 0; i < n; i += 1) {
+    const s0 = start + i * t;
+    const s1 = s0 + t;
+    const a = at(s0, -t / 2);
+    const b = at(s1, -t / 2);
+    const c = at(s1, t / 2);
+    const d = at(s0, t / 2);
+    items.push({ t: 'poly', pts: [a, b, c, d], fill: '#f4ead8' });
+    // Black half: lower-left and upper-left in turn, so the edges make a zigzag.
+    items.push({ t: 'poly', pts: i % 2 ? [a, b, d] : [a, c, d], fill: '#1d1c19' });
+  }
+  const box = [at(start, -t / 2), at(start + n * t, -t / 2), at(start + n * t, t / 2), at(start, t / 2)];
+  items.push({ t: 'poly', pts: box, stroke: '#1d1c19', sw: 0.25 });
+  for (const sAlong of [start - t * 0.9, start + n * t + t * 0.9]) {
+    const [cx, cy] = at(sAlong, 0);
+    items.push({ t: 'circle', cx, cy, r: t * 0.22, fill: FRAME_RED });
+  }
+  return items;
+}
+
+/**
  * A wall's red frame, 2.5 mm in from its edges, with a small fret in each corner (as on the
  * cover art). Shapes in millimetres.
  */
@@ -173,7 +208,9 @@ export function dieline(kind, plan, opts = {}) {
     // The walls, each turned so its letters stand upright when the lid is on the box.
     items.push(...wallFrame(X(h), Y(0), a, h), ...wallFrame(X(h), Y(h + b), a, h));
     items.push(...wallFrame(X(0), Y(h), h, b), ...wallFrame(X(h + a), Y(h), h, b));
-    // The walls carry no text: the cover says what the game is.
+    // The walls carry no text (the cover says what the game is): a strip of split squares.
+    items.push(...wallStrip(X(h), Y(0), a, h), ...wallStrip(X(h), Y(h + b), a, h));
+    items.push(...wallStrip(X(0), Y(h), h, b), ...wallStrip(X(h + a), Y(h), h, b));
   } else {
     // The underside of the base: what is inside, how to get the digital pack, who made it.
     items.push({ t: 'rect', x: X(h), y: Y(h), w: a, h: b, fill: '#fbf8f1' });
@@ -285,9 +322,6 @@ export function boxPdf(plan, opts = {}) {
   return doc.toBytes();
 }
 
-/** Frame shapes as SVG (rects only). */
-const itemsSvgFrame = (items) => items.map((it) => `<rect x="${it.x.toFixed(2)}" y="${it.y.toFixed(2)}" width="${it.w.toFixed(2)}" height="${it.h.toFixed(2)}" fill="${it.fill ?? 'none'}"${it.stroke ? ` stroke="${it.stroke}" stroke-width="${it.sw}"` : ''}/>`).join('');
-
 const escXml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /**
@@ -316,9 +350,9 @@ ${art}
 <polygon points="${topFace}" fill="none" ${edge}/>
 <g transform="matrix(${dx} ${dy} 0 1 ${L} ${-H})">
 <rect x="0" y="0" width="${W}" height="${H}" fill="${PAPER_SHADE}" ${edge}/>
-${itemsSvgFrame(wallFrame(0, 0, W, H))}
+${itemsSvg([...wallFrame(0, 0, W, H), ...wallStrip(0, 0, W, H)])}
 </g>
 <rect x="0" y="${-H}" width="${L}" height="${H}" fill="${PAPER}" ${edge}/>
-${itemsSvgFrame(wallFrame(0, -H, L, H))}
+${itemsSvg([...wallFrame(0, -H, L, H), ...wallStrip(0, -H, L, H)])}
 </svg>`;
 }
