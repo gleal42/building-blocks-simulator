@@ -8871,7 +8871,27 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
   var FOLD = "#1f6feb";
   var INK2 = "#1d1c19";
   var MUTED3 = "#6f6a5c";
-  var ART = "#efe7d6";
+  var PAPER2 = "#e7c18c";
+  var PAPER_SHADE = "#d6ac72";
+  var FRAME_RED = "#a13a1e";
+  var WALL_INK = "#2a1d10";
+  var WALL_MUTED = "#6b4a2a";
+  function wallFrame(x, y, w, h) {
+    const inset = Math.min(2.5, h / 8);
+    const f = Math.min(2.6, h / 7);
+    const sw = 0.35;
+    const x0 = x + inset;
+    const y0 = y + inset;
+    const x1 = x + w - inset;
+    const y1 = y + h - inset;
+    const items = [{ t: "rect", x: x0, y: y0, w: x1 - x0, h: y1 - y0, stroke: FRAME_RED, sw }];
+    for (const [cx, cy, sx, sy] of [[x0, y0, 1, 1], [x1, y0, -1, 1], [x0, y1, 1, -1], [x1, y1, -1, -1]]) {
+      items.push({ t: "rect", x: Math.min(cx, cx + sx * f), y: Math.min(cy, cy + sy * f), w: f, h: f, stroke: FRAME_RED, sw });
+      const g = f * 0.45;
+      items.push({ t: "rect", x: Math.min(cx + sx * f * 0.25, cx + sx * (f * 0.25 + g)), y: Math.min(cy + sy * f * 0.25, cy + sy * (f * 0.25 + g)), w: g, h: g, fill: FRAME_RED });
+    }
+    return items;
+  }
   var txt = (x, y, text2, size, opts = {}) => ({ t: "text", x, y, text: text2, size, fill: opts.fill ?? INK2, bold: !!opts.bold, anchor: opts.anchor ?? "middle", rot: opts.rot ?? 0 });
   function textBlock(cx, cy, rot, lines) {
     const lead = 1.25;
@@ -8906,8 +8926,8 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
     const title = opts.title || "Notan";
     const subtitle = opts.subtitle ?? "";
     if (kind === "lid") {
-      items.push({ t: "rect", x: X(h - BLEED), y: Y(-BLEED), w: a + 2 * BLEED, h: H + 2 * BLEED, fill: ART });
-      items.push({ t: "rect", x: X(-BLEED), y: Y(h - BLEED), w: W2 + 2 * BLEED, h: b + 2 * BLEED, fill: ART });
+      items.push({ t: "rect", x: X(h - BLEED), y: Y(-BLEED), w: a + 2 * BLEED, h: H + 2 * BLEED, fill: PAPER2 });
+      items.push({ t: "rect", x: X(-BLEED), y: Y(h - BLEED), w: W2 + 2 * BLEED, h: b + 2 * BLEED, fill: PAPER2 });
       if (opts.cover?.src) {
         items.push({ t: "image", src: opts.cover.src, width: opts.cover.width, height: opts.cover.height, x: X(h - BLEED), y: Y(h - BLEED), w: a + 2 * BLEED, h: b + 2 * BLEED });
       } else {
@@ -8916,12 +8936,14 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
       }
       const big = Math.min(9, h / 2.6);
       const small = Math.min(4.5, h / 5.5);
-      const front = [{ text: title, size: big, bold: true }];
-      if (subtitle) front.push({ text: subtitle, size: small, fill: MUTED3 });
+      items.push(...wallFrame(X(h), Y(0), a, h), ...wallFrame(X(h), Y(h + b), a, h));
+      items.push(...wallFrame(X(0), Y(h), h, b), ...wallFrame(X(h + a), Y(h), h, b));
+      const front = [{ text: title, size: big, bold: true, fill: WALL_INK }];
+      if (subtitle) front.push({ text: subtitle, size: small, fill: WALL_MUTED });
       items.push(...textBlock(X(h + a / 2), Y(h + b + h / 2), 0, front));
-      items.push(...textBlock(X(h + a / 2), Y(h / 2), 180, [{ text: title, size: big * 0.8, bold: true }, ...opts.tagline ? [{ text: opts.tagline, size: small, fill: MUTED3 }] : []]));
-      items.push(...textBlock(X(h / 2), Y(h + b / 2), 90, [{ text: title, size: Math.min(big * 0.7, b / 8), bold: true }]));
-      items.push(...textBlock(X(h + a + h / 2), Y(h + b / 2), -90, [{ text: title, size: Math.min(big * 0.7, b / 8), bold: true }]));
+      items.push(...textBlock(X(h + a / 2), Y(h / 2), 180, [{ text: title, size: big * 0.8, bold: true, fill: WALL_INK }, ...opts.tagline ? [{ text: opts.tagline, size: small, fill: WALL_MUTED }] : []]));
+      items.push(...textBlock(X(h / 2), Y(h + b / 2), 90, [{ text: title, size: Math.min(big * 0.7, b / 8), bold: true, fill: WALL_INK }]));
+      items.push(...textBlock(X(h + a + h / 2), Y(h + b / 2), -90, [{ text: title, size: Math.min(big * 0.7, b / 8), bold: true, fill: WALL_INK }]));
     } else {
       items.push({ t: "rect", x: X(h), y: Y(h), w: a, h: b, fill: "#fbf8f1" });
       const size = Math.min(3.6, b / 26);
@@ -9015,6 +9037,7 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
     }
     return doc.toBytes();
   }
+  var itemsSvgFrame = (items) => items.map((it) => `<rect x="${it.x.toFixed(2)}" y="${it.y.toFixed(2)}" width="${it.w.toFixed(2)}" height="${it.h.toFixed(2)}" fill="${it.fill ?? "none"}"${it.stroke ? ` stroke="${it.stroke}" stroke-width="${it.sw}"` : ""}/>`).join("");
   var escXml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   function boxMockup(plan, opts = {}) {
     const { l: L, w: W2, h: H } = plan.lid;
@@ -9033,16 +9056,18 @@ ${rows ? `<ol class="pl-log">${rows}</ol>` : ""}
 <g clip-path="url(#mockTop)"><image href="${opts.cover.src}" x="0" y="0" width="${L}" height="${W2}" preserveAspectRatio="xMidYMid slice" transform="matrix(1 0 ${-dx} ${-dy} ${W2 * dx} ${-H + W2 * dy})"/></g>` : `<text x="${(L + W2 * dx) / 2}" y="${-H + W2 * dy / 2}" font-size="${Math.min(8, L / 18)}" text-anchor="middle" fill="${MUTED3}" font-weight="700">Cover art</text>`;
     return `<svg viewBox="${-3} ${(top - 3).toFixed(1)} ${(right + 6).toFixed(1)} ${(-top + 10).toFixed(1)}" xmlns="http://www.w3.org/2000/svg" class="box-mockup" role="img" aria-label="${escXml(opts.label ?? "The closed box")}">
 <ellipse cx="${(right / 2).toFixed(1)}" cy="2.5" rx="${(right / 2 + 4).toFixed(1)}" ry="3.2" fill="rgba(0,0,0,0.16)"/>
-<polygon points="${topFace}" fill="${ART}"/>
+<polygon points="${topFace}" fill="${PAPER2}"/>
 ${art}
 <polygon points="${topFace}" fill="none" ${edge}/>
 <g transform="matrix(${dx} ${dy} 0 1 ${L} ${-H})">
-<rect x="0" y="0" width="${W2}" height="${H}" fill="#e3d6bb" ${edge}/>
-<text x="${W2 / 2}" y="${H / 2 + big * 0.36}" font-size="${(big * 0.7).toFixed(2)}" font-weight="700" text-anchor="middle" fill="${INK2}" font-family="Helvetica, Arial, sans-serif">${title}</text>
+<rect x="0" y="0" width="${W2}" height="${H}" fill="${PAPER_SHADE}" ${edge}/>
+${itemsSvgFrame(wallFrame(0, 0, W2, H))}
+<text x="${W2 / 2}" y="${H / 2 + big * 0.36}" font-size="${(big * 0.7).toFixed(2)}" font-weight="700" text-anchor="middle" fill="${WALL_INK}" font-family="Helvetica, Arial, sans-serif">${title}</text>
 </g>
-<rect x="0" y="${-H}" width="${L}" height="${H}" fill="${ART}" ${edge}/>
-<text x="${L / 2}" y="${-H / 2 + (subtitle ? -small * 0.2 : big * 0.36)}" font-size="${big.toFixed(2)}" font-weight="700" text-anchor="middle" fill="${INK2}" font-family="Helvetica, Arial, sans-serif">${title}</text>
-${subtitle ? `<text x="${L / 2}" y="${-H / 2 + big * 0.36 + small * 1.3}" font-size="${small.toFixed(2)}" text-anchor="middle" fill="${MUTED3}" font-family="Helvetica, Arial, sans-serif">${subtitle}</text>` : ""}
+<rect x="0" y="${-H}" width="${L}" height="${H}" fill="${PAPER2}" ${edge}/>
+${itemsSvgFrame(wallFrame(0, -H, L, H))}
+<text x="${L / 2}" y="${-H / 2 + (subtitle ? -small * 0.2 : big * 0.36)}" font-size="${big.toFixed(2)}" font-weight="700" text-anchor="middle" fill="${WALL_INK}" font-family="Helvetica, Arial, sans-serif">${title}</text>
+${subtitle ? `<text x="${L / 2}" y="${-H / 2 + big * 0.36 + small * 1.3}" font-size="${small.toFixed(2)}" text-anchor="middle" fill="${WALL_MUTED}" font-family="Helvetica, Arial, sans-serif">${subtitle}</text>` : ""}
 </svg>`;
   }
 
