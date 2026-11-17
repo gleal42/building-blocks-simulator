@@ -2,10 +2,15 @@
 
 The art for the top of the box lid. Drafts, made with an image generator.
 
+The app builds these pictures in (see `covers.json`). In Print › Box, each box shows the one
+whose shape is closest to its lid, on the flat lid, on a sketch of the closed box, and in the
+PDF. To change the art, replace a `.jpg` (same name and shape) or add one to `covers.json`, then
+run `npm run build`. The `.png` files are the originals.
+
 | File | Size | Fits |
 |---|---|---|
-| `cover-square.png` | 1264 × 1264 | 4×4 box, cards on top (lid top 116 × 116 mm) |
-| `cover-3x2.png` | 1536 × 1024 | 4×4 box, cards beside the tray (lid top 182 × 116 mm) |
+| `cover-square.jpg` | 1264 × 1264 | 4×4 box, cards on top (lid top 116 × 116 mm) |
+| `cover-3x2.jpg` | 1536 × 1024 | 4×4 box, cards beside the tray (lid top 182 × 116 mm) |
 
 Still to do before printing:
 
@@ -14,4 +19,4 @@ Still to do before printing:
 - **Phone icon:** shows a paintbrush. A phone with a QR code would say "scan".
 - **Resolution:** upscale the final versions to about 2600 px across.
 
-To use one: Print › Box › **Add the cover art**, with **Inside** set to match the image.
+Until then, the 4×8 box shows `cover-3x2.jpg` cropped, and Print › Box says so.

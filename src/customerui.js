@@ -5,6 +5,8 @@
 // in Print › Unlock card work too). Nothing here needs a server: the real setup is described
 // in docs/going-live.md.
 
+import { boxPlan } from './box.js';
+import { coverFor } from './coverart.js';
 import { ICONS } from './icons.js';
 import { findCode, sampleCode } from './links.js';
 import { sizeLabel } from './packs.js';
@@ -73,9 +75,30 @@ export function createCustomerUI(ctx) {
 </div></li>`;
   }
 
+  /** The box's cover art, as on the lid (the picture that fits its shape). */
+  function coverImg(p) {
+    try {
+      const top = boxPlan({ rows: p.rows, cols: p.cols, cards: p.designs.length, layout: state().print?.layout }).flats.lid.panel;
+      const art = coverFor(top.l, top.w);
+      if (!art) return '';
+      const w = 116;
+      return `<span class="cu-box-art" style="width:${w}px;height:${Math.round((w * top.w) / top.l)}px"><img src="${art.src}" alt=""></span>`;
+    } catch {
+      return '';
+    }
+  }
+
   function boxCard(p) {
     const done = state().customer.unlocked.includes(p.id);
     const code = sampleCode(p.id);
+    const art = coverImg(p);
+    if (art) {
+      return `<li class="cu-box${done ? ' is-done' : ''}">
+<div class="cu-box-cover">${art}<span class="cu-box-pack">${esc(p.name)}</span></div>
+<div class="cu-box-card"><p class="field-label">Unlock card in the box</p><p class="cu-box-code">${code}</p>
+${done ? `<p class="cu-box-done">${ICONS.check}Unlocked</p>` : `<button type="button" class="btn small primary" data-action="cu-scan" data-id="${esc(p.id)}">Scan its QR code</button>`}</div>
+</li>`;
+    }
     return `<li class="cu-box${done ? ' is-done' : ''}">
 <div class="cu-box-lid"><span class="cu-box-name">${esc(state().print?.game || 'Notan')}</span><span class="cu-box-pack">${esc(p.name)}</span>${flatPicture(p.rows, p.cols, p.designs[0].looks, { cell: Math.max(5, Math.round(44 / Math.max(p.rows, p.cols))), gap: 1 })}</div>
 <div class="cu-box-card"><p class="field-label">Unlock card in the box</p><p class="cu-box-code">${code}</p>

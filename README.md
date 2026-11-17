@@ -71,8 +71,9 @@ Everything that goes in the box of a pack, as PDFs:
 - **Box**: a base and a full-depth lid that hold the tray with its pieces, the cards and the
   rules, sized from the measured trays (4×4: 112 × 112 mm, 4×8: 205 × 112 mm, 25 mm high with
   the pieces in). The name is on all four sides of the lid, upright once folded; the underside
-  of the base says what is inside, how to get the digital pack, and who made it. Only the
-  **cover art** (top of the lid) is left to add: upload it and it fills the top with 3 mm bleed.
+  of the base says what is inside, how to get the digital pack, and who made it. The **cover
+  art** on the lid comes from [`art/`](art): each box takes the picture closest to its lid's
+  shape, with 3 mm bleed, and a sketch shows the closed box.
   Cards beside the tray or on top; folding carton or rigid board. Full-size PDF: lid, base, and
   what goes where (red: cut, blue dashed: fold).
 - **Rules**: the leaflet that replaces the book (the cards hold the pictures): four 95 mm pages
@@ -152,6 +153,7 @@ fails if `index.html` is out of date.
 | `src/packui.js`, `src/packcheck.js` | The Packs tab, and checking designs in a background worker. |
 | `src/photo.js` | Finding and reading designs in a photo. |
 | `src/printui.js` | The Print tab. |
+| `src/coverart.js`, `art/` | The box cover art, built into the page. |
 | `src/cards.js`, `src/box.js`, `src/leaflet.js` | The cards and unlock cards, the box (sizes, flat shapes to cut), the rules leaflet; each as a preview and a PDF. |
 | `src/drawing.js`, `src/pdf.js`, `src/fonts.js` | Shapes that become SVG or PDF, a small PDF writer (vector shapes, Helvetica text, JPEG pictures) and font widths. |
 | `src/links.js`, `src/qr.js` | Unlock codes (sample codes, reading a code out of any text), unlock links, and QR codes as drawings. |

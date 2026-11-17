@@ -1,0 +1,4 @@
+[
+  { "file": "cover-square.jpg", "width": 1264, "height": 1264, "fits": "4×4 box, cards on top" },
+  { "file": "cover-3x2.jpg", "width": 1536, "height": 1024, "fits": "4×4 box, cards beside the tray" }
+]

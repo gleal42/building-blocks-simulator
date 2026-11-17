@@ -176,9 +176,8 @@ function snapshot() {
 const MODES = ['packs', 'print', 'library', 'build', 'play'];
 
 /**
- * From a version before the Print tab: the challenge books become packs (with their front
- * cover as the box's cover art), and the box settings move to Print. Runs once: books are not
- * saved again.
+ * From a version before the Print tab: the challenge books become packs, and the box
+ * settings move to Print. Runs once: books are not saved again.
  */
 function migrateOld(data, packs, print) {
   for (const book of Object.values(data.books ?? {})) {
@@ -197,8 +196,6 @@ function migrateOld(data, packs, print) {
       if (packs.some((p) => p.id === pack.id || sig(p) === sig(pack))) continue;
       pack.created = Date.now();
       packs.push(pack);
-      const front = book.cover?.front;
-      if (front && typeof front.src === 'string' && front.src.startsWith('data:image/jpeg')) print.covers[pack.id] = { src: front.src, width: front.width, height: front.height };
     } catch {
       // a book that does not make a pack is left behind
     }
@@ -271,9 +268,9 @@ function scheduleLocalSave() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot()));
     } catch {
-      // Storage can be missing or full (large cover pictures); the app works without it.
+      // Storage can be missing or full; the app works without it.
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...snapshot(), print: { ...state.print, covers: {} } }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot()));
       } catch {
         /* ignore */
       }

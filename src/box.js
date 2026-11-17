@@ -9,7 +9,7 @@
 // Everything is laid out except the cover art on top of the lid, which is added as a picture.
 
 import { CARD } from './cards.js';
-import { defaultArt, drawItemsPdf, trayItems } from './drawing.js';
+import { defaultArt, drawItemsPdf, itemsSvg, trayItems } from './drawing.js';
 import { wrapText } from './fonts.js';
 import { MM, PdfDocument } from './pdf.js';
 
@@ -108,30 +108,61 @@ const CUT = '#d0021b';
 const FOLD = '#1f6feb';
 const INK = '#1d1c19';
 const MUTED = '#6f6a5c';
-const ART = '#efe7d6';
+// The lid's walls match the cover art: its tan paper and its thin red frame.
+const PAPER = '#e7c18c';
+const PAPER_SHADE = '#d6ac72';
+const FRAME_RED = '#a13a1e';
+
+/**
+ * The decoration of one lid wall: a zigzag band along its bottom edge (the open edge once the
+ * lid is on), from end to end, so the bands of the four walls make one ring around the box;
+ * above it, a thin red frame with a small fret in each corner, as on the cover art.
+ * down: +1 when the wall's bottom edge is at +y (or +x) on the sheet, -1 when at y (or x).
+ */
+function wallDecor(x, y, w, h, down = 1) {
+  const across = w >= h;
+  const long = across ? w : h;
+  const short = across ? h : w;
+  // s along the wall, v up from its bottom edge.
+  const at = (sAlong, v) => {
+    if (across) return [x + sAlong, down > 0 ? y + h - v : y + v];
+    return [down > 0 ? x + w - v : x + v, y + sAlong];
+  };
+  const quad = (s0, v0, s1, v1) => [at(s0, v0), at(s1, v0), at(s1, v1), at(s0, v1)];
+  const items = [];
+  // The band: an even number of squares, so every wall starts and ends low and the zigzag
+  // runs on round the corner.
+  const gap = 1.2;
+  const want = Math.min(5, short * 0.17);
+  const n = Math.max(2, 2 * Math.round(long / want / 2));
+  const t = long / n;
+  items.push({ t: 'poly', pts: quad(0, gap, long, gap + t), fill: '#f4ead8' });
+  const zig = [at(0, gap)];
+  for (let i = 0; i <= n; i += 1) zig.push(at(i * t, i % 2 ? gap + t : gap));
+  zig.push(at(long, gap));
+  items.push({ t: 'poly', pts: zig, fill: '#1d1c19' });
+  items.push({ t: 'line', x1: at(0, gap)[0], y1: at(0, gap)[1], x2: at(long, gap)[0], y2: at(long, gap)[1], stroke: '#1d1c19', sw: 0.3 });
+  items.push({ t: 'line', x1: at(0, gap + t)[0], y1: at(0, gap + t)[1], x2: at(long, gap + t)[0], y2: at(long, gap + t)[1], stroke: '#1d1c19', sw: 0.3 });
+  // The frame, above the band.
+  const inset = Math.min(2.5, short / 8);
+  const f = Math.min(2.6, short / 7);
+  const sw = 0.35;
+  const s0 = inset;
+  const s1 = long - inset;
+  const v0 = gap + t + 1.4;
+  const v1 = short - inset;
+  items.push({ t: 'poly', pts: quad(s0, v0, s1, v1), stroke: FRAME_RED, sw });
+  const g = f * 0.45;
+  for (const [cs, cv, ds, dv] of [[s0, v0, 1, 1], [s1, v0, -1, 1], [s0, v1, 1, -1], [s1, v1, -1, -1]]) {
+    items.push({ t: 'poly', pts: quad(cs, cv, cs + ds * f, cv + dv * f), stroke: FRAME_RED, sw });
+    items.push({ t: 'poly', pts: quad(cs + ds * f * 0.25, cv + dv * f * 0.25, cs + ds * (f * 0.25 + g), cv + dv * (f * 0.25 + g)), fill: FRAME_RED });
+  }
+  return items;
+}
+
 
 const txt = (x, y, text, size, opts = {}) => ({ t: 'text', x, y, text, size, fill: opts.fill ?? INK, bold: !!opts.bold, anchor: opts.anchor ?? 'middle', rot: opts.rot ?? 0 });
 
-/**
- * Lines of text centred on (cx, cy), turned by rot degrees (clockwise): for a wall, the turn
- * that puts the top of the letters against the lid's top once it is folded.
- * lines: [{ text, size, bold?, fill? }]
- */
-function textBlock(cx, cy, rot, lines) {
-  const lead = 1.25;
-  const total = lines.reduce((a, l, i) => a + l.size * (i ? lead : 1), 0);
-  const a = (rot * Math.PI) / 180;
-  // "Down" for the letters, turned with them.
-  const down = [-Math.sin(a), Math.cos(a)];
-  const items = [];
-  let along = -total / 2;
-  lines.forEach((l, i) => {
-    along += l.size * (i ? lead : 1);
-    const off = along - l.size * 0.14;
-    items.push(txt(cx + down[0] * off, cy + down[1] * off, l.text, l.size, { bold: l.bold, fill: l.fill, rot }));
-  });
-  return items;
-}
 const cut = (x1, y1, x2, y2) => ({ t: 'line', x1, y1, x2, y2, stroke: CUT, sw: 0.35 });
 const fold = (x1, y1, x2, y2) => ({ t: 'line', x1, y1, x2, y2, stroke: FOLD, sw: 0.35, dash: [3, 2] });
 
@@ -158,8 +189,8 @@ export function dieline(kind, plan, opts = {}) {
   const title = opts.title || 'Notan';
   const subtitle = opts.subtitle ?? '';
   if (kind === 'lid') {
-    items.push({ t: 'rect', x: X(h - BLEED), y: Y(-BLEED), w: a + 2 * BLEED, h: H + 2 * BLEED, fill: ART });
-    items.push({ t: 'rect', x: X(-BLEED), y: Y(h - BLEED), w: W + 2 * BLEED, h: b + 2 * BLEED, fill: ART });
+    items.push({ t: 'rect', x: X(h - BLEED), y: Y(-BLEED), w: a + 2 * BLEED, h: H + 2 * BLEED, fill: PAPER });
+    items.push({ t: 'rect', x: X(-BLEED), y: Y(h - BLEED), w: W + 2 * BLEED, h: b + 2 * BLEED, fill: PAPER });
     if (opts.cover?.src) {
       items.push({ t: 'image', src: opts.cover.src, width: opts.cover.width, height: opts.cover.height, x: X(h - BLEED), y: Y(h - BLEED), w: a + 2 * BLEED, h: b + 2 * BLEED });
     } else {
@@ -167,14 +198,9 @@ export function dieline(kind, plan, opts = {}) {
       items.push(txt(X(h + a / 2), Y(h + b / 2 + 4), `${a} × ${b} mm, plus ${BLEED} mm bleed on every side`, Math.min(5, a / 34), { fill: MUTED }));
     }
     // The walls, each turned so its letters stand upright when the lid is on the box.
-    const big = Math.min(9, h / 2.6);
-    const small = Math.min(4.5, h / 5.5);
-    const front = [{ text: title, size: big, bold: true }];
-    if (subtitle) front.push({ text: subtitle, size: small, fill: MUTED });
-    items.push(...textBlock(X(h + a / 2), Y(h + b + h / 2), 0, front));
-    items.push(...textBlock(X(h + a / 2), Y(h / 2), 180, [{ text: title, size: big * 0.8, bold: true }, ...(opts.tagline ? [{ text: opts.tagline, size: small, fill: MUTED }] : [])]));
-    items.push(...textBlock(X(h / 2), Y(h + b / 2), 90, [{ text: title, size: Math.min(big * 0.7, b / 8), bold: true }]));
-    items.push(...textBlock(X(h + a + h / 2), Y(h + b / 2), -90, [{ text: title, size: Math.min(big * 0.7, b / 8), bold: true }]));
+    // The walls: a zigzag ring round the bottom and a red frame (no text: the cover says it).
+    items.push(...wallDecor(X(h), Y(0), a, h, -1), ...wallDecor(X(h), Y(h + b), a, h, 1));
+    items.push(...wallDecor(X(0), Y(h), h, b, -1), ...wallDecor(X(h + a), Y(h), h, b, 1));
   } else {
     // The underside of the base: what is inside, how to get the digital pack, who made it.
     items.push({ t: 'rect', x: X(h), y: Y(h), w: a, h: b, fill: '#fbf8f1' });
@@ -284,4 +310,39 @@ export function boxPdf(plan, opts = {}) {
     drawItemsPdf(page, drawing.items, images);
   }
   return doc.toBytes();
+}
+
+const escXml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/**
+ * The closed box as it looks on a shelf (SVG, millimetres): the cover art on the lid's top,
+ * plain walls in its paper and red frame. A sketch of the finished box, not a print file.
+ * opts: { cover: { src } | null, label }
+ */
+export function boxMockup(plan, opts = {}) {
+  const { l: L, w: W, h: H } = plan.lid;
+  // Depth goes up and to the right.
+  const dx = 0.35;
+  const dy = -0.6;
+  const right = L + W * dx;
+  const top = -H + W * dy;
+  const pts = (list) => list.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
+  const edge = 'stroke="rgba(60,45,20,0.45)" stroke-width="0.35" stroke-linejoin="round"';
+  const topFace = pts([[0, -H], [L, -H], [L + W * dx, -H + W * dy], [W * dx, -H + W * dy]]);
+  const art = opts.cover?.src
+    ? `<clipPath id="mockTop"><polygon points="${topFace}"/></clipPath>
+<g clip-path="url(#mockTop)"><image href="${opts.cover.src}" x="0" y="0" width="${L}" height="${W}" preserveAspectRatio="xMidYMid slice" transform="matrix(1 0 ${-dx} ${-dy} ${W * dx} ${-H + W * dy})"/></g>`
+    : `<text x="${(L + W * dx) / 2}" y="${-H + (W * dy) / 2}" font-size="${Math.min(8, L / 18)}" text-anchor="middle" fill="${MUTED}" font-weight="700">Cover art</text>`;
+  return `<svg viewBox="${-3} ${(top - 3).toFixed(1)} ${(right + 6).toFixed(1)} ${(-top + 10).toFixed(1)}" xmlns="http://www.w3.org/2000/svg" class="box-mockup" role="img" aria-label="${escXml(opts.label ?? 'The closed box')}">
+<ellipse cx="${(right / 2).toFixed(1)}" cy="2.5" rx="${(right / 2 + 4).toFixed(1)}" ry="3.2" fill="rgba(0,0,0,0.16)"/>
+<polygon points="${topFace}" fill="${PAPER}"/>
+${art}
+<polygon points="${topFace}" fill="none" ${edge}/>
+<g transform="matrix(${dx} ${dy} 0 1 ${L} ${-H})">
+<rect x="0" y="0" width="${W}" height="${H}" fill="${PAPER_SHADE}" ${edge}/>
+${itemsSvg(wallDecor(0, 0, W, H, 1))}
+</g>
+<rect x="0" y="${-H}" width="${L}" height="${H}" fill="${PAPER}" ${edge}/>
+${itemsSvg(wallDecor(0, -H, L, H, 1))}
+</svg>`;
 }
