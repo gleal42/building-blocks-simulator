@@ -89,6 +89,20 @@ test('normalizePack fixes stars and rejects bad designs', () => {
   assert.throws(() => normalizePack({ name: 'A', rows: 2, cols: 2, designs: [{ looks: '11/2' }] }), /Design 1/);
 });
 
+test('designs can have from one to five stars', () => {
+  const p = normalizePack({ name: 'A', rows: 2, cols: 2, designs: [1, 2, 3, 4, 5, 6, 0].map((stars) => ({ looks: '11/22', stars })) });
+  assert.deepEqual(p.designs.slice(0, 5).map((d) => d.stars), [1, 2, 3, 4, 5]);
+  assert.ok([1, 2, 3].includes(p.designs[5].stars), 'six stars falls back to the suggestion');
+  assert.ok([1, 2, 3].includes(p.designs[6].stars));
+});
+
+test('the packs made from the book have nine designs of each star level', () => {
+  for (const { file, raw } of packFiles().filter((f) => f.file.startsWith('book-'))) {
+    const pack = normalizePack(raw, { builtIn: true });
+    for (const level of [1, 2, 3, 4, 5]) assert.equal(pack.designs.filter((d) => d.stars === level).length, 9, `${file}, ${level} stars`);
+  }
+});
+
 test('addDesigns skips designs the pack already has', () => {
   const pack = newPack({ rows: 2, cols: 2 });
   assert.deepEqual(addDesigns(pack, [{ looks: [1, 2, 2, 1] }, { looks: [1, 2, 2, 1] }, { looks: [2, 1, 1, 2] }]), { added: 2, duplicates: 1 });

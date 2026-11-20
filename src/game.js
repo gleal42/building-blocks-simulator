@@ -10,6 +10,8 @@
 //
 // A game is plain data (it is saved with the page), changed only by the functions below.
 
+import { isStarLevel } from './packs.js';
+
 export const MODES = Object.freeze({
   trial: { name: 'Time trial', short: 'Take turns: draw a card and build it before the time runs out.', minPlayers: 1, maxPlayers: 8 },
   memory: { name: 'Memory', short: 'Look at the card for a few seconds, then build it from memory.', minPlayers: 1, maxPlayers: 8 },
@@ -237,7 +239,7 @@ export function reviveGame(raw) {
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.deck) || !raw.setup) return null;
   const phases = ['ready', 'look', 'build', 'check', 'scored', 'over'];
   if (!phases.includes(raw.phase) || !Array.isArray(raw.scores)) return null;
-  const okCard = (c) => c && Array.isArray(c.looks) && c.looks.every((l) => Number.isInteger(l) && l >= 1 && l <= 6) && [1, 2, 3].includes(c.stars);
+  const okCard = (c) => c && Array.isArray(c.looks) && c.looks.every((l) => Number.isInteger(l) && l >= 1 && l <= 6) && isStarLevel(c.stars);
   if (!raw.deck.length || !raw.deck.every(okCard)) return null;
   if (raw.current && !okCard(raw.current)) return null;
   if (!Array.isArray(raw.setup.players) || raw.scores.length !== raw.setup.players.length) return null;

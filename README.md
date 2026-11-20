@@ -55,6 +55,12 @@ A pack is a named set of designs for one tray (4×4 or 4×8): the cards of one b
   Elsewhere they stay in the browser. Packs can also be saved as `.json` files and opened again.
 - **Packs that come with the app** are the files in [`packs/`](packs), one pack per file,
   read when the app is built. The tests check that every design in them can be built.
+- **Stars**: a design has 1 to 5 stars (easy, medium, hard, expert, master). Cards show three
+  star slots, or five when the pack has a design with more than three stars.
+- **Packs from the book**: [`book/`](book) holds the designs read from photos of the book
+  (with their book number and stars). `node scripts/book-packs.mjs` makes as many packs as it
+  can with **9 designs of each star level** (45 cards for five levels), spread over the book,
+  writes them to `packs/book-<size>-<n>.json` and lists the designs left over.
 
 ![A pack of designs read from a photo](docs/screenshots/packs.jpg)
 
@@ -149,6 +155,7 @@ fails if `index.html` is out of date.
 | `src/board.js` | Tray model: placing (no overlap, only complementary halves share a square, loose roofs need a ramp), removing, top-view looks, board codes. |
 | `src/solver.js` | Decides whether a picture can be built and returns an arrangement; random arrangements. |
 | `src/packs.js`, `src/builtinpacks.js`, `packs/` | Packs of designs: the file format, checks, stars, and the packs that come with the app. |
+| `book/`, `scripts/book-packs.mjs` | The designs read from the book, and the script that makes packs of 9 per star level from them. |
 | `src/packstore.js` | Keeps the packs in the artifact's database, in step across devices. |
 | `src/packui.js`, `src/packcheck.js` | The Packs tab, and checking designs in a background worker. |
 | `src/photo.js` | Finding and reading designs in a photo. |

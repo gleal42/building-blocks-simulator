@@ -13,6 +13,7 @@ import { ICONS } from './icons.js';
 import { createChecker } from './packcheck.js';
 import {
   DIFFICULTY,
+  STAR_LEVELS,
   MAX_PACK_NAME,
   PACK_SIZES,
   TRAY_SIZES,
@@ -320,7 +321,7 @@ ${storeLine()}
     const i = st.packIndex;
     const bad = pack.designs.filter((d) => statusOf(pack.rows, pack.cols, d.looks).status === 'impossible').length;
     const selTools = sel ? `<div class="pk-sel">
-<span class="ch-stars" role="group" aria-label="Difficulty of design ${i + 1}">${[1, 2, 3].map((level) => `<button type="button" class="star-btn level-${sel.stars}${level <= sel.stars ? ' on' : ''}" data-action="design-stars" data-level="${level}" aria-label="${DIFFICULTY[level].name}" aria-pressed="${level === sel.stars}" ${canEdit ? '' : 'disabled'}>★</button>`).join('')}</span>
+<span class="ch-stars" role="group" aria-label="Difficulty of design ${i + 1}">${STAR_LEVELS.map((level) => `<button type="button" class="star-btn level-${sel.stars}${level <= sel.stars ? ' on' : ''}" data-action="design-stars" data-level="${level}" aria-label="${DIFFICULTY[level].name}" aria-pressed="${level === sel.stars}" ${canEdit ? '' : 'disabled'}>★</button>`).join('')}</span>
 ${canEdit ? `<span class="ch-actions">
 <button type="button" class="icon-btn" data-action="design-up" ${i === 0 ? 'disabled' : ''} title="Move earlier">${ICONS.prev}<span class="sr-only">Move design ${i + 1} earlier</span></button>
 <button type="button" class="icon-btn" data-action="design-down" ${i === pack.designs.length - 1 ? 'disabled' : ''} title="Move later">${ICONS.next}<span class="sr-only">Move design ${i + 1} later</span></button>

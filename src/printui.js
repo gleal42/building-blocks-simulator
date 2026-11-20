@@ -101,7 +101,7 @@ export function createPrintUI(ctx) {
     return `Cover art: ${cover.file}, cropped: this lid is ${top.l} × ${top.w} mm, so it needs a picture about ${wide.toFixed(1)} times as wide as it is tall.`;
   }
 
-  const leafletInfo = (pack, deck) => ({ title: pr().game, subtitle: pack.name, rows: pack.rows, cols: pack.cols, cards: deck.cards.length, art: deck.cards[0]?.looks, maker: makerLines() });
+  const leafletInfo = (pack, deck) => ({ title: pr().game, subtitle: pack.name, rows: pack.rows, cols: pack.cols, cards: deck.cards.length, art: deck.cards[0]?.looks, maker: makerLines(), maxStars: Math.max(0, ...deck.cards.map((c) => c.stars)) });
 
   /** Codes for the unlock cards: the list opened for this pack, or its sample code. */
   function codesFor(pack) {
