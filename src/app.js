@@ -7,7 +7,7 @@
 
 import { Board, KINDS, decodeBoard, encodeBoard, kindOf, occupancy, pieceCovers, pieceName, sizeProblem } from './board.js';
 import { createPackUI, revivePacks } from './packui.js';
-import { DIFFICULTY, normalizePack } from './packs.js';
+import { DIFFICULTY, normalizePack, starSlots } from './packs.js';
 import { createPackStore } from './packstore.js';
 import { createPlayUI } from './playui.js';
 import { createPrintUI, defaultPrint, revivePrint } from './printui.js';
@@ -325,7 +325,7 @@ function progressText() {
 
 export function starsHtml(level, { label = true } = {}) {
   const d = DIFFICULTY[level];
-  const stars = [1, 2, 3].map((k) => `<span class="star${k <= level ? ' on' : ''}">★</span>`).join('');
+  const stars = Array.from({ length: starSlots(level) }, (_, i) => i + 1).map((k) => `<span class="star${k <= level ? ' on' : ''}">★</span>`).join('');
   return `<span class="stars level-${level}" title="${d.name}"><span aria-hidden="true">${stars}</span>${label ? `<span class="stars-name">${d.name}</span>` : `<span class="sr-only">${d.name}</span>`}</span>`;
 }
 

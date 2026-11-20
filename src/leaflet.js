@@ -19,7 +19,7 @@ export const LEAFLET_PAGE = 95;
 const RULE = '#d8d0bf';
 
 /**
- * What the leaflet needs: { title, subtitle, rows, cols, cards, art (looks), maker: [lines] }.
+ * What the leaflet needs: { title, subtitle, rows, cols, cards, art (looks), maker: [lines], maxStars }.
  * Missing parts get sensible defaults.
  */
 function infoOf(raw = {}) {
@@ -33,6 +33,7 @@ function infoOf(raw = {}) {
     cards: raw.cards ?? 0,
     art: raw.art && raw.art.length === rows * cols ? raw.art : defaultArt(rows, cols),
     maker: raw.maker ?? [],
+    maxStars: raw.maxStars > 3 ? 5 : 3,
   };
 }
 
@@ -97,7 +98,7 @@ function piecesPage(info) {
   return items;
 }
 
-function waysPage() {
+function waysPage(info) {
   const items = heading('Ways to play');
   let y = 230;
   const block = (name, body) => {
@@ -111,12 +112,23 @@ function waysPage() {
   y += 30;
   for (const id of ['trial', 'memory', 'race']) block(MODES[id].name, MODES[id].short);
   items.push(...paragraph('Score the stars of every card you build. Most stars wins.', 80, y + 4, 840, 30, { fill: MUTED }).items);
-  const legendY = 905;
-  [1, 2, 3].forEach((level, i) => {
-    const x = 80 + i * 290;
-    items.push(...starItems(level, x, legendY - 10, 13));
-    items.push(text(x + 95, legendY, DIFFICULTY[level].name, 28, { bold: true }));
-  });
+  if (info.maxStars > 3) {
+    // Five levels: just the filled stars of each, on two lines.
+    [1, 2, 3, 4, 5].forEach((level, i) => {
+      const row = i < 3 ? 0 : 1;
+      const x = 80 + (row ? i - 3 : i) * 290;
+      const y = 872 + row * 52;
+      items.push(...starItems(level, x, y - 10, 11, 'start', level));
+      items.push(text(x + 26 * level + 6, y, DIFFICULTY[level].name, 26, { bold: true }));
+    });
+  } else {
+    const legendY = 905;
+    [1, 2, 3].forEach((level, i) => {
+      const x = 80 + i * 290;
+      items.push(...starItems(level, x, legendY - 10, 13));
+      items.push(text(x + 95, legendY, DIFFICULTY[level].name, 28, { bold: true }));
+    });
+  }
   items.push(pageNumber(3));
   return items;
 }

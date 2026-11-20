@@ -9,7 +9,7 @@ import { boxPlan } from './box.js';
 import { coverFor } from './coverart.js';
 import { ICONS } from './icons.js';
 import { findCode, sampleCode } from './links.js';
-import { sizeLabel } from './packs.js';
+import { STAR_LEVELS, sizeLabel } from './packs.js';
 import { flatPicture } from './render2d.js';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -65,9 +65,9 @@ export function createCustomerUI(ctx) {
   const thumbs = (p, n, size = 36) => p.designs.slice(0, n).map((d) => `<span class="cu-mini">${flatPicture(p.rows, p.cols, d.looks, { cell: Math.max(4, Math.round(size / Math.max(p.rows, p.cols))), gap: 1 })}</span>`).join('');
 
   function packCard(p) {
-    const stars = [1, 2, 3].map((s) => p.designs.filter((d) => d.stars === s).length);
+    const stars = STAR_LEVELS.map((s) => p.designs.filter((d) => d.stars === s).length);
     return `<li class="cu-pack">
-<div class="cu-pack-head"><h3>${esc(p.name)}</h3><p class="muted">${sizeLabel(p.rows, p.cols)} tray · ${plural(p.designs.length, 'card')} · ${stars.map((n, i) => `${n}${'★'.repeat(i + 1)}`).join(' ')}</p></div>
+<div class="cu-pack-head"><h3>${esc(p.name)}</h3><p class="muted">${sizeLabel(p.rows, p.cols)} tray · ${plural(p.designs.length, 'card')} · ${stars.map((n, i) => (n ? `${n}${'★'.repeat(i + 1)}` : '')).filter(Boolean).join(' ')}</p></div>
 <div class="cu-previews">${thumbs(p, 4)}</div>
 <div class="row-buttons">
 <button type="button" class="btn primary" data-action="cu-solo" data-id="${esc(p.id)}">${ICONS.play}Play alone</button>

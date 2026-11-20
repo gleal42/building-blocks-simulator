@@ -1145,7 +1145,7 @@ kbd {
   height: 16px;
 }
 
-/* Stars: green easy, yellow medium, red hard */
+/* Stars: green easy, yellow medium, red hard, purple expert, blue master */
 .stars {
   display: inline-flex;
   align-items: center;
@@ -1169,6 +1169,14 @@ kbd {
 
 .stars.level-3 .star.on {
   color: #d5413a;
+}
+
+.stars.level-4 .star.on {
+  color: #8a3fb8;
+}
+
+.stars.level-5 .star.on {
+  color: #2a4fb0;
 }
 
 .stars-name {
@@ -1366,6 +1374,14 @@ kbd {
   color: #d5413a;
 }
 
+.star-btn.on.level-4 {
+  color: #8a3fb8;
+}
+
+.star-btn.on.level-5 {
+  color: #2a4fb0;
+}
+
 .ch-actions {
   display: flex;
   gap: 2px;
@@ -1548,6 +1564,14 @@ body[data-mode="packs"] .board-wrap > svg {
 
 .pk-stars.level-3 {
   color: #d5413a;
+}
+
+.pk-stars.level-4 {
+  color: #8a3fb8;
+}
+
+.pk-stars.level-5 {
+  color: #2a4fb0;
 }
 
 .pk-sel {

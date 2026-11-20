@@ -12,6 +12,7 @@ import { wrapText } from './fonts.js';
 import { MM, PdfDocument } from './pdf.js';
 import { unlockLink } from './links.js';
 import { qrItems } from './qr.js';
+import { starSlots } from './packs.js';
 
 /** Card sizes in millimetres. */
 export const CARD = {
@@ -71,13 +72,16 @@ export function cardSlot(layout, k, back = false) {
   return { x: layout.left + c * layout.w, y: layout.top + row * layout.h };
 }
 
+/** Star slots on the cards of a deck: 3, or 5 when any card has more than three stars. */
+export const deckStarSlots = (deck) => starSlots(Math.max(0, ...deck.cards.map((c) => c.stars)));
+
 /** Front of card `index`: its number, its stars and its picture. */
 export function cardFront(deck, index) {
   const card = deck.cards[index];
   const W = cardWidth(deck);
   const items = [{ t: 'rect', x: 34, y: 34, w: W - 68, h: 932, r: 60, fill: '#ffffff', stroke: FRAME, sw: 6 }];
   items.push(text(96, 168, String(index + 1), 112, { bold: true }));
-  items.push(...starItems(card.stars, W - 96, 126, 40, 'end'));
+  items.push(...starItems(card.stars, W - 96, 126, 40, 'end', deckStarSlots(deck)));
   const fit = fitTray(deck.rows, deck.cols, { x: 96, y: 214, w: W - 192, h: 716 });
   items.push(...trayItems(card.looks, deck.rows, deck.cols, fit.x, fit.y, fit.cell));
   return items;

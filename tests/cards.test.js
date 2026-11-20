@@ -61,6 +61,18 @@ test('a card shows its number, its stars and its picture; the back shows the gam
   assert.match(cardSvg(sampleBook('square', 1), null), /viewBox="0 0 1000 1000"/);
 });
 
+test('in a deck that goes up to five stars, every card has five star slots', () => {
+  const deck = sampleBook('square', 5);
+  deck.cards.forEach((c, i) => { c.stars = i + 1; });
+  const stars = (items) => items.filter((it) => it.t === 'poly' && it.pts.length === 10);
+  assert.equal(stars(cardFront(deck, 0)).length, 5);
+  assert.equal(stars(cardFront(deck, 0)).filter((it) => it.fill).length, 1);
+  assert.equal(stars(cardFront(deck, 4)).filter((it) => it.fill === '#2a4fb0').length, 5, 'five blue stars');
+  const xs = stars(cardFront(deck, 4)).flatMap((it) => it.pts.map((p) => p[0]));
+  assert.ok(Math.min(...xs) > 300, 'the stars stay clear of the card number');
+  assert.equal(stars(cardFront(sampleBook('square', 3), 0)).length, 3, 'three slots when no card has more than three stars');
+});
+
 test('the cards PDF has a page of fronts and a page of backs per sheet', () => {
   for (const [shape, count, sheets] of [['square', 13, 2], ['rect', 12, 1], ['square', 0, 1]]) {
     const bytes = cardsPdf(sampleBook(shape, count));

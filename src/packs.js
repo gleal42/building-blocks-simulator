@@ -1,7 +1,7 @@
 // Packs: named sets of designs (pictures) for one tray size. A pack is one product: a box
 // with the tray, its pieces and a deck of cards (one card per design), and the same cards in
 // the app once the buyer unlocks them. A pack in memory:
-//   { id, name, rows, cols, builtIn, created, designs: [{ looks: number[], stars: 1 | 2 | 3 }] }
+//   { id, name, rows, cols, builtIn, created, designs: [{ looks: number[], stars: 1 .. 5 }] }
 // As a file (packs/*.json in the repository, a saved .json file, or a document in the
 // artifact's database) each design's looks is a string of digits, one per square, rows
 // separated by "/":
@@ -21,7 +21,15 @@ export const DIFFICULTY = [
   { stars: 1, name: 'Easy', color: '#2f9e57' },
   { stars: 2, name: 'Medium', color: '#e5b20f' },
   { stars: 3, name: 'Hard', color: '#d5413a' },
+  { stars: 4, name: 'Expert', color: '#8a3fb8' },
+  { stars: 5, name: 'Master', color: '#2a4fb0' },
 ];
+
+/** The star levels a design can have (1 easy .. 5 master). */
+export const STAR_LEVELS = Object.freeze([1, 2, 3, 4, 5]);
+export const isStarLevel = (n) => STAR_LEVELS.includes(Number(n));
+/** How many star slots to draw: 3 for the first three levels, 5 when any design goes beyond. */
+export const starSlots = (maxLevel) => (maxLevel > 3 ? 5 : 3);
 
 /** Suggested difficulty from how many squares show a split. */
 export function suggestDifficulty(looks) {
@@ -95,7 +103,7 @@ export function normalizePack(raw, { builtIn = false } = {}) {
     if (looks.length !== rows * cols || !looks.every((l) => Number.isInteger(l) && l >= LOOK.WHITE && l <= LOOK.BACK_BW)) {
       throw new Error(`Design ${i + 1} does not fit a ${sizeLabel(rows, cols)} tray.`);
     }
-    const stars = [1, 2, 3].includes(Number(d.stars)) ? Number(d.stars) : suggestDifficulty(looks);
+    const stars = isStarLevel(d.stars) ? Number(d.stars) : suggestDifficulty(looks);
     return { looks, stars };
   });
   const name = typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim().slice(0, MAX_PACK_NAME) : 'Pack';
@@ -180,7 +188,7 @@ export function addDesigns(pack, designs) {
       continue;
     }
     seen.add(key);
-    pack.designs.push({ looks: d.looks.slice(), stars: [1, 2, 3].includes(d.stars) ? d.stars : suggestDifficulty(d.looks) });
+    pack.designs.push({ looks: d.looks.slice(), stars: isStarLevel(d.stars) ? Number(d.stars) : suggestDifficulty(d.looks) });
     added += 1;
   }
   return { added, duplicates };

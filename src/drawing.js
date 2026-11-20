@@ -7,7 +7,7 @@
 //   { t: 'text', x, y, text, size, fill, bold, anchor: start | middle | end, rot? (degrees, clockwise) }
 //   { t: 'image', src (JPEG data URL), width, height, x, y, w, h } (covers the box, cropped)
 
-import { DIFFICULTY } from './packs.js';
+import { DIFFICULTY, starSlots } from './packs.js';
 import { HALF_OUTLINE, LOOK } from './geometry.js';
 import { wrapText } from './fonts.js';
 import { base64ToBytes } from './pdf.js';
@@ -21,7 +21,7 @@ const WELL = '#d3b77f';
 const WHITE = '#ffffff';
 const WHITE_EDGE = '#b7b0a0';
 const BLACK = '#1d1f22';
-const STAR_EDGE = ['', '#1f7a40', '#9c7500', '#9e2a24'];
+const STAR_EDGE = ['', '#1f7a40', '#9c7500', '#9e2a24', '#5f2a80', '#1c3678'];
 
 const LOOK_PARTS = {
   [LOOK.SLASH_WB]: [[0, WHITE], [2, BLACK]],
@@ -69,13 +69,13 @@ function starPoints(cx, cy, outer) {
   return pts;
 }
 
-/** Three star slots, the first `level` filled in the difficulty colour. */
-export function starItems(level, x, cy, size, anchor = 'start') {
+/** Star slots (3, or 5 for packs that go up to five stars), the first `level` filled in the difficulty colour. */
+export function starItems(level, x, cy, size, anchor = 'start', slots = starSlots(level)) {
   const gap = size * 2.25;
-  const width = gap * 2 + size * 2;
+  const width = gap * (slots - 1) + size * 2;
   const left = anchor === 'end' ? x - width : anchor === 'middle' ? x - width / 2 : x;
   const items = [];
-  for (let k = 0; k < 3; k += 1) {
+  for (let k = 0; k < slots; k += 1) {
     const pts = starPoints(left + size + k * gap, cy, size);
     if (k < level) items.push({ t: 'poly', pts, fill: DIFFICULTY[level].color, stroke: STAR_EDGE[level], sw: size * 0.09 });
     else items.push({ t: 'poly', pts, stroke: FAINT, sw: size * 0.09 });
